@@ -60,11 +60,11 @@ export default function SelfAssessmentCard({ data, loading, error, catalogue, cl
                   {rows.map((it) => (
                     <div key={it.item} className="flex items-baseline justify-between gap-3 text-xs">
                       <dt className="min-w-0 text-gray-600 dark:text-gray-400">
-                        <span className="tabular-nums text-gray-400 dark:text-gray-500">{it.item}</span> {it.label}
+                        <span className="tabular-nums text-gray-500 dark:text-gray-400">{it.item}</span> {it.label}
                       </dt>
                       <dd className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">
                         {fmtScore(values[it.item])}
-                        <span className="text-gray-400 dark:text-gray-500">/{fmtScore(it.max)}</span>
+                        <span className="text-gray-500 dark:text-gray-400">/{fmtScore(it.max)}</span>
                       </dd>
                     </div>
                   ))}

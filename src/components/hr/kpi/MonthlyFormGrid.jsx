@@ -328,9 +328,9 @@ function GridTable({ fy, form, groups, monthOrder, activeMonth, dirtyMonths, onM
                     <tr key={it.item} className="group">
                       <th scope="row" className={cx(stickyCell, "border-b border-gray-100 px-3 py-1.5 text-left align-middle font-normal dark:border-gray-700/50")}>
                         <span className="flex items-baseline gap-2">
-                          <span className="w-7 shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500">{it.item}</span>
+                          <span className="w-7 shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">{it.item}</span>
                           <span className="min-w-0 flex-1 text-gray-800 dark:text-gray-200">{it.label}</span>
-                          <span className="shrink-0 text-xs tabular-nums text-gray-400 dark:text-gray-500">/{fmtScore(max)}</span>
+                          <span className="shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400">/{fmtScore(max)}</span>
                         </span>
                       </th>
                       {monthOrder.map((m) => {
@@ -442,7 +442,7 @@ function PhoneMonth({ fy, groups, activeMonth, monthOptions, monthSelectId, onMo
                 <li key={it.item} className="flex items-center gap-3 py-2">
                   <div className="min-w-0 flex-1">
                     <label htmlFor={canEdit ? id : undefined} className="block text-sm text-gray-800 dark:text-gray-200">
-                      <span className="tabular-nums text-gray-400 dark:text-gray-500">{it.item}</span> {it.label}
+                      <span className="tabular-nums text-gray-500 dark:text-gray-400">{it.item}</span> {it.label}
                     </label>
                     <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
                       เต็ม {fmtScore(max)} · เฉลี่ย {fmtScore(it.average)}

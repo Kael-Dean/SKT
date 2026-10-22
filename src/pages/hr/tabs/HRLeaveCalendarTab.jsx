@@ -98,7 +98,7 @@ function Legend({ types, hasHeadcount }) {
             <li key={t.type} className="inline-flex items-center gap-1.5">
               <TypeDot type={t.type} />
               <span>{t.type}</span>
-              <span className="tabular-nums text-gray-400 dark:text-gray-500">{t.personDays}</span>
+              <span className="tabular-nums text-gray-500 dark:text-gray-400">{t.personDays}</span>
             </li>
           ))}
         </ul>
@@ -213,7 +213,7 @@ function MonthGrid({ year, month0, days, singleBranch, onOpen }) {
         <thead>
           <tr className="bg-gray-50 dark:bg-white/[.03]">
             {WEEKDAY_SHORT.map((w, i) => (
-              <th key={w} scope="col" className={cx("px-2 py-2 text-left text-xs font-semibold", i >= 5 ? "text-gray-400 dark:text-gray-500" : "text-gray-500 dark:text-gray-400")}>
+              <th key={w} scope="col" className={cx("px-2 py-2 text-left text-xs font-semibold", i >= 5 ? "text-gray-500 dark:text-gray-400" : "text-gray-700 dark:text-gray-300")}>
                 <abbr title={WEEKDAY_LONG[i]} className="no-underline">{w}</abbr>
               </th>
             ))}
@@ -242,7 +242,7 @@ function MonthGrid({ year, month0, days, singleBranch, onOpen }) {
                         <span
                           className={cx(
                             "inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
-                            isToday ? "bg-indigo-600 text-white dark:bg-indigo-500" : muted ? "text-gray-400 dark:text-gray-500" : "text-gray-800 dark:text-gray-100",
+                            isToday ? "bg-indigo-600 text-white dark:bg-indigo-500" : muted ? "text-gray-500 dark:text-gray-400" : "text-gray-800 dark:text-gray-100",
                           )}
                         >
                           {parseISO(day.date).getDate()}
@@ -297,7 +297,7 @@ function PersonRow({ p }) {
           {span && <> · <span className="tabular-nums">{span}</span></>}
         </p>
       </div>
-      {p.leaveId != null && <span className="shrink-0 pt-0.5 text-xs tabular-nums text-gray-400 dark:text-gray-500">ใบลา #{p.leaveId}</span>}
+      {p.leaveId != null && <span className="shrink-0 pt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">ใบลา #{p.leaveId}</span>}
     </li>
   )
 }

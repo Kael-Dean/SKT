@@ -188,7 +188,7 @@ function TopicsSection({ canEdit }) {
             </button>
           )}
           {canEdit && (
-            <button type="button" onClick={() => setEditing({})} className={cx(primaryBtnCls, "!h-9 !px-3 !text-sm")}>
+            <button type="button" onClick={() => setEditing({})} className={cx(primaryBtnCls, "md:!h-9 !px-3 !text-sm")}>
               <Plus aria-hidden="true" className="size-4" /> เพิ่มหัวข้อ
             </button>
           )}

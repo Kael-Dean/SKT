@@ -462,7 +462,7 @@ function CaseSheet({ caseId, onClose, onChanged, onOpenTermination }) {
                 <span className="font-semibold">{prefill.reason || stepLabel(c.action.step)}</span> — ต้องบันทึกการพ้นสภาพ บัญชียังใช้งานได้จนกว่าจะบันทึก
               </p>
               <button type="button" onClick={() => onOpenTermination({ id: c.accused_id, first_name: c.accused_name || `รหัส ${c.accused_id}`, last_name: "" }, prefill)}
-                className={cx(primaryBtnCls, "!h-9 !px-3 !text-sm")}>
+                className={cx(primaryBtnCls, "md:!h-9 !px-3 !text-sm")}>
                 <UserX aria-hidden="true" className="size-4" /> บันทึกการพ้นสภาพ
               </button>
             </div>
@@ -582,7 +582,7 @@ function CaseSheet({ caseId, onClose, onChanged, onOpenTermination }) {
             <div role="alert" className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800/60 dark:bg-red-900/20 dark:text-red-200">
               <p>{formErr}</p>
               {offerEscalate && (
-                <button type="button" onClick={() => toMode("escalate")} className={cx(neutralBtnCls, "!h-9 !px-3 !text-sm")}>
+                <button type="button" onClick={() => toMode("escalate")} className={cx(neutralBtnCls, "md:!h-9 !px-3 !text-sm")}>
                   <ArrowUpRight aria-hidden="true" className="size-4" /> ส่งต่อ{stageLabel(nextStage)}แทน
                 </button>
               )}
@@ -723,7 +723,7 @@ export default function HRDisciplineTab() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-line">
                 {loading ? (
-                  <tr><td colSpan={6} className="p-3"><SkeletonTableRows rows={4} cols={5} /></td></tr>
+                  <SkeletonTableRows rows={4} cols={6} />
                 ) : sorted.length === 0 ? (
                   <tr><td colSpan={6}><EmptyState title={emptyTitle} description={emptyDesc} /></td></tr>
                 ) : sorted.map((r) => {

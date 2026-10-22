@@ -318,7 +318,7 @@ function SelfAssessmentForm({ fy, phase, windowStart, windowEnd, saved, catalogu
                   return (
                     <li key={it.item} className="flex items-center gap-3 py-2.5">
                       <label htmlFor={id} className="min-w-0 flex-1 text-sm text-gray-800 dark:text-gray-200">
-                        <span className="mr-1.5 tabular-nums text-gray-400 dark:text-gray-500">{it.item}</span>
+                        <span className="mr-1.5 tabular-nums text-gray-500 dark:text-gray-400">{it.item}</span>
                         {it.label}
                         {errors[it.item] && (
                           <span id={errId} className="block text-xs font-medium text-red-600 dark:text-red-400">ต้องอยู่ระหว่าง {errors[it.item]}</span>

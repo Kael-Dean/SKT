@@ -317,7 +317,7 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
             aria-pressed={overdueOnly}
             onClick={() => setOverdueOnly((v) => !v)}
             className={cx(
-              "inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium ring-1 ring-inset transition-colors duration-150 cursor-pointer",
+              "inline-flex h-touch md:h-9 items-center gap-1.5 rounded-full px-3 text-sm font-medium ring-1 ring-inset transition-colors duration-150 cursor-pointer",
               overdueOnly
                 ? "bg-red-600 text-white ring-red-600 hover:bg-red-500 dark:bg-red-500/90 dark:ring-red-400"
                 : "bg-white text-red-700 ring-red-200 hover:bg-red-50 dark:bg-transparent dark:text-red-300 dark:ring-red-400/30 dark:hover:bg-red-500/10",
@@ -380,7 +380,7 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-line">
                 {loading ? (
-                  <tr><td colSpan={7} className="p-3"><SkeletonTableRows rows={4} cols={6} /></td></tr>
+                  <SkeletonTableRows rows={4} cols={7} />
                 ) : sorted.length === 0 ? (
                   <tr><td colSpan={7}><EmptyState title={emptyTitle} description={emptyDesc} /></td></tr>
                 ) : sorted.map((r) => {

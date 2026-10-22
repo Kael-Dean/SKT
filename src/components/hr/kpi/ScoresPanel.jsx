@@ -196,7 +196,7 @@ function ScoreRow({ ev, catalogue, name, editable, canScore, canRevoke, onOpen, 
       <td className="px-4 py-3 text-right align-top whitespace-nowrap">
         <div className="flex flex-col items-end gap-1.5">
           {canScore && (
-            <button type="button" className={linkBtn} onClick={onOpen}>
+            <button type="button" className={cx(linkBtn, "inline-flex min-h-touch items-center md:min-h-0")} onClick={onOpen}>
               {editable ? "บันทึกคะแนน" : "ดูคะแนน"}
             </button>
           )}

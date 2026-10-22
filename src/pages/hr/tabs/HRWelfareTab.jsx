@@ -37,7 +37,7 @@ import ClaimActionSheet from "../../../components/hr/welfare/ClaimActionSheet"
 const ID_BASE = "hr-welfare"
 const SUBS = ["queue", "topay", "all"]
 const fieldCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
-const smallBtn = "!h-9 !px-3 !text-xs md:!text-sm"
+const smallBtn = "md:!h-9 !px-3 !text-xs md:!text-sm"
 
 const asList = (d) => (Array.isArray(d) ? d : d?.items ?? d?.claims ?? [])
 
@@ -216,18 +216,18 @@ export default function HRWelfareTab() {
                 label={`สรุปการเบิก ปีงบ ${isBEYear(year) ? year : currentFiscalYearBE()}`}
                 getPath={() => `/hr/reports/welfare/claims?fiscal_year=${isBEYear(year) ? year : currentFiscalYearBE()}`}
                 fallbackName={`welfare_claims_${isBEYear(year) ? year : currentFiscalYearBE()}.pdf`}
-                className={cx(neutralBtnCls, "!h-10")}
+                className={cx(neutralBtnCls, "md:!h-10")}
               />
               <ReportPdfButton
                 label="ทะเบียนผู้มีสิทธิ์"
                 getPath={() => "/hr/reports/welfare/dependants"}
                 fallbackName="welfare_dependants.pdf"
-                className={cx(neutralBtnCls, "!h-10")}
+                className={cx(neutralBtnCls, "md:!h-10")}
               />
             </>
           )}
           {canSubmit && (
-            <button type="button" onClick={() => setEntryOpen(true)} className={cx(primaryBtnCls, "!h-10")}>
+            <button type="button" onClick={() => setEntryOpen(true)} className={cx(primaryBtnCls, "md:!h-10")}>
               <Plus aria-hidden="true" className="size-4" />บันทึกคำขอเบิก
             </button>
           )}

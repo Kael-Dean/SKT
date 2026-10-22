@@ -34,7 +34,7 @@ export function ComponentBreakdown({ ev, catalogue, className = "" }) {
             <dt className="text-gray-500 dark:text-gray-400">{c.short}</dt>
             <dd className={v == null ? "text-gray-400 dark:text-gray-500" : "font-medium text-gray-800 dark:text-gray-200"}>
               {fmtScore(v)}
-              <span className="font-normal text-gray-400 dark:text-gray-500">/{fmtScore(c.max)}</span>
+              <span className="font-normal text-gray-500 dark:text-gray-400">/{fmtScore(c.max)}</span>
             </dd>
           </div>
         )

@@ -322,7 +322,7 @@ function MyReports({ list, highlightId }) {
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm text-gray-600 dark:text-gray-400">แสดงเฉพาะสถานะ ผลการพิจารณาเป็นความลับของผู้ถูกแจ้ง</p>
         {!loading && (
-          <button type="button" onClick={reload} className={cx("cursor-pointer rounded text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300", focusRingCls)}>
+          <button type="button" onClick={reload} className={cx("inline-flex min-h-touch cursor-pointer items-center rounded px-1 text-sm font-medium text-indigo-700 hover:underline md:min-h-0 dark:text-indigo-300", focusRingCls)}>
             รีเฟรช
           </button>
         )}

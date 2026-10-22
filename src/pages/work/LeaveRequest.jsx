@@ -1,7 +1,7 @@
 // src/pages/work/LeaveRequest.jsx
 import { cx, baseField } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useId, Children, cloneElement, isValidElement } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
 import { countLeaveDays, countsCalendarDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
 import { getUser } from "../../lib/auth"
@@ -209,14 +209,25 @@ function fmtTime(t) {
 
 
 // ─── sub-components ──────────────────────────────────────────────────────────
+// ผูก <label> กับช่องกรอกตัวแรก (input/textarea) ด้วย htmlFor/id — screen reader อ่านชื่อช่องได้ (WCAG 1.3.1 / 4.1.2)
+const LABELABLE = new Set(["input", "textarea", "select"])
 function Field({ label, required, children, className = "" }) {
+  const autoId = useId()
+  let controlId
+  const kids = Children.map(children, (c) => {
+    if (controlId === undefined && isValidElement(c) && LABELABLE.has(c.type)) {
+      controlId = c.props.id || autoId
+      return c.props.id ? c : cloneElement(c, { id: controlId, "aria-required": required || undefined })
+    }
+    return c
+  })
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
-      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+      <label htmlFor={controlId} className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>}
       </label>
-      {children}
+      {kids}
     </div>
   )
 }

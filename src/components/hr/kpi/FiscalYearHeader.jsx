@@ -83,7 +83,7 @@ export default function FiscalYearHeader({ fy, onFyChange, fyState, canEditWindo
               )}
               {info.window_is_default === false && <Badge tone="pending">ปรับจากค่าเริ่มต้น</Badge>}
               {canEditWindow && (
-                <button type="button" className={cx(linkBtn, "inline-flex items-center gap-1")} onClick={() => setEditing(true)}>
+                <button type="button" className={cx(linkBtn, "inline-flex min-h-touch items-center gap-1 md:min-h-0")} onClick={() => setEditing(true)}>
                   <Pencil aria-hidden="true" className="size-3.5" strokeWidth={2} />
                   แก้ช่วงประเมิน
                 </button>
@@ -91,7 +91,7 @@ export default function FiscalYearHeader({ fy, onFyChange, fyState, canEditWindo
               {canNotify && phase !== "after" && (
                 <button
                   type="button"
-                  className={cx(linkBtn, "inline-flex items-center gap-1")}
+                  className={cx(linkBtn, "inline-flex min-h-touch items-center gap-1 md:min-h-0")}
                   onClick={() => { setNotifyErr(""); setNotifyOpen(true) }}
                 >
                   <BellRing aria-hidden="true" className="size-3.5" strokeWidth={2} />

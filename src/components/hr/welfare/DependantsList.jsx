@@ -17,7 +17,7 @@ const COLS = "md:grid md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_
 export function Eligibility({ label, eligible, reason, notApplicable = false }) {
   if (notApplicable) {
     return (
-      <div className="flex items-start gap-1.5 text-sm text-gray-400 dark:text-gray-500">
+      <div className="flex items-start gap-1.5 text-sm text-gray-500 dark:text-gray-400">
         <span className="md:sr-only">{label}:</span> <span aria-label="ไม่เกี่ยวข้อง">—</span>
       </div>
     )

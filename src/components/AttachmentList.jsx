@@ -145,7 +145,7 @@ export default function AttachmentList({ attachments, variant = "list", emptyTex
               aria-label={`เปิดไฟล์ ${f.filename}`}
               title={f.filename}
               className={cx(
-                "inline-flex max-w-[12rem] min-h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium",
+                "inline-flex max-w-[12rem] min-h-touch md:min-h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium",
                 "bg-gray-100 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700",
                 "dark:bg-white/[.06] dark:text-gray-200 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-200",
                 "transition-colors duration-150 cursor-pointer",

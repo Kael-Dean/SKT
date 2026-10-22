@@ -613,6 +613,9 @@ const HR_REPORTS = [
   { key: "hr-kpi-branch", title: "รายงาน KPI สาขา", endpoint: "/hr/kpi/report/branch", require: ["fiscalYear"], optional: ["branchId"], perm: "hr.reports.kpiBranch", xlsx: true, allBranchesOption: true },
   { key: "hr-kpi-org", title: "รายงาน KPI รวมองค์กร", endpoint: "/hr/kpi/report/organisation", require: ["fiscalYear"], perm: "hr.reports.kpiOrganisation", xlsx: true },
   { key: "hr-resigned", title: "รายชื่อผู้พ้นสภาพ", endpoint: "/hr/reports/resigned-retired-pdf", require: [], optional: ["exitType", "branchId", "startDate", "endDate"], perm: "hr.reports.resignedRetired", xlsx: true, allBranchesOption: true },
+  // สวัสดิการ (3P) — PDF อย่างเดียว
+  { key: "hr-welfare-claims", title: "สรุปการเบิกสวัสดิการประจำปีงบประมาณ", endpoint: "/hr/reports/welfare/claims", require: ["fiscalYear"], perm: "hr.reports.welfare" },
+  { key: "hr-welfare-dependants", title: "ทะเบียนผู้มีสิทธิ์รับสวัสดิการ", endpoint: "/hr/reports/welfare/dependants", require: [], perm: "hr.reports.welfare" },
   // รายคน/รายสัญญา (PDF อย่างเดียว ไม่มี Excel)
   { key: "hr-profile-pdf", title: "ข้อมูลประวัติพนักงาน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/profile-pdf`, require: ["employeeId"], optional: ["showSensitive"], perm: "hr.reports.profilePdf" },
   { key: "hr-salary-history-pdf", title: "ประวัติการปรับขั้นเงินเดือน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/salary-history-pdf`, require: ["employeeId"], perm: "hr.reports.salaryHistoryPdf" },

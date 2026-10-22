@@ -75,7 +75,10 @@ export function notificationLink(n) {
     case "discipline_case":
       return isAction ? hrTab("discipline", refId) : "/my-discipline?view=reports"
     case "discipline_action":
-      return isAction ? hrTab("discipline", refId) : `/my-discipline?view=history&id=${encodeURIComponent(refId ?? "")}`
+      // ref_id = action id (ไม่ใช่ case id) → ส่งเป็น &action= ให้ HRDisciplineTab หาเรื่องที่ตรงกัน
+      return isAction
+        ? `/hr/dashboard?tab=discipline${refId != null && refId !== "" ? `&action=${encodeURIComponent(refId)}` : ""}`
+        : `/my-discipline?view=history&id=${encodeURIComponent(refId ?? "")}`
     case "kpi_fiscal_year":
       return hrTab("kpi")
     case "kpi_evaluation":

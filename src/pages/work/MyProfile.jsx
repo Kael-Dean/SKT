@@ -1,18 +1,20 @@
 // src/pages/work/MyProfile.jsx
-import { cx, baseField } from "../../lib/styles"
+import { cx, baseField, neutralBtnCls, errorTextCls } from "../../lib/styles"
 // ข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — GET /personnel/me + GET /personnel/me/financial
 import { useEffect, useState } from "react"
-import ReactDOM from "react-dom"
 import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
 import SelectDropdown from "../../components/SelectDropdown"
-import { PageLoader, ErrorState, toast } from "../../components/ui"
+import { PageLoader, ErrorState, Sheet, toast } from "../../components/ui"
+import FileUploader from "../../components/FileUploader"
+import AttachmentList from "../../components/AttachmentList"
+import useFileUploads from "../../hooks/useFileUploads"
+import { hasNewValue, isResolvedStatus } from "../../lib/issueReports"
 import DateInput from "../../components/ThaiDateField"
 import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
-import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
@@ -38,9 +40,10 @@ const QUOTA_ROWS = [
 const GENDER_LABEL = { M: "ชาย", F: "หญิง", other: "อื่นๆ" }
 const MARITAL_LABEL = { single: "โสด", married: "สมรส", divorced: "หย่าร้าง", widowed: "หม้าย" }
 
-/** สถานะคำร้องแจ้งแก้ไขข้อมูล (รายการของฉัน) */
+/** สถานะคำร้องแจ้งแก้ไขข้อมูล (รายการของฉัน) — API 3F: pending/resolved/rejected (+ ชื่อเดิม approved/denied/applied) */
 const ISSUE_STATUS = {
-  pending: { label: "รอ HR ตรวจสอบ", cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" },
+  pending: { label: "รอพิจารณา", cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" },
+  resolved: { label: "แก้ไขแล้ว", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
   approved: { label: "แก้ไขแล้ว", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
   applied: { label: "บันทึกแล้ว", cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300" },
   denied: { label: "ไม่อนุมัติ", cls: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300" },
@@ -109,7 +112,13 @@ export default function MyProfile() {
       .catch(() => setMyIssues({ status: "error", list: [] }))
   }
   useEffect(() => { loadMyIssues() }, [])
-  const { backdropProps: reportBackdrop } = useModalDismiss(() => setReportModal(false), { open: reportModal, disabled: reportSubmitting })
+  // ไฟล์แนบ (3F) — อัปโหลดทันทีที่เลือก, ส่ง id ไปกับคำร้อง; ยกเลิกฟอร์ม = ลบไฟล์ที่อัปโหลดไว้
+  const uploads = useFileUploads()
+  const closeReportModal = () => {
+    if (reportSubmitting) return
+    uploads.discard()
+    setReportModal(false)
+  }
 
   const loadProfile = () => {
     setLoading(true)
@@ -171,6 +180,7 @@ export default function MyProfile() {
   const openReportModal = () => {
     setReportForm({ category: "", field_name: "", current_value: "", correct_value: "", description: "" })
     setReportMsg("")
+    uploads.reset()
     setReportModal(true)
     if (issueFields.status !== "ready") {
       setIssueFields({ status: "loading", list: [] })
@@ -184,28 +194,42 @@ export default function MyProfile() {
     e.preventDefault()
     const isFinOther = reportForm.field_name === FINANCIAL_OTHER
     if (!reportForm.category || !reportForm.field_name) {
-      setReportMsg("⚠️ กรุณาเลือกหมวดหมู่และข้อมูลที่ต้องการแก้")
+      setReportMsg("กรุณาเลือกหมวดหมู่และข้อมูลที่ต้องการแก้")
       return
     }
     if (isFinOther ? !reportForm.description.trim() : !String(reportForm.correct_value).trim()) {
-      setReportMsg(isFinOther ? "⚠️ กรุณาระบุรายละเอียด" : "⚠️ กรุณากรอกค่าที่ถูกต้อง")
+      setReportMsg(isFinOther ? "กรุณาระบุรายละเอียด" : "กรุณากรอกค่าที่ถูกต้อง")
+      return
+    }
+    if (uploads.busy) {
+      setReportMsg("รอให้อัปโหลดไฟล์เสร็จก่อนส่งคำร้อง")
+      return
+    }
+    if (uploads.hasErrors) {
+      setReportMsg("มีไฟล์ที่อัปโหลดไม่สำเร็จ — นำออกหรือลองใหม่ก่อนส่งคำร้อง")
       return
     }
     setReportSubmitting(true)
     setReportMsg("")
     try {
       // financial_other: ไม่มีค่าที่ถูกต้องเดียว — ส่ง "-" และใช้รายละเอียดแทน
-      const body = { ...reportForm, correct_value: isFinOther ? "-" : String(reportForm.correct_value).trim() }
+      const body = {
+        ...reportForm,
+        correct_value: isFinOther ? "-" : String(reportForm.correct_value).trim(),
+        attachment_ids: uploads.ids,
+      }
       const res = await apiAuth("/personnel/me/report-issue", { method: "POST", body })
       // applied = บันทึกทันที (ช่วงแก้ไขเองได้) · created = รอ HR
       if (res?.status === "applied") toast.success("บันทึกแล้ว", { description: "ข้อมูลของคุณถูกแก้ไขเรียบร้อย" })
-      else toast.success("ส่งให้ฝ่าย HR แล้ว", { description: "ติดตามสถานะได้ที่ “คำร้องของฉัน”" })
+      else toast.success("ส่งคำร้องแล้ว", { description: "รอผู้จัดการพิจารณา ติดตามสถานะได้ที่ “คำร้องของฉัน”" })
+      uploads.reset() // ไฟล์ผูกกับคำร้องแล้ว — ห้ามลบ
       setReportModal(false)
       loadMyIssues()
       if (res?.status === "applied") setTimeout(() => window.location.reload(), 800)
     } catch (err) {
-      if (err.status === 409) setReportMsg("⚠️ มีคำร้องสำหรับข้อมูลนี้รออยู่แล้ว")
-      else setReportMsg(`❌ ${err.message || "ส่งคำร้องไม่สำเร็จ"}`)
+      // 400 = ไฟล์แนบมีปัญหา (ข้อความระบุ id) — ไม่มีอะไรถูกบันทึก ไฟล์ที่อัปโหลดยังอยู่ แก้แล้วส่งใหม่ได้
+      if (err.status === 409) setReportMsg("มีคำร้องสำหรับข้อมูลนี้รอพิจารณาอยู่แล้ว")
+      else setReportMsg(err.message || "ส่งคำร้องไม่สำเร็จ")
     } finally {
       setReportSubmitting(false)
     }
@@ -447,7 +471,7 @@ export default function MyProfile() {
 
           <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
             ตัวเลขข้างต้นคือสิทธิ์ทั้งปี วันคงเหลือคำนวณจากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
-            ลาเกินสิทธิ์ทำได้ โดยส่วนที่เกินจะถูกหักจากเงินเดือน
+            ลาเกินสิทธิ์ทำได้ โดยวันที่ลาเกินสิทธิ์จะถูกงดจ่ายเงินเดือน (งดจ่าย ลาเกินสิทธิ์)
           </p>
         </div>
       )}
@@ -472,13 +496,22 @@ export default function MyProfile() {
                       {it.field_label || it.field_name}
                       <span className="font-normal text-gray-500 dark:text-gray-400"> · {it.category_label || it.category}</span>
                     </p>
-                    {it.correct_value && it.correct_value !== "-" && (
-                      <p className="text-xs text-gray-600 dark:text-gray-300 break-words">แก้เป็น: {it.correct_value}</p>
+                    {hasNewValue(it) && (
+                      isResolvedStatus(it.status) && it.old_value != null && it.old_value !== "" ? (
+                        <p className="text-xs text-gray-600 dark:text-gray-300 break-words">
+                          <span className="text-gray-500 line-through dark:text-gray-400">{it.old_value}</span>
+                          <span aria-label="เปลี่ยนเป็น"> → </span>
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{it.correct_value}</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-600 dark:text-gray-300 break-words">แก้เป็น: {it.correct_value}</p>
+                      )
                     )}
                     {it.description && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{it.description}</p>}
                     {(it.hr_comment || it.deny_reason) && (
-                      <p className="text-xs text-rose-700 dark:text-rose-300 break-words">HR: {it.hr_comment || it.deny_reason}</p>
+                      <p className="text-xs text-rose-700 dark:text-rose-300 break-words">เหตุผล: {it.hr_comment || it.deny_reason}</p>
                     )}
+                    {it.attachments?.length > 0 && <AttachmentList attachments={it.attachments} variant="compact" className="mt-1.5" />}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.cls}`}>{st.label}</span>
@@ -495,20 +528,39 @@ export default function MyProfile() {
         หากข้อมูลไม่ถูกต้อง กรุณาใช้ปุ่ม "แจ้งแก้ไขข้อมูล" ด้านบน
       </p>
 
-      {/* Report Issue Modal */}
-      {reportModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...reportBackdrop}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6">
-            <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-amber-500">
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />
-              </svg>
-              แจ้งแก้ไขข้อมูล
-            </h3>
-            <form onSubmit={handleReport} className="space-y-4">
+      {/* Report Issue Sheet — bottom sheet บนมือถือ (ฟอร์มยาวขึ้นเพราะมีไฟล์แนบ), dialog บน desktop */}
+      <Sheet
+        open={reportModal}
+        onClose={closeReportModal}
+        busy={reportSubmitting}
+        size="md"
+        title="แจ้งแก้ไขข้อมูล"
+        subtitle="ผู้จัดการจะพิจารณาและแจ้งผลทางการแจ้งเตือน"
+        footer={
+          <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+            <button type="button" onClick={closeReportModal} disabled={reportSubmitting} className={neutralBtnCls}>ยกเลิก</button>
+            <button
+              type="submit"
+              form="report-issue-form"
+              disabled={reportSubmitting || uploads.busy}
+              className="inline-flex h-11 md:h-10 items-center justify-center gap-2 rounded-xl bg-amber-700 px-4 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-surface"
+            >
+              {reportSubmitting ? (
+                <>
+                  <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  กำลังส่ง…
+                </>
+              ) : uploads.busy ? "รออัปโหลดไฟล์…" : "ส่งคำร้อง"}
+            </button>
+          </div>
+        }
+      >
+            <form id="report-issue-form" onSubmit={handleReport} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมวดหมู่ <span className="text-red-500">*</span></label>
+                <label htmlFor="report-category" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมวดหมู่ <span className="text-red-500">*</span></label>
                 <SelectDropdown
+                  id="report-category"
+                  required
                   value={reportForm.category}
                   onChange={(val) => setReportForm((p) => ({ ...p, category: val, field_name: "" }))}
                   placeholder="— เลือกหมวดหมู่ —"
@@ -519,8 +571,10 @@ export default function MyProfile() {
               </div>
               {reportForm.category && (
                 <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ข้อมูลที่ต้องการแก้ <span className="text-red-500">*</span></label>
+                  <label htmlFor="report-field" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ข้อมูลที่ต้องการแก้ <span className="text-red-500">*</span></label>
                   <SelectDropdown
+                    id="report-field"
+                    required
                     value={reportForm.field_name}
                     onChange={(val) => setReportForm((p) => ({ ...p, field_name: val, correct_value: "" }))}
                     placeholder="— เลือกข้อมูล —"
@@ -531,8 +585,8 @@ export default function MyProfile() {
               {!isFinOther && (
                 <>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าปัจจุบัน (ที่ผิด)</label>
-                    <input type="text" value={reportForm.current_value} onChange={(e) => setReportForm((p) => ({ ...p, current_value: e.target.value }))} className={inputCls} placeholder="ค่าที่แสดงอยู่ตอนนี้" />
+                    <label htmlFor="report-current" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าปัจจุบัน (ที่ผิด)</label>
+                    <input id="report-current" type="text" value={reportForm.current_value} onChange={(e) => setReportForm((p) => ({ ...p, current_value: e.target.value }))} className={inputCls} placeholder="ค่าที่แสดงอยู่ตอนนี้" />
                   </div>
                   <div>
                     <label htmlFor="report-correct" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าที่ถูกต้อง <span className="text-red-500">*</span></label>
@@ -561,25 +615,14 @@ export default function MyProfile() {
                 </label>
                 <textarea id="report-desc" value={reportForm.description} onChange={(e) => setReportForm((p) => ({ ...p, description: e.target.value }))} className={inputCls + " resize-none"} rows={isFinOther ? 4 : 2} placeholder={isFinOther ? "อธิบายว่าข้อมูลการเงินส่วนไหนไม่ถูกต้อง และควรเป็นอย่างไร" : "อธิบายเพิ่มเติม (ถ้ามี)"} />
               </div>
-              {reportMsg && (
-                <p className={`text-sm text-center ${reportMsg.startsWith("✅") ? "text-emerald-600" : "text-amber-600 dark:text-amber-400"}`}>{reportMsg}</p>
-              )}
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setReportModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">ยกเลิก</button>
-                <button type="submit" disabled={reportSubmitting} className="flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 text-white text-sm font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">
-                  {reportSubmitting ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      กำลังส่ง…
-                    </>
-                  ) : "ส่งคำร้อง"}
-                </button>
-              </div>
+              <FileUploader
+                uploads={uploads}
+                disabled={reportSubmitting}
+                hint="เช่น รูปถ่ายบัตรประชาชน สมุดบัญชี หรือเอกสารที่ยืนยันค่าที่ถูกต้อง"
+              />
+              {reportMsg && <p role="alert" className={errorTextCls}>{reportMsg}</p>}
             </form>
-          </div>
-        </div>,
-        document.body
-      )}
+      </Sheet>
     </div>
   )
 }

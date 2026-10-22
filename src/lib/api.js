@@ -22,6 +22,9 @@ function pickBase() {
 }
 const API_BASE = pickBase();
 
+/** Full URL for an API path — for callers that need XHR (upload progress, see lib/files.js) */
+export const apiUrl = (path) => joinUrl(API_BASE, path);
+
 /** join base + path ให้ปลอดภัยเรื่อง / ซ้อน */
 function joinUrl(base, path) {
   const b = String(base || "").replace(/\/+$/, "");

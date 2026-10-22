@@ -27,7 +27,6 @@ import {
   useDebounce,
   moneyToNumber,
   formatMoneyInput,
-  suggestDeductionWeight,
   isEnabledInput,
   focusRefWithRetry,
   useEnterNavigation,
@@ -1256,11 +1255,11 @@ const pickNameResult = async (rec) => {
   }, [order.entryWeightKg, order.exitWeightKg])
 
   /** ---------- Auto calc ---------- */
+  // ไม่หักเป็นค่าเริ่มต้น — หักเมื่อเปิดสวิตช์ "หักน้ำหนัก" (manualDeduct) เท่านั้น
   const autoDeduct = useMemo(() => {
-    const baseGross = grossFromScale
     if (order.manualDeduct) return toNumber(order.deductWeightKg)
-    return suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
-  }, [order.manualDeduct, order.deductWeightKg, grossFromScale, order.moisturePct, order.impurityPct])
+    return 0
+  }, [order.manualDeduct, order.deductWeightKg])
 
   const netWeight = useMemo(() => {
     const n = grossFromScale - toNumber(autoDeduct)
@@ -1350,7 +1349,6 @@ const pickNameResult = async (rec) => {
 
     if (String(order.moisturePct).trim() === "") m.moisturePct = true
     if (String(order.impurityPct).trim() === "") m.impurityPct = true
-    if (String(order.gram).trim() === "") m.gram = true
     if (String(order.unitPrice).trim() === "") m.unitPrice = true
 
     if (!order.amountTHB || moneyToNumber(order.amountTHB) <= 0) m.amountTHB = true
@@ -1600,9 +1598,7 @@ const pickNameResult = async (rec) => {
     }
 
     const baseGross = grossFromScale
-    const deduction = order.manualDeduct
-      ? toNumber(order.deductWeightKg)
-      : suggestDeductionWeight(baseGross, order.moisturePct, order.impurityPct)
+    const deduction = order.manualDeduct ? toNumber(order.deductWeightKg) : 0
     const netW = Math.max(0, baseGross - deduction)
 
     const dateStr = order.issueDate

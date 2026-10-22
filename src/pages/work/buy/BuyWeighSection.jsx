@@ -74,6 +74,12 @@ function PhoneWeighSection({ form }) {
   )
   const dec = (v) => v.replace(/[^\d.]/g, "")
 
+  const toggleDeduct = (checked) => {
+    updateOrder("manualDeduct", checked)
+    // start from the computed figure so the clerk only adjusts it
+    if (checked && String(order.deductWeightKg).trim() === "") updateOrder("deductWeightKg", String(suggested))
+  }
+
   return (
     <div className="space-y-4">
       {numField("entryWeightKg", "น้ำหนักเข้า (กก.)", { suffix: "กก.", big: true, sanitize: dec, placeholder: "0" })}
@@ -95,19 +101,21 @@ function PhoneWeighSection({ form }) {
         <div className="flex items-baseline justify-between gap-4">
           <div>
             <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">หักน้ำหนัก (กก.)</p>
-            <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">คำนวณจากความชื้นและสิ่งเจือปน</p>
+            <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+              {order.manualDeduct ? "คำนวณจากความชื้นและสิ่งเจือปน แก้ได้" : "ไม่หัก — เปิดสวิตช์ถ้าต้องการหัก"}
+            </p>
           </div>
-          <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{nf(order.manualDeduct ? autoDeduct : suggested)} กก.</p>
+          <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-gray-100">{nf(autoDeduct)} กก.</p>
         </div>
         <label className="mt-3 flex min-h-touch cursor-pointer items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-700/70">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">กำหนดเอง</span>
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">หักน้ำหนัก</span>
           <span className="relative inline-flex size-11 items-center justify-center">
             <input
               type="checkbox"
               role="switch"
               className="peer sr-only"
               checked={order.manualDeduct}
-              onChange={(e) => updateOrder("manualDeduct", e.target.checked)}
+              onChange={(e) => toggleDeduct(e.target.checked)}
             />
             <span
               aria-hidden="true"
@@ -147,7 +155,7 @@ function PhoneWeighSection({ form }) {
         <dd className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100" aria-live="polite">{nf(netWeight)} กก.</dd>
       </dl>
 
-      {numField("gram", "คุณภาพ (กรัม)", { inputMode: "numeric", sanitize: onlyDigits, placeholder: "เช่น 85" })}
+      {numField("gram", "คุณภาพ (กรัม) — ไม่บังคับ", { inputMode: "numeric", sanitize: onlyDigits, placeholder: "เช่น 85" })}
       {numField("unitPrice", "ราคาต่อกก. (บาท)", { suffix: "บาท/กก.", big: true, sanitize: dec, placeholder: "0.00" })}
       {numField("amountTHB", "เป็นเงิน (บาท)", {
         prefix: "฿", big: true, sanitize: formatMoneyInput, placeholder: "0.00",
@@ -163,7 +171,8 @@ function PhoneWeighSection({ form }) {
 
 /* ═══════════════════════════════ DESKTOP (≥md) — R2 "ชั่งน้ำหนักและราคา" ═══════════════════════════════
  * Row 1: ก่อนชั่ง | หลังชั่ง | ความชื้น | สิ่งเจือปน.  Calc strip (read-only figures, not
- * disabled inputs): จากตาชั่ง − หัก (switch "กำหนดเอง" swaps in an input) = สุทธิ.
+ * disabled inputs): จากตาชั่ง − หัก (0 by default; switch "หักน้ำหนัก" swaps in an input
+ * prefilled from moisture/impurity) = สุทธิ.
  * Row 2: คุณภาพ (กรัม) | ราคาต่อกก. | เป็นเงิน (2 cols).  หมายเหตุ last.
  * Enter order is unchanged: entry → exit → moisture → impurity → [deduct] → gram →
  * unitPrice → amountTHB → ปุ่มบันทึก (refs.submitBtn lives in OrderSummaryPanel).
@@ -291,13 +300,13 @@ function DesktopWeighSection({ form }) {
             />
             <span aria-hidden="true" className="pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-150 peer-checked:translate-x-4" />
           </span>
-          กำหนดน้ำหนักหักเอง
+          หักน้ำหนัก
         </label>
       </div>
       {errors.deductWeightKg && <p id={errId("deductWeightKg")} className={errorTextCls}>{errors.deductWeightKg}</p>}
 
       <div className="mt-4 grid gap-4 md:grid-cols-4">
-        {numField("gram", "คุณภาพข้าว", { inputMode: "numeric", suffix: "กรัม", sanitize: onlyDigits, placeholder: "เช่น 85" })}
+        {numField("gram", "คุณภาพข้าว", { inputMode: "numeric", suffix: "กรัม", sanitize: onlyDigits, placeholder: "เช่น 85", labelHint: "ไม่บังคับ" })}
         {numField("unitPrice", "ราคาต่อกก.", { suffix: "บาท/กก.", pad: "!pr-20", sanitize: dec, placeholder: "0.00" })}
         {numField("amountTHB", "เป็นเงิน", {
           span: "md:col-span-2",

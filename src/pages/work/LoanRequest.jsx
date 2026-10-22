@@ -23,6 +23,8 @@ import {
   money, thaiDate, warningList,
 } from "../../lib/loans"
 import PageTitle from "../../components/PageTitle"
+import FormApplicantHeader from "../../components/FormApplicantHeader"
+import SelectDropdown from "../../components/SelectDropdown"
 
 const MAX_MONTHS = 180
 const PREVIEW_DELAY = 450
@@ -428,15 +430,24 @@ export default function LoanRequest() {
             {formError && <ErrorState message={formError} />}
 
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {/* หัวฟอร์ม (วันที่ / ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจาก form-defaults — แสดงอย่างเดียว ไม่ส่งไป backend */}
+              <FormApplicantHeader />
+
               <section aria-labelledby={`${uid}-purpose-h`} className={cx(cardCls, "space-y-3 p-5")}>
                 <h2 id={`${uid}-purpose-h`} className="text-base font-semibold text-gray-900 dark:text-gray-100">วัตถุประสงค์</h2>
                 <div>
                   <label htmlFor={`${uid}-purpose_code`} className={labelCls}>ประเภทการกู้{req}</label>
-                  <select {...fieldProps("purpose_code")} value={form.purpose_code} onChange={(e) => setField("purpose_code", e.target.value)}
-                    className={cx(fieldCls, errors.purpose_code && errBorder)}>
-                    <option value="">เลือกวัตถุประสงค์</option>
-                    {LOAN_PURPOSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  <SelectDropdown
+                    id={`${uid}-purpose_code`}
+                    size="sm"
+                    required
+                    value={form.purpose_code}
+                    onChange={(v) => setField("purpose_code", v)}
+                    placeholder="เลือกวัตถุประสงค์"
+                    options={LOAN_PURPOSE_OPTIONS}
+                    error={!!errors.purpose_code}
+                    ariaDescribedby={errors.purpose_code ? `${uid}-purpose_code-err` : undefined}
+                  />
                   {errMsg("purpose_code")}
                 </div>
                 <div>

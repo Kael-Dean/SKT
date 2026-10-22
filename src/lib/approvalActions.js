@@ -31,10 +31,58 @@ export const KIND_LABEL = {
   out_of_office: "ขอออกนอกสถานที่",
 }
 
+/**
+ * ป้ายประเภทของการแจ้งเตือน (ref_type) — รวม KIND_LABEL + ประเภทใหม่จาก 3F / 3Q / 3L
+ * (แยกจาก KIND_LABEL เพราะ Inbox ใช้ KIND_LABEL เป็นรายการแท็บของตัวเอง)
+ */
+export const NOTIFICATION_REF_LABEL = {
+  ...KIND_LABEL,
+  issue_report: "แจ้งแก้ไขข้อมูล",
+  discipline_case: "เรื่องร้องเรียน/ตักเตือน",
+  discipline_action: "การลงโทษทางวินัย",
+  kpi_fiscal_year: "ประเมิน KPI",
+  kpi_evaluation: "ผลประเมิน KPI",
+}
+
 /** Deep link used by notifications → Inbox detail. */
 export function inboxLink(refType, refId) {
   if (refType !== KIND.LEAVE && refType !== KIND.OOO) return "/inbox"
   return `/inbox?type=${refType}&id=${encodeURIComponent(refId)}`
+}
+
+const hrTab = (tab, refId) =>
+  `/hr/dashboard?tab=${tab}${refId != null && refId !== "" ? `&id=${encodeURIComponent(refId)}` : ""}`
+
+/**
+ * ปลายทางเมื่อกดการแจ้งเตือน — ใช้ ref_type + kind ("action" = ต้องดำเนินการ → หน้าผู้พิจารณา,
+ * "info" = แจ้งผล → หน้าของฉัน). แท็บ/หน้าปลายทางอ่าน `id` จาก query เพื่อเปิดรายการนั้น (ถ้ารองรับ)
+ *   issue_report       action → HR แท็บ issues            · info → /my-profile (ประวัติคำร้อง)
+ *   discipline_case    action → HR แท็บ discipline         · info (ผู้แจ้ง) → /my-discipline?view=reports
+ *   discipline_action  action (HR ขั้น 7/8) → HR แท็บ discipline · info (ผู้ถูกลงโทษ) → /my-discipline?view=history
+ *   kpi_fiscal_year    → HR แท็บ kpi
+ *   kpi_evaluation     action (reopen) → HR แท็บ kpi       · info (ผลอนุมัติ) → /my-kpi
+ */
+export function notificationLink(n) {
+  const refType = n?.ref_type
+  const refId = n?.ref_id
+  const isAction = n?.kind === "action"
+  switch (refType) {
+    case KIND.LEAVE:
+    case KIND.OOO:
+      return inboxLink(refType, refId)
+    case "issue_report":
+      return isAction ? hrTab("issues", refId) : "/my-profile"
+    case "discipline_case":
+      return isAction ? hrTab("discipline", refId) : "/my-discipline?view=reports"
+    case "discipline_action":
+      return isAction ? hrTab("discipline", refId) : `/my-discipline?view=history&id=${encodeURIComponent(refId ?? "")}`
+    case "kpi_fiscal_year":
+      return hrTab("kpi")
+    case "kpi_evaluation":
+      return isAction ? hrTab("kpi", refId) : "/my-kpi"
+    default:
+      return "/inbox"
+  }
 }
 
 /**

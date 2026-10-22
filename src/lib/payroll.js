@@ -4,8 +4,8 @@
 //
 //   ปีใน /hr/payroll* เป็น ค.ศ. เสมอ (ส่ง พ.ศ. → 422) — แปลงเป็น พ.ศ. เฉพาะตอนแสดงผล
 //   งวด: draft (ร่าง) → review (ตรวจสอบ) → approved (อนุมัติ) → closed (ปิดงวด)
-//   gross_income = เงินเดือน + ค่าตำแหน่ง + add_pending + add_holiday_pay + add_back_pay
-//   สุทธิ = gross − (ภาษี + ประกันสังคม + เงินสะสม + กองทุนสำรองฯ + เงินกู้ + กยศ. + งดจ่ายเงิน)
+//   gross_income = เงินเดือน + ค่าตำแหน่ง + add_pending + add_holiday_pay + add_back_pay + add_welfare (3P)
+//   สุทธิ = gross − (ภาษี + ประกันสังคม + เงินสะสม + กองทุนสำรองฯ + เงินกู้ + กยศ. + งดจ่ายเงิน + งดจ่าย (พักงาน) 3Q)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
@@ -71,10 +71,15 @@ export const INCOME_LINES = [
   { key: "add_pending", label: "เงินเพิ่มอื่น ๆ" },
   { key: "add_holiday_pay", label: "ค่าทำงานวันหยุด" },
   { key: "add_back_pay", label: "เงินเลื่อนขั้นพิเศษตกเบิก" },
+  // 3P — สวัสดิการที่อนุมัติแบบจ่ายผ่านเงินเดือน (payout_route = payroll); ไม่คิดภาษี
+  { key: "add_welfare", label: "เงินช่วยเหลือสวัสดิการ" },
 ]
 
 /** deduct_extra_leave — ต้องใช้คำว่า "งดจ่ายเงิน" เสมอ ห้ามใช้ "หักเงิน" (AMC: หักเงินกรณีนี้ทำไม่ได้ตามกฎหมาย) */
 export const EXTRA_LEAVE_LABEL = "งดจ่ายเงิน (ลาเกินสิทธิ์)"
+
+/** deduct_suspension (3Q) — ใช้คำว่า "งดจ่าย" เช่นเดียวกัน */
+export const SUSPENSION_LABEL = "งดจ่าย (พักงาน)"
 
 /** รายการหัก — ลำดับเดียวกับสลิป PDF */
 export const DEDUCTION_LINES = [
@@ -85,6 +90,8 @@ export const DEDUCTION_LINES = [
   { key: "deduct_loan", label: "เงินกู้" },
   { key: "deduct_slf", label: "กยศ." },
   { key: "deduct_extra_leave", label: EXTRA_LEAVE_LABEL },
+  // 3Q — คำสั่งพักงาน (ขั้น 6): อัตรารายวัน × วันทำงานที่ถูกพักในเดือนนั้น
+  { key: "deduct_suspension", label: SUSPENSION_LABEL },
 ]
 
 /** ยอดหักรวม — ใช้ค่าจาก backend ถ้ามี, ไม่งั้นรวมจากบรรทัด, ไม่มีบรรทัดเลย → gross − net */

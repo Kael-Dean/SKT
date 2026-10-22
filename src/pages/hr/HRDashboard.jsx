@@ -1,5 +1,5 @@
 // src/pages/hr/HRDashboard.jsx
-// HR Dashboard (งานบุคคล) — stat strip + grouped left rail (20 sections, 6 groups)
+// HR Dashboard (งานบุคคล) — stat strip + grouped left rail (26 sections, 7 groups)
 // + Ctrl/⌘K quick switcher. Everything (rail, <lg menu, switcher, section header,
 // document.title) reads from the single HR_NAV config below.
 // URL contract: ?tab=<key> (push on navigation, invalid → replace to employees);
@@ -16,15 +16,20 @@ import {
   BriefcaseBusiness,
   CalendarClock,
   CalendarDays,
+  CalendarRange,
+  ChartColumn,
   ClipboardList,
   Coins,
   FileText,
+  Gavel,
   HandCoins,
+  HeartHandshake,
   History,
   ListChecks,
   MapPin,
   RotateCw,
   ScrollText,
+  Scale,
   SlidersHorizontal,
   Search,
   Target,
@@ -59,6 +64,13 @@ import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
 import HRHolidayCalendarTab from "./tabs/HRHolidayCalendarTab"
 import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
 import HROutOfOfficeTab from "./tabs/HROutOfOfficeTab"
+// WP0 scaffold — stub ที่ WP1/WP2/WP3/WP5 เติมเนื้อหา
+import HRLeaveCalendarTab from "./tabs/HRLeaveCalendarTab"
+import HRWelfareTab from "./tabs/HRWelfareTab"
+import HRWelfareSettingsTab from "./tabs/HRWelfareSettingsTab"
+import HRDisciplineTab from "./tabs/HRDisciplineTab"
+import HRDisciplineSettingsTab from "./tabs/HRDisciplineSettingsTab"
+import HRIssueStatsTab from "./tabs/HRIssueStatsTab"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { HR_KPI_PERMS, can, checkAccess } from "../../lib/permissions"
 import { useMyPermissionsVersion } from "../../lib/myPermissions"
@@ -105,6 +117,9 @@ const HR_NAV = [
       { key: "holiday-work", perm: "hr.holidayWork.view", label: "ทำงานวันหยุด", icon: CalendarClock,
         description: "บันทึกการทำงานในวันหยุดของเจ้าหน้าที่",
         keywords: ["วันหยุด", "โอที", "ot"] },
+      { key: "leave-calendar", perm: "hr.leave.calendar", label: "ปฏิทินการลา", icon: CalendarRange,
+        description: "ดูว่าใครลาวันไหน แยกตามสาขา ในมุมมองปฏิทินรายเดือน",
+        keywords: ["ปฏิทิน", "ลา", "ขาดงาน", "calendar"] },
     ],
   },
   {
@@ -133,9 +148,20 @@ const HR_NAV = [
       { key: "salary-cert", perm: "hr.salaryCert.list", label: "หนังสือรับรองเงินเดือน", icon: ScrollText,
         description: "คำขอและการออกหนังสือรับรองเงินเดือน",
         keywords: ["หนังสือรับรอง", "รับรองเงินเดือน", "certificate"] },
+      { key: "welfare", anyOf: ["hr.welfare.view", "hr.welfare.submit"], label: "สวัสดิการ", icon: HeartHandshake,
+        description: "บันทึกและอนุมัติการเบิกค่ารักษาพยาบาล ตรวจสุขภาพ และค่าการศึกษาบุตร",
+        keywords: ["สวัสดิการ", "เบิก", "ค่ารักษา", "ตรวจสุขภาพ", "ค่าเล่าเรียน", "welfare"] },
       { key: "kpi", anyOf: HR_KPI_PERMS, label: "KPI", icon: Target,
         description: "ประเมิน KPI ประจำปี สรุปผล ตรวจสอบ อนุมัติเลื่อนขั้น และบันทึกผลประกอบการ",
         keywords: ["ประเมิน", "ตัวชี้วัด", "คะแนน", "kpi", "เลื่อนขั้นประจำปี", "อนุมัติ", "ผลประกอบการ"] },
+    ],
+  },
+  {
+    group: "วินัย",
+    items: [
+      { key: "discipline", perm: "hr.discipline.cases", label: "เรื่องร้องเรียน/ตักเตือน", icon: Gavel,
+        description: "เรื่องที่แจ้งเข้ามา การพิจารณาตามลำดับขั้น และการลงโทษทางวินัย",
+        keywords: ["วินัย", "ตักเตือน", "ร้องเรียน", "พักงาน", "ลงโทษ", "discipline"] },
     ],
   },
   {
@@ -150,6 +176,12 @@ const HR_NAV = [
       { key: "holiday-calendar", perm: "hr.holidays.manage", label: "ปฏิทินวันหยุด", icon: CalendarDays,
         description: "กำหนดวันหยุดประจำปีขององค์กร",
         keywords: ["วันหยุด", "ปฏิทิน", "holiday"] },
+      { key: "welfare-settings", anyOf: ["hr.welfare.settings", "hr.welfare.view"], label: "ตั้งค่าสวัสดิการ", icon: HeartHandshake,
+        description: "วงเงินสวัสดิการ ช่องทางการจ่าย และอัตราค่าการศึกษาบุตร",
+        keywords: ["สวัสดิการ", "วงเงิน", "ค่าการศึกษา", "settings"] },
+      { key: "discipline-settings", anyOf: ["hr.discipline.topics", "hr.discipline.view"], label: "ตั้งค่าวินัย", icon: Scale,
+        description: "หัวข้อระเบียบ เกณฑ์การนับโทษ และจำนวนวันพักงาน",
+        keywords: ["วินัย", "หัวข้อ", "ระเบียบ", "settings"] },
     ],
   },
   {
@@ -158,6 +190,9 @@ const HR_NAV = [
       { key: "issues", perm: "hr.issues.list", label: "รายงานปัญหา", icon: Wrench, badgeKey: "pending_issue_reports",
         description: "รายงานปัญหาการใช้งานระบบและสถานะการแก้ไข",
         keywords: ["ปัญหา", "แจ้งปัญหา", "บั๊ก", "issue"] },
+      { key: "issue-stats", perm: "hr.issues.stats", label: "สถิติคำร้อง", icon: ChartColumn,
+        description: "จำนวนคำร้องแก้ไขข้อมูลรายเดือน แยกตามหัวข้อและสาขา",
+        keywords: ["สถิติ", "คำร้อง", "แก้ไขข้อมูล", "stats"] },
       { key: "audit", perm: "hr.audit.view", label: "ประวัติการใช้งาน", icon: ClipboardList,
         description: "ประวัติการใช้งานและการแก้ไขข้อมูลในระบบ HR",
         keywords: ["ประวัติระบบ", "log", "audit"] },
@@ -246,6 +281,12 @@ function renderSection(key, { onGoToPositions }) {
     case "holiday-calendar":   return <HRHolidayCalendarTab />
     case "holiday-work":       return <HRHolidayWorkTab />
     case "out-of-office":      return <HROutOfOfficeTab />
+    case "leave-calendar":     return <HRLeaveCalendarTab />
+    case "welfare":            return <HRWelfareTab />
+    case "welfare-settings":   return <HRWelfareSettingsTab />
+    case "discipline":         return <HRDisciplineTab />
+    case "discipline-settings": return <HRDisciplineSettingsTab />
+    case "issue-stats":        return <HRIssueStatsTab />
     default:                   return <HREmployeesTab />
   }
 }

@@ -1,6 +1,8 @@
 // src/components/hr/kpi/ScoresPanel.jsx
-// Sub-tab "ประเมิน": every evaluation of the year with status, breakdown (42/28/20/10),
-// composite and step; opens ScoreDialog. Read-only for roles without a score permission (e.g. HR).
+// Sub-tab "ประเมิน": every evaluation of the year with status, per-scheme breakdown
+// (component_max — 3L rework), composite + grade, and step. Opens ScoreDialog.
+// Approved rows can be revoked by kpi.override holders (RevokeDialog).
+// Read-only for roles without a score permission (e.g. HR).
 import { useMemo, useState } from "react"
 import { Plus, Search } from "lucide-react"
 import SelectDropdown from "../../SelectDropdown"
@@ -9,8 +11,9 @@ import { cx } from "../../../lib/styles"
 import { EmptyState, ErrorState, SkeletonTableRows } from "../../ui"
 import { cardCls, inputCls, linkBtn, primaryBtn, thCls } from "../positionUtils"
 import ScoreDialog from "./ScoreDialog"
-import { PendingBadge, StatusBadge, StepCell } from "./KpiBits"
-import { COMPONENTS, STATUS, STATUS_ORDER, canEditScores, fmtDay, fmtScore, num, partialTotal } from "./kpiUtils"
+import RevokeDialog from "./RevokeDialog"
+import { ComponentBreakdown, GradeBadge, PendingBadge, SchemeLabel, StatusBadge, StepCell } from "./KpiBits"
+import { STATUS, STATUS_ORDER, canEditScores, fmtDay, fmtScore, num, partialTotal } from "./kpiUtils"
 import { useEvaluations } from "./useKpi"
 
 const STATUS_FILTER = [
@@ -18,11 +21,13 @@ const STATUS_FILTER = [
   ...STATUS_ORDER.map((k) => ({ value: k, label: STATUS[k].label })),
 ]
 
-export default function ScoresPanel({ fy, info, phase, perms, people, onChanged }) {
+const COLS = 6
+
+export default function ScoresPanel({ fy, info, phase, perms, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy)
   const [q, setQ] = useState("")
   const [status, setStatus] = useState("")
-  const [dialog, setDialog] = useState(null) // { ev } | { ev: null } (new)
+  const [dialog, setDialog] = useState(null) // { kind: "score", ev } | { kind: "revoke", ev }
 
   const canScore = perms.scoreBranchHead || perms.scoreAsst || perms.scoreManager || perms.boardScore
   const { nameOf } = people
@@ -54,7 +59,7 @@ export default function ScoresPanel({ fy, info, phase, perms, people, onChanged 
       )}
       {canScore && (
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          บันทึก KPI สาขาก่อนให้คะแนนรายบุคคล คะแนนผลงานสาขา (28) จะเติมให้อัตโนมัติ ถ้ายังไม่มีจะสรุปผลไม่ผ่าน
+          ส่วนที่ให้คะแนนและคะแนนเต็มขึ้นกับตำแหน่งของผู้ถูกประเมิน คะแนนผลงานสาขาคำนวณจาก KPI สาขาให้อัตโนมัติ
         </p>
       )}
 
@@ -74,7 +79,7 @@ export default function ScoresPanel({ fy, info, phase, perms, people, onChanged 
           <SelectDropdown options={STATUS_FILTER} value={status} onChange={setStatus} ariaLabel="กรองสถานะ" showSwatch={false} />
         </div>
         {canScore && phase === "open" && (
-          <button type="button" className={cx(primaryBtn, "sm:ml-auto")} onClick={() => setDialog({ ev: null })}>
+          <button type="button" className={cx(primaryBtn, "sm:ml-auto")} onClick={() => setDialog({ kind: "score", ev: null })}>
             <Plus aria-hidden="true" className="size-4" strokeWidth={2} />
             ให้คะแนนเจ้าหน้าที่
           </button>
@@ -98,33 +103,32 @@ export default function ScoresPanel({ fy, info, phase, perms, people, onChanged 
               <thead className="border-b border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
                 <tr>
                   <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
-                  {COMPONENTS.map((c) => (
-                    <th key={c.key} scope="col" className={cx(thCls, "whitespace-nowrap text-right hidden md:table-cell whitespace-nowrap")}>
-                      {c.label}
-                      <span className="block font-normal text-gray-400 dark:text-gray-500">≤{c.max}</span>
-                    </th>
-                  ))}
+                  <th scope="col" className={cx(thCls, "whitespace-nowrap text-left hidden md:table-cell")}>คะแนนแต่ละส่วน</th>
                   <th scope="col" className={cx(thCls, "whitespace-nowrap text-right")}>รวม</th>
+                  <th scope="col" className={cx(thCls, "whitespace-nowrap text-left hidden sm:table-cell")}>ระดับผล</th>
                   <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>ขั้น</th>
                   <th scope="col" className={thCls}><span className="sr-only">การทำงาน</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {loading ? (
-                  <SkeletonTableRows rows={6} cols={8} />
+                  <SkeletonTableRows rows={6} cols={COLS} />
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">ไม่พบรายการที่ตรงกับการค้นหา</td>
+                    <td colSpan={COLS} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">ไม่พบรายการที่ตรงกับการค้นหา</td>
                   </tr>
                 ) : (
                   filtered.map((ev) => (
                     <ScoreRow
                       key={ev.id ?? ev.user_id}
                       ev={ev}
+                      catalogue={catalogue}
                       name={nameOf(ev.user_id)}
                       editable={canScore && canEditScores(ev, phase)}
                       canScore={canScore}
-                      onOpen={() => setDialog({ ev })}
+                      canRevoke={perms.override && ev.status === "approved"}
+                      onOpen={() => setDialog({ kind: "score", ev })}
+                      onRevoke={() => setDialog({ kind: "revoke", ev })}
                     />
                   ))
                 )}
@@ -134,42 +138,50 @@ export default function ScoresPanel({ fy, info, phase, perms, people, onChanged 
         </div>
       )}
 
-      {dialog && (
+      {dialog?.kind === "score" && (
         <ScoreDialog
           fy={fy}
           ev={dialog.ev}
           info={info}
           phase={phase}
           perms={perms}
+          catalogue={catalogue}
           nameOf={nameOf}
           onClose={() => setDialog(null)}
           onSaved={afterSave}
+        />
+      )}
+      {dialog?.kind === "revoke" && (
+        <RevokeDialog
+          fy={fy}
+          ev={dialog.ev}
+          name={nameOf(dialog.ev.user_id)}
+          onClose={() => setDialog(null)}
+          onDone={() => afterSave()}
         />
       )}
     </div>
   )
 }
 
-function ScoreRow({ ev, name, editable, canScore, onOpen }) {
+function ScoreRow({ ev, catalogue, name, editable, canScore, canRevoke, onOpen, onRevoke }) {
   const composite = num(ev.composite_score)
-  const partial = partialTotal(ev)
+  const partial = partialTotal(ev, catalogue)
   return (
     <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-      <td className="px-4 py-3 align-top">
+      <td className="px-4 py-3 align-top min-w-[11rem]">
         <p className="font-medium text-gray-900 dark:text-gray-100">{name}</p>
+        <SchemeLabel ev={ev} catalogue={catalogue} />
         <div className="mt-1 flex flex-wrap items-center gap-1">
           <StatusBadge status={ev.status} />
           <PendingBadge status={ev.pending_status} />
+          {ev.grade_label && <span className="sm:hidden"><GradeBadge grade={ev.grade} label={ev.grade_label} /></span>}
         </div>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 tabular-nums md:hidden">
-          {COMPONENTS.map((c) => `${c.short} ${fmtScore(ev[c.key])}`).join(" / ")}
-        </p>
+        <ComponentBreakdown ev={ev} catalogue={catalogue} className="mt-1.5 md:hidden" />
       </td>
-      {COMPONENTS.map((c) => (
-        <td key={c.key} className="px-4 py-3 text-right align-top text-gray-700 dark:text-gray-300 tabular-nums hidden md:table-cell">
-          {fmtScore(ev[c.key])}
-        </td>
-      ))}
+      <td className="px-4 py-3 align-top hidden md:table-cell min-w-[12rem]">
+        <ComponentBreakdown ev={ev} catalogue={catalogue} />
+      </td>
       <td className="px-4 py-3 text-right align-top tabular-nums">
         {composite != null ? (
           <span className="font-bold text-indigo-700 dark:text-indigo-300">{fmtScore(composite)}</span>
@@ -177,13 +189,23 @@ function ScoreRow({ ev, name, editable, canScore, onOpen }) {
           <span className="text-gray-500 dark:text-gray-400" title="ผลรวมชั่วคราว ยังไม่สรุปผล">{partial != null ? fmtScore(partial) : "—"}</span>
         )}
       </td>
+      <td className="px-4 py-3 align-top hidden sm:table-cell">
+        <GradeBadge grade={ev.grade} label={ev.grade_label} />
+      </td>
       <td className="px-4 py-3 align-top"><StepCell ev={ev} /></td>
       <td className="px-4 py-3 text-right align-top whitespace-nowrap">
-        {canScore && (
-          <button type="button" className={linkBtn} onClick={onOpen}>
-            {editable ? "บันทึกคะแนน" : "ดูคะแนน"}
-          </button>
-        )}
+        <div className="flex flex-col items-end gap-1.5">
+          {canScore && (
+            <button type="button" className={linkBtn} onClick={onOpen}>
+              {editable ? "บันทึกคะแนน" : "ดูคะแนน"}
+            </button>
+          )}
+          {canRevoke && (
+            <button type="button" className={cx(linkBtn, "!text-red-700 dark:!text-red-300")} onClick={onRevoke}>
+              ยกเลิกผลอนุมัติ
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   )

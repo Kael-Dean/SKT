@@ -16,7 +16,7 @@ import { NoteField, SkippedTable } from "./KpiBits"
 import { fmtStep, needsBoardRef, num } from "./kpiUtils"
 import { useEvaluations } from "./useKpi"
 
-export default function ManagerApprovePanel({ fy, perms, people, onChanged }) {
+export default function ManagerApprovePanel({ fy, perms, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy, "asst_reviewed")
   const [selected, setSelected] = useState(() => new Set())
   const [dialog, setDialog] = useState(null) // reopen | elig
@@ -129,6 +129,7 @@ export default function ManagerApprovePanel({ fy, perms, people, onChanged }) {
           rows={rows}
           loading={loading}
           people={people}
+          catalogue={catalogue}
           showSenior
           selected={selected}
           onToggle={toggle}

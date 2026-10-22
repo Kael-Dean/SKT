@@ -1,6 +1,7 @@
 // src/pages/hr/tabs/HRKpiTab.jsx
-// KPI v1.4.0 — ประเมิน · สรุปผล · ผช.ผจก. ตรวจสอบ · ผจก. อนุมัติ · ผลประกอบการ · KPI รายเดือน
-// (handoff/api-handoff-kpi-v1.4.0.md). Sub-tab in &sub=, fiscal year in &fy= (both replace).
+// KPI v1.4.0 + งวด 4 3L rework — ประเมิน · สรุปผล · ผช.ผจก. ตรวจสอบ · ผจก. อนุมัติ · ผลประกอบการ ·
+// แบบประเมินรายเดือน (12 รายการ × 12 เดือน). The catalogue (GET /hr/kpi/form-items) is loaded once
+// here and handed to every panel so maximums/grades never get hard-coded. Sub-tab in &sub=, fiscal year in &fy= (both replace).
 // Only the sub-tabs the current role can use are shown (getRoleId → getKpiPerms).
 // Rendered inside HRDashboard (roles 1·3) and standalone at /hr/kpi (roles 1·2·3·7, see App.jsx).
 import { useCallback, useMemo } from "react"
@@ -13,8 +14,8 @@ import FinalizePanel from "../../../components/hr/kpi/FinalizePanel"
 import AsstReviewPanel from "../../../components/hr/kpi/AsstReviewPanel"
 import ManagerApprovePanel from "../../../components/hr/kpi/ManagerApprovePanel"
 import ProfitResultPanel from "../../../components/hr/kpi/ProfitResultPanel"
-import MonthlyKpiPanel from "../../../components/hr/kpi/MonthlyKpiPanel"
-import { useFiscalYearInfo, useKpiPeople } from "../../../components/hr/kpi/useKpi"
+import MonthlyFormGrid from "../../../components/hr/kpi/MonthlyFormGrid"
+import { useFiscalYearInfo, useFormItems, useKpiPeople } from "../../../components/hr/kpi/useKpi"
 import { currentFiscalYear, getKpiPerms, num, windowPhase } from "../../../components/hr/kpi/kpiUtils"
 import { keepBackState } from "../../../lib/drill"
 
@@ -38,6 +39,7 @@ export default function HRKpiTab() {
   const { info, reload: reloadInfo } = fyState
   const phase = windowPhase(info)
   const people = useKpiPeople()
+  const { catalogue } = useFormItems()
   const counts = info?.counts ?? {}
 
   const items = useMemo(() => {
@@ -47,7 +49,7 @@ export default function HRKpiTab() {
       { value: "asst", label: "ผช.ผจก. ตรวจสอบ", show: perms.asstReview, count: num(counts.finalized) || null },
       { value: "approve", label: "ผจก. อนุมัติ", show: perms.managerApprove, count: num(counts.asst_reviewed) || null },
       { value: "profit", label: "ผลประกอบการ", show: perms.profit },
-      { value: "monthly", label: "KPI รายเดือน", show: perms.monthly },
+      { value: "monthly", label: "แบบประเมินรายเดือน", show: perms.monthlyForm || perms.monthly || perms.viewList },
     ]
     return all.filter((t) => t.show).map((t) => ({ value: t.value, label: t.label, count: t.count }))
   }, [perms, counts.finalized, counts.asst_reviewed])
@@ -58,11 +60,11 @@ export default function HRKpiTab() {
     return <EmptyState title="ไม่มีสิทธิ์ใช้งานส่วนนี้" description="บัญชีของคุณไม่มีสิทธิ์ดูหรือบันทึกการประเมิน KPI" />
   }
 
-  const shared = { fy, info, phase, perms, people, onChanged: reloadInfo }
+  const shared = { fy, info, phase, perms, people, catalogue, onChanged: reloadInfo }
 
   return (
     <div className="space-y-4">
-      <FiscalYearHeader fy={fy} onFyChange={setFy} fyState={fyState} canEditWindow={perms.editWindow} />
+      <FiscalYearHeader fy={fy} onFyChange={setFy} fyState={fyState} canEditWindow={perms.editWindow} canNotify={perms.notify} />
 
       <Tabs items={items} value={sub} onChange={setSub} ariaLabel="KPI" idBase={ID_BASE} />
 
@@ -78,7 +80,7 @@ export default function HRKpiTab() {
         {sub === "asst" && <AsstReviewPanel key={fy} {...shared} />}
         {sub === "approve" && <ManagerApprovePanel key={fy} {...shared} />}
         {sub === "profit" && <ProfitResultPanel key={fy} {...shared} />}
-        {sub === "monthly" && <MonthlyKpiPanel key={fy} {...shared} />}
+        {sub === "monthly" && <MonthlyFormGrid {...shared} />}
       </div>
     </div>
   )

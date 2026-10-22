@@ -2,13 +2,15 @@
 // Shared header for every KPI sub-tab: fiscal-year picker (with date range),
 // evaluation window + open/closed badge, status progress bar from `counts`,
 // and the edit-window dialog (PATCH /hr/kpi/fiscal-years/{fy}/window, roles 1·2·3).
+// 3L: "แจ้งผู้ประเมิน" — POST /hr/kpi/fiscal-years/{fy}/notify-evaluators (kpi.window)
+//     → { notified, window_start, window_end }; sends a bell notification to every scorer + form keeper.
 import { useId, useState } from "react"
-import { CalendarRange, Pencil } from "lucide-react"
+import { BellRing, CalendarRange, Pencil } from "lucide-react"
 import SelectDropdown from "../../SelectDropdown"
 import HrModal, { Notice } from "../HrModal"
 import { apiAuth } from "../../../lib/api"
 import { cx } from "../../../lib/styles"
-import { Badge, ErrorState, Skeleton, toast } from "../../ui"
+import { Badge, ConfirmDialog, ErrorState, Skeleton, toast } from "../../ui"
 import { errText, inputCls, labelCls, linkBtn, nf, primaryBtn, secondaryBtn } from "../positionUtils"
 import { STATUS, STATUS_ORDER, fmtDay, fyOptions, fyRange, num, windowPhase } from "./kpiUtils"
 
@@ -20,9 +22,29 @@ const SEG = {
   approved: "bg-emerald-500 dark:bg-emerald-400",
 }
 
-export default function FiscalYearHeader({ fy, onFyChange, fyState, canEditWindow }) {
+export default function FiscalYearHeader({ fy, onFyChange, fyState, canEditWindow, canNotify = false }) {
   const { info, setInfo, loading, error, reload } = fyState
   const [editing, setEditing] = useState(false)
+  const [notifyOpen, setNotifyOpen] = useState(false)
+  const [notifying, setNotifying] = useState(false)
+  const [notifyErr, setNotifyErr] = useState("")
+
+  const notify = async () => {
+    setNotifying(true)
+    setNotifyErr("")
+    try {
+      const res = await apiAuth(`/hr/kpi/fiscal-years/${Number(fy)}/notify-evaluators`, { method: "POST" })
+      const n = num(res?.notified)
+      toast.success(n != null ? `แจ้งผู้ประเมินแล้ว ${nf(n)} คน` : "แจ้งผู้ประเมินแล้ว", {
+        description: `ช่วงประเมิน ${fmtDay(res?.window_start ?? info?.window_start)} – ${fmtDay(res?.window_end ?? info?.window_end)}`,
+      })
+      setNotifyOpen(false)
+    } catch (e) {
+      setNotifyErr(errText(e))
+    } finally {
+      setNotifying(false)
+    }
+  }
   const selectId = useId()
   const phase = windowPhase(info)
   const counts = info?.counts ?? {}
@@ -64,6 +86,16 @@ export default function FiscalYearHeader({ fy, onFyChange, fyState, canEditWindo
                 <button type="button" className={cx(linkBtn, "inline-flex items-center gap-1")} onClick={() => setEditing(true)}>
                   <Pencil aria-hidden="true" className="size-3.5" strokeWidth={2} />
                   แก้ช่วงประเมิน
+                </button>
+              )}
+              {canNotify && phase !== "after" && (
+                <button
+                  type="button"
+                  className={cx(linkBtn, "inline-flex items-center gap-1")}
+                  onClick={() => { setNotifyErr(""); setNotifyOpen(true) }}
+                >
+                  <BellRing aria-hidden="true" className="size-3.5" strokeWidth={2} />
+                  แจ้งผู้ประเมิน
                 </button>
               )}
             </div>
@@ -113,6 +145,19 @@ export default function FiscalYearHeader({ fy, onFyChange, fyState, canEditWindo
           </ul>
         </div>
       )}
+
+      <ConfirmDialog
+        open={notifyOpen}
+        title="แจ้งผู้ประเมิน"
+        description={`ส่งการแจ้งเตือนถึงผู้ให้คะแนนและผู้บันทึกแบบประเมินรายเดือนทุกคน ว่าช่วงประเมินปีบัญชี ${fy} คือ ${fmtDay(info?.window_start)} – ${fmtDay(info?.window_end)}`}
+        confirmLabel="ส่งการแจ้งเตือน"
+        tone="primary"
+        loading={notifying}
+        loadingLabel="กำลังส่ง…"
+        error={notifyErr}
+        onConfirm={notify}
+        onCancel={() => setNotifyOpen(false)}
+      />
 
       {editing && info && (
         <WindowDialog

@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { cx, baseField, labelCls, helpTextCls, errorTextCls, cardCls } from "../../../lib/styles"
 import {
-  onlyDigits, thb, nf, moneyToNumber, formatMoneyInput, suggestDeductionWeight, isEnabledInput, MOISTURE_STD,
+  onlyDigits, thb, nf, moneyToNumber, formatMoneyInput, suggestDeductionWeight, isEnabledInput,
   fieldId, errId, describedBy, sectionH2Cls,
 } from "./buyShared"
 
@@ -92,7 +92,7 @@ function PhoneWeighSection({ form }) {
       </dl>
 
       <div className="grid grid-cols-2 gap-3">
-        {numField("moisturePct", "ความชื้น (%)", { suffix: "%", sanitize: onlyDigits, placeholder: "0", help: `มาตรฐาน ${MOISTURE_STD}%` })}
+        {numField("moisturePct", "ความชื้น (%)", { suffix: "%", sanitize: onlyDigits, placeholder: "0" })}
         {numField("impurityPct", "สิ่งเจือปน (%)", { suffix: "%", sanitize: onlyDigits, placeholder: "0" })}
       </div>
 
@@ -155,7 +155,7 @@ function PhoneWeighSection({ form }) {
         <dd className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100" aria-live="polite">{nf(netWeight)} กก.</dd>
       </dl>
 
-      {numField("gram", "คุณภาพ (กรัม) — ไม่บังคับ", { inputMode: "numeric", sanitize: onlyDigits, placeholder: "เช่น 85" })}
+      {numField("gram", "คุณภาพ (กรัม)", { inputMode: "numeric", sanitize: onlyDigits, placeholder: "เช่น 85" })}
       {numField("unitPrice", "ราคาต่อกก. (บาท)", { suffix: "บาท/กก.", big: true, sanitize: dec, placeholder: "0.00" })}
       {numField("amountTHB", "เป็นเงิน (บาท)", {
         prefix: "฿", big: true, sanitize: formatMoneyInput, placeholder: "0.00",
@@ -238,7 +238,7 @@ function DesktopWeighSection({ form }) {
       <div className="mt-4 grid gap-4 md:grid-cols-4">
         {numField("entryWeightKg", "น้ำหนักก่อนชั่ง", { suffix: "กก.", sanitize: dec, placeholder: "0" })}
         {numField("exitWeightKg", "น้ำหนักหลังชั่ง", { suffix: "กก.", sanitize: dec, placeholder: "0" })}
-        {numField("moisturePct", "ความชื้น", { suffix: "%", sanitize: onlyDigits, placeholder: "0", labelHint: `เกณฑ์ ${MOISTURE_STD}%` })}
+        {numField("moisturePct", "ความชื้น", { suffix: "%", sanitize: onlyDigits, placeholder: "0" })}
         {numField("impurityPct", "สิ่งเจือปน", { suffix: "%", sanitize: onlyDigits, placeholder: "0" })}
       </div>
 
@@ -306,7 +306,7 @@ function DesktopWeighSection({ form }) {
       {errors.deductWeightKg && <p id={errId("deductWeightKg")} className={errorTextCls}>{errors.deductWeightKg}</p>}
 
       <div className="mt-4 grid gap-4 md:grid-cols-4">
-        {numField("gram", "คุณภาพข้าว", { inputMode: "numeric", suffix: "กรัม", sanitize: onlyDigits, placeholder: "เช่น 85", labelHint: "ไม่บังคับ" })}
+        {numField("gram", "คุณภาพข้าว", { inputMode: "numeric", suffix: "กรัม", sanitize: onlyDigits, placeholder: "เช่น 85" })}
         {numField("unitPrice", "ราคาต่อกก.", { suffix: "บาท/กก.", pad: "!pr-20", sanitize: dec, placeholder: "0.00" })}
         {numField("amountTHB", "เป็นเงิน", {
           span: "md:col-span-2",

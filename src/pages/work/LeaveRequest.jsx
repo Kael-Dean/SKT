@@ -3,7 +3,7 @@ import { cx, baseField } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
-import { countLeaveDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
+import { countLeaveDays, countsCalendarDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
 import { getUser } from "../../lib/auth"
 import useFormDefaults from "../../hooks/useFormDefaults"
 import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../lib/approval"
@@ -169,10 +169,11 @@ function today() {
 }
 
 // นับเฉพาะวันทำงาน — ตัดเสาร์-อาทิตย์และวันหยุดที่สหกรณ์ประกาศไว้
+// ยกเว้นลาคลอด (calendarDays) นับทุกวันตามปฏิทิน (ระเบียบ 10 ข้อ 51 ค)
 // เป็นเพียงการประมาณการฝั่งหน้าจอ ยอดจริงคำนวณโดยระบบตอนบันทึก
-function workingDays(start, end, holidays, isHalfDay = false) {
+function workingDays(start, end, holidays, isHalfDay = false, calendarDays = false) {
   if (!start || !end) return 0
-  return countLeaveDays({ from: start, to: end, isHalfDay, holidays })
+  return countLeaveDays({ from: start, to: end, isHalfDay, holidays, calendarDays })
 }
 
 function diffDays(start, end) {
@@ -510,7 +511,7 @@ export default function LeaveRequest() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      alert(`ดาวน์โหลด PDF ไม่สำเร็จ: ${err.message || "เกิดข้อผิดพลาด"}`)
+      toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
       setDownloadingId(null)
     }
@@ -519,11 +520,16 @@ export default function LeaveRequest() {
   // ── derived values ──────────────────────────────────────────────────────
   const sameDay = Boolean(form.fromDate) && form.fromDate === form.toDate
   const halfDayActive = form.isHalfDay && sameDay
-  const days1 = workingDays(form.fromDate, form.toDate, holidays, halfDayActive)
-  const days2 = workingDays(form.fromDate2, form.toDate2, holidays)
+  const selectedType = leaveTypes.find((t) => t.id === form.leaveTypeId) ?? null
+  const calendarDays = countsCalendarDays(selectedType ?? form.leaveTypeName)
+  const days1 = workingDays(form.fromDate, form.toDate, holidays, halfDayActive, calendarDays)
+  const days2 = workingDays(form.fromDate2, form.toDate2, holidays, false, calendarDays)
   const totalDays = days1 + days2
   const rawDays1 = diffDays(form.fromDate, form.toDate)
-  const excludedDays = rawDays1 > 0 ? rawDays1 - workingDays(form.fromDate, form.toDate, holidays) : 0
+  const excludedDays = rawDays1 > 0 && !calendarDays ? rawDays1 - workingDays(form.fromDate, form.toDate, holidays) : 0
+  // เพดานวันลาต่อครั้ง/ปี จากรายการประเภทการลา (เช่น ลาคลอด 98) — ไม่ hard-code ตัวเลข
+  const maxDays = selectedType?.max_days != null ? Number(selectedType.max_days) : null
+  const overMax = maxDays != null && Number.isFinite(maxDays) && totalDays > maxDays
 
   // ── helpers ─────────────────────────────────────────────────────────────
   const set = (field) => (e) =>
@@ -907,14 +913,25 @@ export default function LeaveRequest() {
                       {fmtDays(totalDays)} วัน
                     </span>
                   </div>
-                  {excludedDays > 0 && (
-                    <p className="mt-1 text-xs text-indigo-600/80 dark:text-indigo-400/80">
+                  {calendarDays ? (
+                    <p className="mt-1 text-xs text-indigo-700/90 dark:text-indigo-300/90">
+                      ลาคลอดนับทุกวันตามปฏิทิน รวมวันเสาร์-อาทิตย์และวันหยุด
+                    </p>
+                  ) : excludedDays > 0 && (
+                    <p className="mt-1 text-xs text-indigo-700/90 dark:text-indigo-300/90">
                       ไม่นับวันเสาร์-อาทิตย์และวันหยุดที่ประกาศไว้ {excludedDays} วัน
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                    เป็นการประมาณการจากปฏิทินวันหยุดปัจจุบัน ระบบจะยืนยันจำนวนวันจริงเมื่อบันทึกใบลา
-                    หากลาเกินสิทธิ์ ส่วนที่เกินจะถูกหักจากเงินเดือน
+                  {overMax && (
+                    <p role="alert" className="mt-1.5 text-xs font-medium text-red-700 dark:text-red-300">
+                      เกินจำนวนวันลาสูงสุดของ{form.leaveTypeName || "ประเภทนี้"} ({fmtDays(maxDays)} วัน) — ระบบจะไม่รับใบลานี้
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {calendarDays
+                      ? "เป็นการประมาณการ ระบบจะยืนยันจำนวนวันจริงเมื่อบันทึกใบลา"
+                      : "เป็นการประมาณการจากปฏิทินวันหยุดปัจจุบัน ระบบจะยืนยันจำนวนวันจริงเมื่อบันทึกใบลา"}
+                    {" "}หากลาเกินสิทธิ์ จะงดจ่ายเงินสำหรับวันที่เกิน
                   </p>
                 </div>
               )}
@@ -1115,7 +1132,7 @@ export default function LeaveRequest() {
                   )}
                   {r.extra_leave_days > 0 && (
                     <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-1.5">
-                      ลาเกินสิทธิ์ {r.extra_leave_days} วัน — หักจากเงินเดือน
+                      ลาเกินสิทธิ์ {r.extra_leave_days} วัน — งดจ่ายเงินส่วนที่เกิน
                     </p>
                   )}
                 </div>

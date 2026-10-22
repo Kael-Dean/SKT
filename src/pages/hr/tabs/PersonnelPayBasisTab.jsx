@@ -1,17 +1,42 @@
 // src/pages/hr/tabs/PersonnelPayBasisTab.jsx
-// ช่องในโปรไฟล์พนักงาน (HRPersonnelDetail): ประเภทการจ่าย รายเดือน/รายวัน (3C daily-paid)
-//   แสดง financial.pay_basis — แก้ผ่าน FinancialEditSheet (PATCH /hr/employees/{id}/financial { pay_basis })
+// แถวในการ์ด "ข้อมูลการเงิน" ของโปรไฟล์พนักงาน (HRPersonnelDetail): ประเภทการจ่าย รายเดือน/รายวัน (3C daily-paid)
+//   อ่าน financial.pay_basis — ถ้า payload ของหน้าโปรไฟล์ไม่มี field นี้ ดึง GET /hr/employees/{id}/financial เอง
+//   แก้ผ่าน FinancialEditSheet (POST /hr/financial/{id} { pay_basis })
+//   backend ที่ยังไม่ migrate (ไม่มี pay_basis ทั้งสองทาง) → ไม่แสดงอะไร
 // props: { employeeId, financial }
-// STUB (WP0) — WP6 แทนที่เนื้อหา (ยังไม่มี pay_basis จาก backend = ไม่แสดงอะไร)
-const PAY_BASIS_LABEL = { monthly: "รายเดือน", daily: "รายวัน" }
+import { useEffect, useState } from "react"
+import { apiAuth } from "../../../lib/api"
+import { payBasisLabel } from "../../../lib/payroll"
 
-// eslint-disable-next-line no-unused-vars -- employeeId ใช้เมื่อ WP6 เติมเนื้อหา
 export default function PersonnelPayBasisTab({ employeeId, financial }) {
-  const basis = financial?.pay_basis
+  const own = financial?.pay_basis
+  const [fetched, setFetched] = useState(null)
+
+  // financial เปลี่ยน (เช่น หลังบันทึกใน FinancialEditSheet) → ดึงใหม่ถ้ายังไม่มีค่าในตัว
+  useEffect(() => {
+    if (own !== undefined || employeeId == null) return
+    let alive = true
+    apiAuth(`/hr/employees/${employeeId}/financial`)
+      .then((d) => { if (alive) setFetched(d && typeof d === "object" && "pay_basis" in d ? d.pay_basis || "monthly" : null) })
+      .catch(() => { if (alive) setFetched(null) })
+    return () => { alive = false }
+  }, [employeeId, financial, own])
+
+  const basis = own !== undefined ? own || "monthly" : fetched
   if (!basis) return null
+  const isDaily = basis === "daily"
+
   return (
-    <p className="text-sm text-gray-700 dark:text-gray-300">
-      ประเภทการจ่าย: <span className="font-medium text-gray-900 dark:text-gray-100">{PAY_BASIS_LABEL[basis] ?? basis}</span>
-    </p>
+    <div className="flex flex-col py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0 sm:flex-row sm:gap-4">
+      <span className="shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44">ประเภทการจ่าย</span>
+      <span className="mt-0.5 text-sm text-gray-900 dark:text-gray-100 sm:mt-0">
+        {payBasisLabel(basis) ?? basis}
+        {isDaily && (
+          <span className="block text-xs text-gray-600 dark:text-gray-400">
+            ค่าจ้างรายวัน × จำนวนวันที่บันทึกในแต่ละเดือน — ไม่ใช้เงินเดือนปัจจุบันในการคำนวณ
+          </span>
+        )}
+      </span>
+    </div>
   )
 }

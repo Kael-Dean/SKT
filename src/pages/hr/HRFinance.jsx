@@ -28,8 +28,8 @@ export default function HRFinance() {
 
   const openEdit = (emp) => setEditModal(emp)
 
-  // คำนวณยอดรวมจาก financial data ที่มี
-  const totalPayroll = employees.reduce((s, e) => s + (Number(e.financial?.current_salary) || 0), 0)
+  // คำนวณยอดรวมจาก financial data ที่มี — ลูกจ้างรายวัน (pay_basis daily) ไม่มีเงินเดือนประจำ ไม่นับรวม
+  const totalPayroll = employees.reduce((s, e) => s + (e.financial?.pay_basis === "daily" ? 0 : Number(e.financial?.current_salary) || 0), 0)
 
   return (
     <div className="space-y-5 pb-10">
@@ -105,7 +105,9 @@ export default function HRFinance() {
                       <p className="text-xs text-gray-500 dark:text-gray-400">{e.position ?? "—"}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                      {fin.current_salary != null ? fmt(fin.current_salary) : <span className="text-gray-400 dark:text-gray-500">—</span>}
+                      {fin.pay_basis === "daily"
+                        ? <span className="text-xs font-medium text-gray-600 dark:text-gray-400">ลูกจ้างรายวัน</span>
+                        : fin.current_salary != null ? fmt(fin.current_salary) : <span className="text-gray-400 dark:text-gray-500">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden sm:table-cell">
                       {fin.current_loan != null ? fmt(fin.current_loan) : "—"}

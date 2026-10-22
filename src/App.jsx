@@ -152,7 +152,7 @@ function App() {
         <Route path="/hr/relocation" element={guard("hr.relocation.list", <HRRelocation />)} />
         {/* หน้า HR รวมแท็บ — เข้าได้ถ้ามีอย่างน้อยหนึ่งแท็บ (แต่ละแท็บเช็คสิทธิ์ของตัวเอง) */}
         <Route path="/hr/dashboard" element={<RequirePermission anyOf={HR_HUB_PERMS}><HRDashboard /></RequirePermission>} />
-        <Route path="/hr/kpi" element={guard("hr.kpi.evaluations.view", <HRKpiPage />)} />
+        <Route path="/hr/kpi" element={<RequirePermission anyOf={["hr.kpi.evaluations.view", "hr.kpi.monthlyForm", "hr.kpi.score.branchHead"]}><HRKpiPage /></RequirePermission>} />
         <Route path="/hr/issues" element={guard("hr.issues.list", <HRIssueReports />)} />
         <Route path="/hr/personnel/:id" element={guard("hr.employees.view", <HRPersonnelDetail />)} />
         <Route path="/hr/salary-tier" element={guard("hr.salaryLadder.view", <HRSalaryTier />)} />

@@ -12,8 +12,8 @@
 //   ≤ 5 MB per file · ≤ 5 files per record · unattached files expire after 24 h
 // Errors are `{detail: "<Thai message>"}` → thrown Error.message = detail, .status = HTTP code.
 // ─────────────────────────────────────────────────────────────────────────────
-import { apiAuth, apiDownload, apiUrl } from "./api"
-import { getToken, logout } from "./auth"
+import { apiAuth, apiDownload, apiUrl, expireSession } from "./api"
+import { getToken } from "./auth"
 
 export const FILE_MAX_BYTES = 5 * 1024 * 1024
 export const FILE_MAX_COUNT = 5
@@ -83,9 +83,7 @@ export function uploadFile(file, { onProgress, signal } = {}) {
       err.data = data
       if (xhr.status === 401 && token) {
         // same behaviour as apiAuth: clear the session and go to login
-        logout()
-        localStorage.setItem("session_expired", "1")
-        window.location.hash = "#/login"
+        expireSession()
       }
       reject(err)
     }

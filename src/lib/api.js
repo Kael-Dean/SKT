@@ -124,6 +124,14 @@ function _expireSession() {
   window.location.hash = "#/login";
 }
 
+/**
+ * 401 จากช่องทางที่ไม่ผ่าน apiAuth/apiDownload (เช่น XHR upload ใน lib/files.js) —
+ * ล้าง session + เด้งไป login แบบเดียวกัน (กันซ้ำเมื่อหลายคำขอ 401 พร้อมกัน)
+ */
+export function expireSession() {
+  if (!_redirecting401) _expireSession();
+}
+
 export async function apiAuth(path, opts = {}) {
   const token = getToken();
   const { redirectOn401 = true, ...rest } = opts;

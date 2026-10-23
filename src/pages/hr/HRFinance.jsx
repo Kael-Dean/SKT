@@ -5,6 +5,7 @@ import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../components/ui"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import PageTitle from "../../components/PageTitle"
+import { getTenure, tenureText } from "../../lib/tenure"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -113,7 +114,12 @@ export default function HRFinance() {
                       {fin.current_loan != null ? fmt(fin.current_loan) : "—"}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden md:table-cell">
-                      {fin.job_age != null ? `${fin.job_age} ปี` : "—"}
+                      {/* 3G: อายุงานระดับวันมาจาก tenure — GET /hr/personnel (รายการ) ยังไม่ส่ง จึงสำรองด้วยค่าเดิมที่ HR บันทึก */}
+                      {getTenure(e)
+                        ? tenureText(e)
+                        : fin.job_age != null
+                          ? <span title="ค่าที่ฝ่ายบุคคลบันทึกเอง (ปีเต็ม) — อายุงานแบบละเอียดดูในโปรไฟล์เจ้าหน้าที่">{fin.job_age} ปี<span aria-hidden="true">*</span><span className="sr-only"> (ค่าที่บันทึกเอง)</span></span>
+                          : "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button

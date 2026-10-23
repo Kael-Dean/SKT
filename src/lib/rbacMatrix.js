@@ -73,7 +73,9 @@ export const PERMISSION_MATRIX = Object.freeze({
   "self.salary_cert": { no: 17, roles: ALL },
   "self.kpi": { no: 18, roles: ALL },
   "self.ooo": { no: 19, roles: ALL },
-  "hr.dashboard": { no: 20, roles: [] },
+  // matrix #20 ว่างใน AMC xlsx — backend ngod5-dashboard-3h (Vivid 2026-10-23) เปิดให้ ผู้จัดการ / หัวหน้าแผนกบุคคล / เจ้าหน้าที่บุคคล
+  // (+ Super Admin) — fallback เท่านั้น, /auth/me/permissions คือความจริง. regenerate จาก rbac_matrix.py แล้วต้องคงค่านี้
+  "hr.dashboard": { no: 20, roles: [101, 117, 130] },
   "hr.employee.list": { no: 21, roles: [101, 102, 103, 106, 117, 130] },
   "hr.employee.view": { no: 22, roles: [101, 102, 103, 106, 117, 130] },
   "hr.employee.export": { no: 23, roles: [117, 130] },

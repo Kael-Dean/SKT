@@ -22,6 +22,8 @@ import { TerminationSheet } from "../../components/hr/TerminationForm"
 import PersonnelDependantsTab from "./tabs/PersonnelDependantsTab"
 import PersonnelDisciplineTab from "./tabs/PersonnelDisciplineTab"
 import PersonnelPayBasisTab from "./tabs/PersonnelPayBasisTab"
+import PersonnelActivitiesTab from "./tabs/PersonnelActivitiesTab"
+import { getTenure, tenureText } from "../../lib/tenure"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -305,6 +307,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
           <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} />
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
+          <InfoRow label="อายุงาน" value={getTenure(data) ? tenureText(data) : null} />
           <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
         </div>
       )}
@@ -331,7 +334,6 @@ export default function HRPersonnelDetail() {
           <PersonnelPayBasisTab employeeId={id} financial={fin} />
           <InfoRow label="เงินเดือนปัจจุบัน" value={fmt(fin.current_salary)} />
           <InfoRow label="เงินกู้คงเหลือ" value={fmt(fin.current_loan)} />
-          <InfoRow label="อายุงาน" value={fin.job_age != null ? `${fin.job_age} ปี` : null} />
           <InfoRow label="ประกันสังคม" value={fmt(fin.current_ss)} />
           <InfoRow label="กองทุนสำรอง" value={fmt(fin.current_prov)} />
           {fin.current_reserve !== undefined && (
@@ -478,6 +480,11 @@ export default function HRPersonnelDetail() {
       {/* ประวัติการตักเตือน (3Q) — WP3 */}
       <Can perm="hr.discipline.view">
         <PersonnelDisciplineTab employeeId={id} employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
+      </Can>
+
+      {/* ประวัติกิจกรรม — ประชุม / สัมมนา / ฝึกอบรม / สอบ (3G · PR 45) */}
+      <Can perm="hr.employee.activities.view">
+        <PersonnelActivitiesTab employeeId={id} employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
       </Can>
 
       <RelocationPanel userId={id} />

@@ -14,6 +14,7 @@ import { can } from "../../../lib/permissions"
 import { baseField, cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import Portal from "../../../components/Portal"
+import ReportPdfButton from "../../../components/ReportPdfButton"
 import RelocationTransferModal from "../../../components/hr/RelocationTransferModal"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
@@ -309,6 +310,15 @@ export default function HRRelocationTab() {
                     </div>
                   )}
                 </div>
+                {can("hr.relocation.list") && (
+                  <div className="mt-3 flex justify-end border-t border-gray-100 pt-3 dark:border-gray-700/60">
+                    <ReportPdfButton
+                      label="พิมพ์แบบฟอร์มขอย้าย (PDF)"
+                      getPath={() => `/hr/relocation-requests/${encodeURIComponent(r.id)}/form-pdf`}
+                      fallbackName={`relocation_form_${r.id}.pdf`}
+                    />
+                  </div>
+                )}
               </div>
             )
           })}

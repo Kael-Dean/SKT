@@ -1,5 +1,5 @@
 // src/pages/hr/tabs/HRKpiTab.jsx
-// KPI v1.4.0 + งวด 4 3L rework — ประเมิน · สรุปผล · ผช.ผจก. ตรวจสอบ · ผจก. อนุมัติ · ผลประกอบการ ·
+// KPI v1.4.0 + งวด 4 3L rework — ประเมิน · สรุปผล · ผช.ผจก. ตรวจสอบ · ผจก. อนุมัติ · ผลงานสาขา · ผลประกอบการ ·
 // แบบประเมินรายเดือน (12 รายการ × 12 เดือน). The catalogue (GET /hr/kpi/form-items) is loaded once
 // here and handed to every panel so maximums/grades never get hard-coded. Sub-tab in &sub=, fiscal year in &fy= (both replace).
 // Only the sub-tabs the current role can use are shown (getRoleId → getKpiPerms).
@@ -14,6 +14,7 @@ import FinalizePanel from "../../../components/hr/kpi/FinalizePanel"
 import AsstReviewPanel from "../../../components/hr/kpi/AsstReviewPanel"
 import ManagerApprovePanel from "../../../components/hr/kpi/ManagerApprovePanel"
 import ProfitResultPanel from "../../../components/hr/kpi/ProfitResultPanel"
+import BranchKpiPanel from "../../../components/hr/kpi/BranchKpiPanel"
 import MonthlyFormGrid from "../../../components/hr/kpi/MonthlyFormGrid"
 import { useFiscalYearInfo, useFormItems, useKpiPeople } from "../../../components/hr/kpi/useKpi"
 import { currentFiscalYear, getKpiPerms, num, windowPhase } from "../../../components/hr/kpi/kpiUtils"
@@ -48,6 +49,7 @@ export default function HRKpiTab() {
       { value: "finalize", label: "สรุปผล", show: perms.finalize },
       { value: "asst", label: "ผช.ผจก. ตรวจสอบ", show: perms.asstReview, count: num(counts.finalized) || null },
       { value: "approve", label: "ผจก. อนุมัติ", show: perms.managerApprove, count: num(counts.asst_reviewed) || null },
+      { value: "branch", label: "ผลงานสาขา", show: perms.branch },
       { value: "profit", label: "ผลประกอบการ", show: perms.profit },
       { value: "monthly", label: "แบบประเมินรายเดือน", show: perms.monthlyForm || perms.monthly || perms.viewList },
     ]
@@ -79,6 +81,7 @@ export default function HRKpiTab() {
         {sub === "finalize" && <FinalizePanel key={fy} {...shared} />}
         {sub === "asst" && <AsstReviewPanel key={fy} {...shared} />}
         {sub === "approve" && <ManagerApprovePanel key={fy} {...shared} />}
+        {sub === "branch" && <BranchKpiPanel key={fy} {...shared} />}
         {sub === "profit" && <ProfitResultPanel key={fy} {...shared} />}
         {sub === "monthly" && <MonthlyFormGrid {...shared} />}
       </div>

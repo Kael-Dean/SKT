@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
+import SelectDropdown from "../../../components/SelectDropdown"
+import BranchLockNote from "../../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 
 const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"]
 
@@ -44,13 +47,29 @@ export default function HRResignedRetiredTab() {
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfErr,     setPdfErr]     = useState("")
 
+  // ตัวกรองสาขา (ไม่บังคับ) — scope "own_branch" ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+  const [branchId, setBranchId] = useState(branchLock.activeKey)
+  const [branches, setBranches] = useState([])
+  useEffect(() => {
+    if (branchLock.locked) setBranchId(branchLock.activeKey)
+  }, [branchLock.locked, branchLock.activeKey])
+  useEffect(() => {
+    apiAuth("/order/branch/search")
+      .then((data) => setBranches((Array.isArray(data) ? data : []).map((b) => ({ value: String(b.id), label: b.branch_name }))))
+      .catch(() => {})
+  }, [])
+
+  // query เดียวกันทั้ง JSON / PDF / Excel
   const buildQs = useCallback(() => {
     const p = new URLSearchParams()
     if (exitType) p.set("exit_type", exitType)
+    const b = scopedBranchId(branchId)
+    if (b) p.set("branch_id", b)
     if (fromDate) p.set("from_date", fromDate)
     if (toDate)   p.set("to_date", toDate)
     return p.toString()
-  }, [exitType, fromDate, toDate])
+  }, [exitType, branchId, fromDate, toDate])
 
   const fetchRows = useCallback(() => {
     setLoading(true)
@@ -83,9 +102,10 @@ export default function HRResignedRetiredTab() {
     }
   }
 
-  const hasFilters = !!(exitType || fromDate || toDate)
+  const hasFilters = !!(exitType || fromDate || toDate || (branchId && !branchLock.locked))
   const clearFilters = () => {
     setExitType("")
+    setBranchId(branchLock.activeKey)
     setFromDate("")
     setToDate("")
   }
@@ -94,17 +114,29 @@ export default function HRResignedRetiredTab() {
     <div className="space-y-4">
       {/* Filter bar */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ประเภทการออก</label>
-          <select
+        <div className="w-full sm:w-44">
+          <label htmlFor="resigned-exit-type" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ประเภทการออก</label>
+          <SelectDropdown
+            id="resigned-exit-type"
+            size="sm"
+            options={EXIT_TYPE_OPTIONS}
             value={exitType}
-            onChange={(e) => setExitType(e.target.value)}
-            className="w-36 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
-          >
-            {EXIT_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+            onChange={setExitType}
+            placeholder="ทั้งหมด"
+          />
+        </div>
+        <div className="w-full sm:w-52">
+          <label htmlFor="resigned-branch" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">สาขา</label>
+          <SelectDropdown
+            id="resigned-branch"
+            size="sm"
+            options={[{ value: "", label: "ทุกสาขา" }, ...branches]}
+            value={branchId}
+            onChange={setBranchId}
+            placeholder="ทุกสาขา"
+            disabled={branchLock.locked}
+          />
+          {branchLock.locked && <BranchLockNote className="mt-1" />}
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ตั้งแต่วันที่</label>

@@ -27,6 +27,17 @@
 - `.vercelignore` อัปเฉพาะ `src/ public/ index.html package*.json vite.config.js eslint.config.js vercel.json` — ห้ามเพิ่ม `Brief/` `handoff/` `.env*` `.claude/`
 - **ทุกครั้งหลัง commit + push เข้า `dev`** Vercel deploy ให้เอง → ดูว่า deployment ล่าสุดขึ้น READY แล้วแจ้งผู้ใช้ว่าอัปเดตที่ https://skt-dev.vercel.app แล้ว
 
+## ทดสอบบน staging ด้วย Claude in Chrome (อนุญาตแล้ว ไม่ต้องถาม)
+
+หลัง deploy READY ใช้ Claude in Chrome เปิด https://skt-dev.vercel.app ทดสอบหน้าที่แก้ได้ทันที — Chrome ของผู้ใช้
+login staging ไว้แล้ว (Browser pane ในแอปไม่จำ session ใช้ไม่ได้)
+- เช็ค API บน staging ด้วย `fetch('/api-proxy/...', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })`
+  ใน javascript_tool — ดู response shape / ว่า backend deploy field ใหม่แล้วหรือยัง ก่อนแก้ FE
+- ข้อมูลทดสอบ: ใช้ **สาขาทดสอบ 1–4 / แผนกโรงสีทดสอบ** และ account ตัวเอง (mmt, user id 1) — ห้ามแก้ข้อมูลพนักงานจริง
+- สิ่งที่สร้างเพื่อทดสอบ (กิจกรรม ไฟล์แนบ ฯลฯ) ลบคืนเมื่อทำได้ · สิ่งที่ย้อนไม่ได้ (อนุมัติ, บันทึก KPI) แจ้งผู้ใช้ในสรุปทุกครั้ง
+- ห้ามแตะ production (`api.amcsurin.com` / `amcsurin.com`) ผ่าน Chrome — ดูอย่างเดียว
+- account ที่ login อยู่เป็น Super Admin role เดียว — flow ที่ต้องสลับ role (หัวหน้าให้ความเห็น ฯลฯ) ให้แจ้งผู้ใช้ว่ายังทดสอบไม่ได้
+
 ## โฟลเดอร์ `dev/` (track ใน branch `dev` เท่านั้น)
 
 - เก็บสำเนาไฟล์ตั้งค่าของ dev: `env.local.example`, `env.development.local.example`, `vercelignore`, `CLAUDE.local.md` + `README.md` (วิธีตั้งเครื่องใหม่)

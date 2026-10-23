@@ -42,6 +42,7 @@ export const NOTIFICATION_REF_LABEL = {
   discipline_action: "การลงโทษทางวินัย",
   kpi_fiscal_year: "ประเมิน KPI",
   kpi_evaluation: "ผลประเมิน KPI",
+  salary_cert: "หนังสือรับรองเงินเดือน",
 }
 
 /** Deep link used by notifications → Inbox detail. */
@@ -61,6 +62,8 @@ const hrTab = (tab, refId) =>
  *   discipline_action  action (HR ขั้น 7/8) → HR แท็บ discipline · info (ผู้ถูกลงโทษ) → /my-discipline?view=history
  *   kpi_fiscal_year    → HR แท็บ kpi
  *   kpi_evaluation     action (reopen) → HR แท็บ kpi       · info (ผลอนุมัติ) → /my-kpi
+ *   salary_cert        info (ผลอนุมัติ) → /my-salary-cert · can(hr.salaryCert.decide) → HR แท็บ salary-cert
+ *                      · action อื่น (หัวหน้าให้ความเห็น) → /inbox
  */
 export function notificationLink(n) {
   const refType = n?.ref_type
@@ -83,6 +86,12 @@ export function notificationLink(n) {
       return hrTab("kpi")
     case "kpi_evaluation":
       return isAction ? hrTab("kpi", refId) : "/my-kpi"
+    case "salary_cert":
+      // ผู้จัดการ/HR → แท็บพิจารณา · แจ้งผล (info) → ผู้ยื่น · ต้องให้ความเห็น (หัวหน้า) → กล่องงาน
+      // (แจ้งผลอนุมัติ/ไม่อนุมัติส่งถึงผู้ยื่นเท่านั้น → info ไปหน้าของฉันก่อน แม้ผู้ยื่นจะเป็น HR)
+      if (n?.kind === "info") return "/my-salary-cert"
+      if (can("hr.salaryCert.decide")) return hrTab("salary-cert", refId)
+      return "/inbox"
     default:
       return "/inbox"
   }

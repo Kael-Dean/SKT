@@ -4,16 +4,16 @@
 //
 //   POST /personnel/me/salary-cert-requests   { copies_count, purpose_type, ...ช่องตามวัตถุประสงค์ }
 //        purpose_type ∈ document | loan_self | loan_guarantee (ค่าอื่น → 422) → 201 { status, id }
-//   GET  /personnel/me/salary-cert-requests   ประวัติของฉัน (status pending|approved|denied, supervisor_comment)
+//   GET  /personnel/me/salary-cert-requests   ประวัติของฉัน — status pending_supervisor | pending_manager |
+//        approved | denied + supervisor_opinion/comment/at (ความเห็นหัวหน้า), manager_comment, approved_at
+//   GET  /personnel/me/salary-cert-requests/{id}/certificate-pdf   หนังสือของฉัน (เฉพาะ approved; อื่น ๆ 400)
 //
-// ฝั่ง HR (อนุมัติ/ปฏิเสธ/พิมพ์ PDF) อยู่ที่ HRSalaryCertTab — ตัวหนังสือรับรองออกจาก HR เท่านั้น
-// (backend ไม่มี endpoint ให้พนักงานดาวน์โหลดเอง) → อนุมัติแล้วบอกให้รับที่ฝ่ายบุคคล; ผู้ที่มีสิทธิ์
-// hr.salaryCert.print (HR/ผู้จัดการ) ดาวน์โหลดหนังสือของตัวเองได้จากรายการนี้เลย
+// ขั้นตอน (PR 44): ผู้บังคับบัญชาให้ความเห็น → ผู้จัดการอนุมัติ — ป้าย/สีสถานะอยู่ที่ src/lib/salaryCert.js
+// ฝั่งผู้จัดการ/HR อยู่ที่ HRSalaryCertTab · ฝั่งหัวหน้าอยู่ในกล่องงาน (SalaryCertSupervisorQueue)
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useId, useState } from "react"
-import { apiAuth, apiDownload } from "../../lib/api"
+import { apiAuth } from "../../lib/api"
 import { apiDetail } from "../../lib/apiErrors"
-import { useCan } from "../../lib/permissions"
 import { money, thaiDate } from "../../lib/loans"
 import {
   cx, baseField, cardCls, labelCls, helpTextCls, errorTextCls, primaryBtnCls, neutralBtnCls, focusRingCls,
@@ -21,6 +21,11 @@ import {
 import { Badge, EmptyState, ErrorState, Skeleton, toast } from "../../components/ui"
 import PageTitle from "../../components/PageTitle"
 import FormApplicantHeader from "../../components/FormApplicantHeader"
+import { SalaryCertProgress, SupervisorOpinionNote } from "../../components/hr/SalaryCertParts"
+import {
+  SALARY_CERT_STATUS as S, downloadSalaryCertPdf, isSalaryCertPending, salaryCertStatusLabel, salaryCertStatusTone,
+} from "../../lib/salaryCert"
+import { fmtDateTimeTh } from "../../lib/approvalActions"
 
 const MAX_COPIES = 10
 
@@ -30,9 +35,6 @@ const PURPOSE_OPTIONS = Object.freeze([
   { value: "loan_guarantee", label: "เพื่อค้ำประกันเงินกู้",   hint: "ค้ำประกันเงินกู้ให้ผู้อื่น" },
 ])
 const PURPOSE_LABEL = Object.fromEntries(PURPOSE_OPTIONS.map((o) => [o.value, o.label]))
-
-const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ไม่อนุมัติ" }
-const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
 
 const fieldCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const errBorder = "!border-red-500 dark:!border-red-400"
@@ -89,10 +91,12 @@ function RequestDetail({ r }) {
   )
 }
 
-function HistoryItem({ r, canPrint, downloading, onDownload, highlight }) {
+function HistoryItem({ r, downloading, onDownload, highlight }) {
   const status = r.status
+  const approved = status === S.APPROVED
+  const denied = status === S.DENIED
   return (
-    <li className={cx("space-y-2 py-3.5 transition-colors duration-300 first:pt-0 last:pb-0", highlight && "-mx-2 rounded-lg bg-emerald-50/70 px-2 dark:bg-emerald-500/5")}>
+    <li className={cx("space-y-2.5 py-3.5 transition-colors duration-300 first:pt-0 last:pb-0", highlight && "-mx-2 rounded-lg bg-emerald-50/70 px-2 dark:bg-emerald-500/5")}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
           <p className="font-semibold text-gray-900 dark:text-gray-100">
@@ -102,41 +106,46 @@ function HistoryItem({ r, canPrint, downloading, onDownload, highlight }) {
             ยื่น {thaiDate(r.requested_at || r.created_at, { long: true })} · {r.copies_count ?? 1} ฉบับ · #{r.id}
           </p>
         </div>
-        <Badge tone={STATUS_TONE[status] ?? "neutral"}>{STATUS_LABEL[status] ?? status ?? "—"}</Badge>
+        <Badge tone={salaryCertStatusTone(status)}>{salaryCertStatusLabel(status)}</Badge>
       </div>
 
       <RequestDetail r={r} />
 
-      {r.supervisor_comment && (
+      <SalaryCertProgress r={r} />
+
+      {/* ความเห็นหัวหน้า — แสดงเมื่อมีแล้วเท่านั้น (ขั้นรอยังเห็นจากตัวบอกขั้นตอนด้านบน) */}
+      <SupervisorOpinionNote r={r} showName={false} emptyText={null} />
+
+      {(r.manager_comment || (denied && r.supervisor_comment && !r.supervisor_opinion)) && (
         <p className={cx(
-          "rounded-lg px-3 py-1.5 text-sm break-words",
-          status === "denied"
+          "rounded-lg px-3 py-2 text-sm break-words",
+          denied
             ? "bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-200"
             : "bg-gray-50 text-gray-700 dark:bg-white/[.04] dark:text-gray-300",
         )}>
-          {status === "denied" ? "เหตุผลที่ไม่อนุมัติ" : "ความเห็นฝ่ายบุคคล"}: {r.supervisor_comment}
+          <span className="font-medium">{denied ? "เหตุผลที่ไม่อนุมัติ" : "ความเห็นผู้จัดการ"}:</span>{" "}
+          {/* แถวเก่าก่อน PR 44 เก็บความเห็นผู้อนุมัติไว้ใน supervisor_comment */}
+          {r.manager_comment || r.supervisor_comment}
         </p>
       )}
 
-      {status === "approved" && (
+      {approved && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-emerald-700 dark:text-emerald-300">
-            หนังสือพร้อมแล้ว รับฉบับจริงที่ฝ่ายบุคคล
+            อนุมัติแล้ว{r.approved_at && <span className="tabular-nums"> {fmtDateTimeTh(r.approved_at)}</span>} · ดาวน์โหลดได้ หรือรับฉบับจริงที่ฝ่ายบุคคล
           </p>
-          {canPrint && (
-            <button
-              type="button"
-              onClick={() => onDownload(r.id)}
-              disabled={downloading}
-              className={cx(neutralBtnCls, "md:!h-9 !px-3 !text-sm")}
-              aria-label={`ดาวน์โหลดหนังสือรับรองเงินเดือน คำขอ #${r.id}`}
-            >
-              {downloading ? "กำลังดาวน์โหลด…" : "ดาวน์โหลด PDF"}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => onDownload(r.id)}
+            disabled={downloading}
+            className={cx(neutralBtnCls, "md:!h-9 !px-3 !text-sm")}
+            aria-label={`ดาวน์โหลดหนังสือรับรองเงินเดือน คำขอ #${r.id}`}
+          >
+            {downloading ? "กำลังดาวน์โหลด…" : "ดาวน์โหลดหนังสือรับรอง"}
+          </button>
         </div>
       )}
-      {status === "denied" && (
+      {denied && (
         <p className="text-xs text-gray-500 dark:text-gray-400">แก้ตามเหตุผลแล้วยื่นคำขอใหม่ได้</p>
       )}
     </li>
@@ -147,8 +156,6 @@ function HistoryItem({ r, canPrint, downloading, onDownload, highlight }) {
 
 export default function MySalaryCert() {
   const uid = useId()
-  const { can } = useCan()
-  const canPrint = can("hr.salaryCert.print")
 
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState({})
@@ -225,7 +232,11 @@ export default function MySalaryCert() {
     setSubmitting(true)
     try {
       const res = await apiAuth("/personnel/me/salary-cert-requests", { method: "POST", body: buildBody() })
-      toast.success("ยื่นคำขอแล้ว", { description: "ฝ่ายบุคคลจะพิจารณาและแจ้งผลในรายการคำขอของฉัน" })
+      toast.success("ยื่นคำขอแล้ว", {
+        description: res?.request_status === S.PENDING_SUPERVISOR
+          ? "ส่งให้ผู้บังคับบัญชาให้ความเห็น แล้วผู้จัดการจะพิจารณา"
+          : "ส่งให้ผู้จัดการพิจารณาแล้ว ติดตามผลได้ในรายการคำขอของฉัน",
+      })
       setForm(EMPTY_FORM)
       setErrors({})
       setHighlightId(res?.id ?? null)
@@ -240,13 +251,7 @@ export default function MySalaryCert() {
   const downloadPdf = async (id) => {
     setDownloadingId(id)
     try {
-      const { blob, filename } = await apiDownload(`/hr/salary-cert-requests/${id}/certificate-pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `salary_cert_${id}.pdf`
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      await downloadSalaryCertPdf(`/personnel/me/salary-cert-requests/${id}/certificate-pdf`, `salary_cert_${id}.pdf`)
     } catch (e) {
       toast.error("ดาวน์โหลดไม่สำเร็จ", { description: apiDetail(e) || e?.message })
     } finally {
@@ -278,7 +283,7 @@ export default function MySalaryCert() {
     </div>
   )
 
-  const pendingCount = items.filter((r) => r.status === "pending").length
+  const pendingCount = items.filter((r) => isSalaryCertPending(r.status)).length
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-12">
@@ -373,7 +378,7 @@ export default function MySalaryCert() {
               คำขอของฉัน
               {!loading && !listError && (
                 <span className="ml-2 text-sm font-normal tabular-nums text-gray-500 dark:text-gray-400">
-                  {items.length} รายการ{pendingCount > 0 && ` · รออนุมัติ ${pendingCount}`}
+                  {items.length} รายการ{pendingCount > 0 && ` · รอพิจารณา ${pendingCount}`}
                 </span>
               )}
             </h2>
@@ -395,13 +400,13 @@ export default function MySalaryCert() {
           ) : !listError && items.length === 0 ? (
             <EmptyState
               title="ยังไม่เคยขอหนังสือรับรองเงินเดือน"
-              description="คำขอที่ยื่นแล้วจะแสดงที่นี่ พร้อมสถานะการพิจารณาของฝ่ายบุคคล"
+              description="คำขอที่ยื่นแล้วจะแสดงที่นี่ พร้อมขั้นตอนการพิจารณา"
             />
           ) : (
             <ul className="divide-y divide-gray-100 dark:divide-line">
               {items.map((r) => (
                 <HistoryItem key={r.id} r={r} highlight={highlightId != null && highlightId === r.id}
-                  canPrint={canPrint} downloading={downloadingId === r.id} onDownload={downloadPdf} />
+                  downloading={downloadingId === r.id} onDownload={downloadPdf} />
               ))}
             </ul>
           )}

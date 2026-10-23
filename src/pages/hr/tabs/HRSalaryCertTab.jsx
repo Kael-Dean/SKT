@@ -25,6 +25,12 @@ function fmtDate(d) {
   try { return new Date(d).toLocaleDateString("th-TH") } catch { return d }
 }
 
+// Backend sends approved_by as a user id (no name field yet) — only show it when it's a name.
+function approverName(r) {
+  const v = r.approved_by_name ?? r.approved_by
+  return typeof v === "string" && !/^\d+$/.test(v.trim()) ? v : null
+}
+
 const smBtn = "!h-11 md:!h-9 !px-3 !text-xs"
 
 // ─── ผู้จัดการตัดสิน (เห็นความเห็นหัวหน้าก่อน) ────────────────────────────────
@@ -135,7 +141,7 @@ function RequestCard({ r, canDecide, canPrint, pdfLoading, onDecide, onPdf }) {
           {/* ผู้จัดการต้องเห็นความเห็นหัวหน้าก่อนตัดสิน — แถวที่ตัดสินแล้วแสดงเมื่อมีเท่านั้น */}
           <SupervisorOpinionNote r={r} emptyText={pending ? undefined : null} />
 
-          {decided && (r.manager_comment || r.approved_by || r.approved_at) && (
+          {decided && (r.manager_comment || approverName(r) || r.approved_at) && (
             <div className={cx(
               "rounded-lg px-3 py-2 text-sm",
               r.status === S.DENIED
@@ -143,8 +149,12 @@ function RequestCard({ r, canDecide, canPrint, pdfLoading, onDecide, onPdf }) {
                 : "bg-indigo-50 text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-100",
             )}>
               <p className="flex flex-wrap items-baseline gap-x-2">
-                <span className="font-medium">{r.status === S.DENIED ? "ไม่อนุมัติโดย" : "อนุมัติโดย"}</span>
-                <span>{r.approved_by || "—"}</span>
+                <span className="font-medium">
+                  {approverName(r)
+                    ? (r.status === S.DENIED ? "ไม่อนุมัติโดย" : "อนุมัติโดย")
+                    : (r.status === S.DENIED ? "ไม่อนุมัติเมื่อ" : "อนุมัติเมื่อ")}
+                </span>
+                {approverName(r) && <span>{approverName(r)}</span>}
                 {r.approved_at && <span className="text-xs tabular-nums text-gray-600 dark:text-gray-400">{fmtDateTimeTh(r.approved_at)}</span>}
               </p>
               {r.manager_comment && <p className="break-words">ความเห็น: {r.manager_comment}</p>}

@@ -30,7 +30,11 @@ function Meta({ icon, label, children }) {
 }
 
 function ActivityRow({ a, actions }) {
-  const range = activityDateRange(a)
+  // Keep each date on one line; only break at the dash.
+  const range = activityDateRange(a).split(" – ").flatMap((d, i) => [
+    i > 0 ? " – " : null,
+    <span key={i} className="whitespace-nowrap">{d}</span>,
+  ])
   const hours = hoursText(a.hours)
   const files = Array.isArray(a.attachments) ? a.attachments : []
   const action = actions?.(a)

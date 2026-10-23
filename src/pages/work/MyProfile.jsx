@@ -19,6 +19,10 @@ import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
+import { getTenure, tenureText } from "../../lib/tenure"
+import ActivityList from "../../components/hr/ActivityList"
+import { fetchMyActivities } from "../../lib/activities"
+import { apiDetail } from "../../lib/apiErrors"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -66,6 +70,40 @@ function InfoRow({ label, value, mono }) {
       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44 shrink-0">{label}</span>
       <span className={`text-sm text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-0 ${mono ? "font-mono tabular-nums" : ""}`}>{value}</span>
     </div>
+  )
+}
+
+/** ประวัติกิจกรรมของฉัน (3G · PR 45) — GET /personnel/me/activities · อ่านอย่างเดียว, HR เป็นผู้บันทึก */
+function MyActivitiesSection() {
+  const [state, setState] = useState({ loading: true, error: "", items: [] })
+  const [reload, setReload] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    setState((s) => ({ ...s, loading: true, error: "" }))
+    fetchMyActivities()
+      .then((items) => { if (alive) setState({ loading: false, error: "", items }) })
+      .catch((e) => { if (alive) setState({ loading: false, error: apiDetail(e) || "โหลดประวัติกิจกรรมไม่สำเร็จ", items: [] }) })
+    return () => { alive = false }
+  }, [reload])
+
+  return (
+    <section aria-labelledby="my-activities-h" aria-busy={state.loading || undefined}
+      className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
+      <h2 id="my-activities-h" className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide mb-3 pb-1 border-b border-indigo-100 dark:border-indigo-900/40">
+        ประวัติกิจกรรม{!state.loading && state.items.length > 0 && (
+          <span className="ml-2 font-normal normal-case tracking-normal tabular-nums text-gray-500 dark:text-gray-400">{state.items.length} รายการ</span>
+        )}
+      </h2>
+      <ActivityList
+        items={state.items}
+        loading={state.loading}
+        error={state.error}
+        onRetry={() => setReload((n) => n + 1)}
+        emptyTitle="ยังไม่มีประวัติกิจกรรม"
+        emptyDescription="การประชุม สัมมนา ฝึกอบรม และการสอบที่ฝ่ายบุคคลบันทึกให้จะแสดงที่นี่ พร้อมใบประกาศ"
+      />
+    </section>
   )
 }
 
@@ -321,6 +359,7 @@ export default function MyProfile() {
       <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
         <SectionTitle>ข้อมูลส่วนบุคคล</SectionTitle>
         <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
+        <InfoRow label="อายุงาน" value={getTenure(profile) ? tenureText(profile) : null} />
         <InfoRow label="เลขบัตรประชาชน" value={pi.cid ? maskCID(pi.cid) : null} mono />
         <InfoRow label="วันเกิด" value={fmtDate(pi.birthday)} />
         <InfoRow label="อายุ" value={pi.age != null ? `${pi.age} ปี` : null} />
@@ -405,13 +444,15 @@ export default function MyProfile() {
         )}
       </div>
 
+      {/* ประวัติกิจกรรม — ประชุม / สัมมนา / ฝึกอบรม / สอบ (3G) */}
+      {can("self.history.view") && <MyActivitiesSection />}
+
       {/* ข้อมูลการเงิน */}
       {financial && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
           <SectionTitle>ข้อมูลทางการเงิน</SectionTitle>
           {/* รายการหักทั้งหมด / สลิป / ประวัติเลื่อนขั้น อยู่ที่ /my-financial ที่เดียว — ที่นี่แสดงแค่สรุป */}
           <InfoRow label="เงินเดือนปัจจุบัน" value={fmtMoney(fin.current_salary)} />
-          <InfoRow label="อายุงาน" value={fin.job_age != null ? `${fin.job_age} ปี` : null} />
           {can("self.payroll.view") && (
             <Link
               to="/my-financial"

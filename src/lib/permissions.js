@@ -75,7 +75,7 @@ export const PERMISSIONS = Object.freeze({
   "account.login": { no: 1, module: "Account", label: "เข้าสู่ระบบ / ออกจากระบบ", en: "Log in / out", roles: "public" },
   "account.password.change": { no: 2, module: "Account", label: "เปลี่ยนรหัสผ่านของตนเอง", en: "Change own password", roles: "any" },
   "account.password.reset": { no: 3, module: "Account", label: "ขอรีเซ็ตรหัสผ่านผ่าน LINE", en: "Request password reset via LINE", roles: "public" },
-  "account.branch.switch": { code: "login", no: 4, module: "Account", label: "สลับสาขาที่ทำงาน", en: "Switch active branch", roles: "any" },
+  "account.branch.switch": { code: "account.switch_branch", no: 4, module: "Account", label: "สลับสาขาที่ทำงาน", en: "Switch active branch", roles: "any", note: "POST /auth/switch-branch — account.switch_branch (Super Admin ผ่านเสมอ)" },
   "account.notifications": { no: 5, module: "Account", label: "ดูการแจ้งเตือนของตนเอง", en: "View own notifications", roles: "any" },
 
   // ── Employee self-service ──
@@ -112,6 +112,9 @@ export const PERMISSIONS = Object.freeze({
   "hr.employees.deactivate": { no: 28, module: "HR: Employee records", label: "ระงับ / เปิดใช้งานบัญชีพนักงาน", en: "Deactivate / reactivate employee", roles: [1, 3] },
   "hr.employees.terminate": { no: 29, module: "HR: Employee records", label: "บันทึกการพ้นสภาพ + ใบสรุปการพ้นสภาพ", en: "Terminate employee + settlement record", roles: [1, 3] },
   "hr.employees.resetPassword": { no: 30, module: "HR: Employee records", label: "รีเซ็ตรหัสผ่านให้พนักงาน / ส่งข้อมูลเข้าระบบอีกครั้ง", en: "Reset password / resend credentials for staff", roles: [1, 3] },
+  // 3G (PR 45) — ประวัติกิจกรรม (ประชุม / สัมมนา / ฝึกอบรม / สอบ) บนหน้าพนักงาน
+  "hr.employee.activities.view": { code: "hr.employee.view", no: 22, module: "HR: Employee records", label: "ดูประวัติกิจกรรมของพนักงาน (ประชุม / สัมมนา / ฝึกอบรม / สอบ)", en: "View employee activity history", roles: [1, 3], variant: true, note: "GET /hr/employees/{id}/activities" },
+  "hr.employee.activities.edit": { code: "hr.employee.edit_personal", no: 25, module: "HR: Employee records", label: "เพิ่ม / แก้ไข / ลบ ประวัติกิจกรรม + ใบประกาศ", en: "Add / edit / delete employee activities", roles: [1, 3], variant: true, note: "POST/PATCH/DELETE /hr/employees/{id}/activities" },
   "hr.employees.branchAssign": { no: 31, module: "HR: Employee records", label: "กำหนดสาขาเพิ่มเติมให้พนักงาน (ดู / เพิ่ม / ถอน)", en: "Assign extra branches to employee", roles: [1] },
 
   // ── HR: Leave ──
@@ -216,9 +219,9 @@ export const PERMISSIONS = Object.freeze({
   "hr.loans.fundLedger": { code: "report.hr.loans_active", no: 115, module: "HR: Staff loans", label: "ทะเบียนคุมเงินกองทุนฯ (PDF)", en: "Loan fund ledger PDF", roles: [1, 2, 7], variant: true, note: "GET /hr/reports/loans/fund-ledger?fiscal_year=พ.ศ. — 101, 102" },
 
   // ── HR: Salary certificates ──
-  "hr.salaryCert.list": { no: 94, module: "HR: Salary certificates", label: "ดูคำขอหนังสือรับรองเงินเดือน", en: "View salary-cert requests", roles: [1, 3] },
-  "hr.salaryCert.decide": { no: 95, module: "HR: Salary certificates", label: "อนุมัติ / ปฏิเสธคำขอ", en: "Approve / deny request", roles: [1, 3] },
-  "hr.salaryCert.print": { no: 96, module: "HR: Salary certificates", label: "พิมพ์หนังสือรับรอง / แบบฟอร์มคำขอ", en: "Print certificate / request form (PDF)", roles: [1, 3] },
+  "hr.salaryCert.list": { code: "salary_cert.view", no: 94, module: "HR: Salary certificates", label: "ดูคำขอหนังสือรับรองเงินเดือน", en: "View salary-cert requests", roles: [1, 2, 3], note: "PR 44 — ผู้จัดการ (101) พิจารณา · legacy fallback รวม MANAGER" },
+  "hr.salaryCert.decide": { code: "salary_cert.decide", no: 95, module: "HR: Salary certificates", label: "อนุมัติ / ปฏิเสธคำขอ", en: "Approve / deny request", roles: [1, 2, 3], note: "PR 44 — ผู้จัดการ (101) พิจารณา · legacy fallback รวม MANAGER" },
+  "hr.salaryCert.print": { code: "salary_cert.pdf", no: 96, module: "HR: Salary certificates", label: "พิมพ์หนังสือรับรอง / แบบฟอร์มคำขอ", en: "Print certificate / request form (PDF)", roles: [1, 2, 3], note: "PR 44 — ผู้จัดการ (101) พิจารณา · legacy fallback รวม MANAGER" },
 
   // ── HR: Welfare (3P, งวด 3) — code ใหม่ยังไม่มีเลขฟังก์ชันใน matrix ──
   "hr.welfare.view": { code: ["welfare.view", "welfare.approve"], no: null, module: "HR: Welfare", label: "ดูคำขอเบิกสวัสดิการ / ยอดคงเหลือ / การตั้งค่า", en: "View welfare claims / balances / settings", roles: [1, 2, 3, 7], note: "GET /hr/welfare/claims · /hr/employees/{id}/welfare-balance · GET /hr/welfare/settings" },
@@ -579,6 +582,8 @@ export const DOCUMENTS_PERMS = Object.freeze([
   "trading.reports.view", "plan.reports.saleGoal", ...PHASE1_REPORT_PERMS,
   // รายงานฝ่ายบุคคล (report.hr.*) — กล่อง "รายงานฝ่ายบุคคล" ในหน้าเดียวกัน
   ...Object.keys(PERMISSIONS).filter((k) => k.startsWith("hr.reports.")),
+  // R12 — รายงานออกนอกพื้นที่ / ประวัติการตักเตือน ในหน้าเดียวกัน (ผู้ถือ ooo.view / discipline.view อย่างเดียวก็เข้าได้)
+  "hr.ooo.list", "hr.discipline.view",
 ])
 
 // ─── กฎพิเศษที่ผูกกับ "ผู้ใช้" ไม่ใช่ role (คงไว้โดยเจตนา) ─────────────────────

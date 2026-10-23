@@ -26,13 +26,15 @@ const btnCls = "h-12 md:h-10 md:!px-5 md:!py-0 md:!text-sm"
 const FIELDS = [
   { key: "current_salary", label: "เงินเดือน (บาท)", placeholder: "25000" },
   { key: "current_loan", label: "เงินกู้คงเหลือ (บาท)", placeholder: "0" },
-  { key: "job_age", label: "อายุงาน (ปี)", placeholder: "0", integer: true },
+  // job_age = ค่าเดิมที่ HR พิมพ์เอง (ปีเต็ม) — 3G: อายุงานจริงคำนวณจากวันที่เริ่มงาน (tenure) แล้ว
+  // จึงไม่แสดงในฟอร์ม แต่ยังเก็บค่าเดิมไว้ใน form และส่งกลับตอนบันทึก (ไม่ล้างข้อมูลเก่า)
+  { key: "job_age", label: "อายุงานที่บันทึกเดิม (ปี)", placeholder: "0", integer: true, hidden: true },
   { key: "current_reserve", label: "เงินสะสม (บาท/เดือน)", placeholder: "0", hint: "ใส่ 0 = ใช้อัตรา % ตามการตั้งค่าการคำนวณเงินเดือน" },
   { key: "tax_withholding_override", label: "ภาษีหัก ณ ที่จ่ายคงที่/เดือน (บาท)", placeholder: "เว้นว่าง", hint: "เว้นว่าง = ใช้ภาษีที่ระบบคำนวณ (ภ.ง.ด.1)", nullable: true },
   { key: "tax_extra_allowance", label: "ค่าลดหย่อนเพิ่มเติม/ปี (บาท)", placeholder: "0", hint: "จากแบบ ล.ย.01 เช่น คู่สมรส บุตร เบี้ยประกัน" },
 ]
 const GROUPS = [
-  { title: "ข้อมูลพื้นฐาน", keys: ["current_salary", "current_loan", "job_age"] },
+  { title: "ข้อมูลพื้นฐาน", keys: ["current_salary", "current_loan"] },
   { title: "เงินสะสมและภาษี", keys: ["current_reserve", "tax_withholding_override", "tax_extra_allowance"] },
 ]
 
@@ -42,6 +44,7 @@ const formFrom = (fin = {}) => Object.fromEntries(FIELDS.map((f) => [f.key, str(
 function validate(form) {
   const errs = {}
   for (const f of FIELDS) {
+    if (f.hidden) continue // ไม่มีช่องให้แก้ — ค่าเดิมส่งกลับตามเดิม
     const v = form[f.key].trim()
     if (v === "") continue
     const n = Number(v)

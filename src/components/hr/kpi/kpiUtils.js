@@ -138,6 +138,29 @@ export function itemError(value, max) {
   return ""
 }
 
+// ─── Branch KPI (POST/GET /hr/kpi/branch — handoff G1) ──────────────────────
+// The backend does NOT validate these: the frontend enforces 0 ≤ v ≤ max, ≤ 2 decimals, all six required.
+export const BRANCH_KPI_FIELDS = [
+  { key: "member_participation", label: "การมีส่วนร่วมของสมาชิก", max: 10 },
+  { key: "online_market", label: "ตลาดออนไลน์", max: 10 },
+  { key: "business_target", label: "ผลการดำเนินงานตามเป้าหมายธุรกิจ", max: 40 },
+  { key: "debt_management", label: "การบริหารหนี้", max: 10 },
+  { key: "internal_control", label: "การควบคุมภายใน", max: 20 },
+  { key: "corporate_image", label: "ภาพลักษณ์องค์กร", max: 10 },
+]
+export const BRANCH_KPI_TOTAL = 100
+
+/** "" when valid · "required" when empty · otherwise a Thai message */
+export function branchKpiError(raw, max) {
+  const s = String(raw ?? "").trim()
+  if (s === "") return "required"
+  if (!/^-?\d*\.?\d*$/.test(s) || !Number.isFinite(Number(s)) || s === "." || s === "-") return "กรอกเป็นตัวเลข"
+  const n = Number(s)
+  if (n < 0 || n > max) return `0–${fmtScore(max)}`
+  if (/\.\d{3,}$/.test(s)) return "ทศนิยมไม่เกิน 2 ตำแหน่ง"
+  return ""
+}
+
 // ─── Permissions → permission keys (src/lib/permissions.js) ─────────────────
 const KPI_PERMISSION_KEYS = {
   scoreBranchHead: "hr.kpi.score.branchHead",
@@ -153,6 +176,7 @@ const KPI_PERMISSION_KEYS = {
   eligibility: "hr.kpi.reopen", // PATCH .../eligibility อยู่ฟังก์ชันเดียวกับ reopen (matrix #88)
   profit: "hr.kpi.profit.record",
   monthly: "hr.kpi.monthly",
+  branch: "hr.kpi.branch", // no 82 → backend kpi.branch (positions 101·102·103)
   // 3L rework
   monthlyForm: "hr.kpi.monthlyForm",
   notify: "hr.kpi.notify",

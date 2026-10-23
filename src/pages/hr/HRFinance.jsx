@@ -19,7 +19,7 @@ export default function HRFinance() {
   const fetchEmployees = () => {
     setLoading(true)
     setError("")
-    apiAuth("/hr/personnel?is_active=true")
+    apiAuth("/hr/personnel?is_active=true&include=financial")
       .then(setEmployees)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))

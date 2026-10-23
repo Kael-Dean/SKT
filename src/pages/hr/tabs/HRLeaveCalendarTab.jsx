@@ -2,7 +2,7 @@
 // ปฏิทินการลาแยกตามสาขา (3H, TOR §2.2) — ดูทีเดียวว่าสาขาไหนขาดกี่คนในวันไหน และใครลาประเภทอะไร
 // เปิดจาก /hr/dashboard?tab=leave-calendar และ /hr/leave-calendar (HRLeaveCalendar.jsx)
 //
-// ข้อมูล: GET /hr/leave-calendar/days (PR 42) → 404/405 fallback GET /hr/leave-calendar + /hr/holidays
+// ข้อมูล: GET /hr/leave-calendar/days (PR 42, merged 2026-10-23) → 404/405 fallback GET /hr/leave-calendar + /hr/holidays
 // (ดู src/lib/leaveCalendar.js). แสดงเฉพาะใบลาที่อนุมัติแล้ว. ใบลาหลายวันแสดงทุกวันในช่วง รวมเสาร์-อาทิตย์
 // → วันไม่ทำงานทำสีจาง แต่ไม่ซ่อนคน
 //
@@ -10,14 +10,18 @@
 // (`canPickAnyBranch()` = false) → รายการสาขาใน dropdown มาจาก GET /auth/my-branches ตาม handoff
 //
 // Desktop: ตารางเดือน จ.–อา. (ลูกศรเลื่อนวันได้) · มือถือ: DataList เฉพาะวันที่มีคนลา/วันหยุด
-// กดวัน → Sheet รายชื่อคนลาแยกสาขา
+// กดวัน → Sheet รายชื่อคนลาแยกสาขา → กดชื่อ = โปรไฟล์ (drill.js) · "ใบลา #id" = เปิดใบลา PDF ของใบลานั้น
+// (ระบบยังไม่มีหน้ารายละเอียดใบลารายใบ — ใบลา PDF คือมุมมองรายใบเดียวที่มี เหมือนแท็บคำขอลา)
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
-import { canPickAnyBranch } from "../../../lib/permissions"
+import { CalendarDays, ChevronLeft, ChevronRight, FileText, Loader2 } from "lucide-react"
+import { canPickAnyBranch, can } from "../../../lib/permissions"
+import { apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
+import { useDrill } from "../../../lib/drill"
 import { cx, iconBtnCls, neutralBtnCls } from "../../../lib/styles"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 import SelectDropdown from "../../../components/SelectDropdown"
-import { Badge, DataList, EmptyState, ErrorState, Sheet, Skeleton } from "../../../components/ui"
+import { Badge, DataList, EmptyState, ErrorState, Sheet, Skeleton, toast } from "../../../components/ui"
 import {
   WEEKDAY_SHORT,
   WEEKDAY_LONG,
@@ -283,26 +287,65 @@ function GridSkeleton() {
 
 /* ───────────────────────── day sheet ───────────────────────── */
 
-function PersonRow({ p }) {
+const linkCls =
+  "rounded text-left cursor-pointer hover:text-indigo-700 hover:underline dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+
+function PersonRow({ p, onOpenProfile }) {
+  const [busy, setBusy] = useState(false)
   const time = p.halfDay && (p.fromTime || p.toTime) ? `${fmtTime(p.fromTime) || "—"}–${fmtTime(p.toTime) || "—"} น.` : ""
   const span = p.fromDate && p.toDate && p.fromDate !== p.toDate ? `${fmtDayShortTH(p.fromDate)} – ${fmtDayShortTH(p.toDate)}` : ""
+  const canProfile = p.employeeId != null && onOpenProfile && can("hr.employees.view")
+  const canPdf = p.leaveId != null && p.employeeId != null && can("hr.leave.list")
+
+  const openLeave = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const { blob, filename } = await apiDownload(`/hr/employees/${p.employeeId}/leaves/${p.leaveId}/pdf`)
+      saveBlob(blob, filename && filename !== "download" ? filename : `leave_${p.leaveId}.pdf`)
+    } catch (e) {
+      toast.error("เปิดใบลาไม่สำเร็จ", { description: e?.message || "ลองใหม่อีกครั้ง" })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <li className="flex items-start gap-3 py-2.5">
       <TypeDot type={p.leaveType} halfDay={p.halfDay} className="mt-1.5" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{p.name}</p>
+        {canProfile ? (
+          <button type="button" onClick={() => onOpenProfile(p.employeeId)} className={cx(linkCls, "-my-3 block max-w-full truncate py-3 text-sm font-medium text-gray-900 dark:text-gray-100 md:my-0 md:py-0")}>
+            {p.name}
+          </button>
+        ) : (
+          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{p.name}</p>
+        )}
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {p.leaveType}
           {p.halfDay && <> · ครึ่งวัน{time && <span className="tabular-nums"> {time}</span>}</>}
           {span && <> · <span className="tabular-nums">{span}</span></>}
         </p>
       </div>
-      {p.leaveId != null && <span className="shrink-0 pt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">ใบลา #{p.leaveId}</span>}
+      {p.leaveId != null && (canPdf ? (
+        <button
+          type="button"
+          onClick={openLeave}
+          disabled={busy}
+          aria-label={`เปิดใบลา #${p.leaveId} ของ ${p.name}`}
+          className={cx(linkCls, "inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-xs tabular-nums text-gray-600 dark:text-gray-300 md:min-h-0 md:pt-0.5 disabled:cursor-wait")}
+        >
+          {busy ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.75} />}
+          ใบลา #{p.leaveId}
+        </button>
+      ) : (
+        <span className="shrink-0 pt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">ใบลา #{p.leaveId}</span>
+      ))}
     </li>
   )
 }
 
-function DaySheet({ day, onClose }) {
+function DaySheet({ day, onClose, onOpenProfile }) {
   const subtitle = day
     ? [day.holiday?.name || (day.isWeekend ? "วันหยุดเสาร์-อาทิตย์" : null), day.onLeave ? `ลา ${day.onLeave} คน` : "ไม่มีคนลา"].filter(Boolean).join(" · ")
     : ""
@@ -322,7 +365,7 @@ function DaySheet({ day, onClose }) {
                 </span>
               </div>
               <ul className="divide-y divide-gray-100 dark:divide-line">
-                {b.people.map((p) => <PersonRow key={p.key} p={p} />)}
+                {b.people.map((p) => <PersonRow key={p.key} p={p} onOpenProfile={onOpenProfile} />)}
               </ul>
             </section>
           ))}
@@ -336,6 +379,7 @@ function DaySheet({ day, onClose }) {
 
 export default function HRLeaveCalendarTab() {
   const isPhone = useIsPhone()
+  const { drillTo } = useDrill()
   const now = new Date()
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() })
   const [branch, setBranch] = useState(ALL)
@@ -508,7 +552,9 @@ export default function HRLeaveCalendarTab() {
         </div>
       )}
 
-      <DaySheet day={openDay ? days.find((d) => d.date === openDay.date) ?? openDay : null} onClose={() => setOpenDay(null)} />
+      <DaySheet day={openDay ? days.find((d) => d.date === openDay.date) ?? openDay : null} onClose={() => setOpenDay(null)}
+        onOpenProfile={(id) => { setOpenDay(null); drillTo(`/hr/personnel/${id}`, "ปฏิทินการลา") }}
+      />
     </div>
   )
 }

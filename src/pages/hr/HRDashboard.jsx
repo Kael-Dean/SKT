@@ -72,7 +72,9 @@ import HRDisciplineTab from "./tabs/HRDisciplineTab"
 import HRDisciplineSettingsTab from "./tabs/HRDisciplineSettingsTab"
 import HRIssueStatsTab from "./tabs/HRIssueStatsTab"
 import useModalDismiss from "../../lib/useModalDismiss"
-import { HR_KPI_PERMS, can, checkAccess } from "../../lib/permissions"
+import { HR_KPI_PERMS, can, canPickAnyBranch, checkAccess } from "../../lib/permissions"
+import DashboardOverview, { ALL_BRANCHES } from "../../components/hr/DashboardOverview"
+import { fetchMyBranches } from "../../lib/leaveCalendar"
 import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ForbiddenState } from "../../components/RequirePermission"
 import PageTitle from "../../components/PageTitle"
@@ -333,7 +335,9 @@ function StatStrip({ stats, loading, error, onRetry, onGo }) {
     return (
       <div role="alert" className={cx(cardCls, "flex flex-wrap items-center gap-3 p-4")}>
         <AlertCircle aria-hidden="true" className="size-5 shrink-0 text-red-500" strokeWidth={1.75} />
-        <p className="min-w-0 flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">โหลดตัวเลขสรุปไม่สำเร็จ</p>
+        <p className="min-w-0 flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+          โหลดตัวเลขสรุปไม่สำเร็จ{typeof error === "string" && error ? <span className="font-normal text-gray-500 dark:text-gray-400"> — {error}</span> : null}
+        </p>
         <button type="button" onClick={onRetry} className={cx(neutralBtnCls, "h-9")}>
           <RotateCw aria-hidden="true" className="size-4" strokeWidth={1.75} />
           ลองใหม่
@@ -718,10 +722,33 @@ export default function HRDashboard() {
   const focusSectionRef = useRef(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
 
+  // กราฟแนวโน้มเงินเดือน: hr.dashboard หรือ payroll.view (hr.payroll.list = matrix #64)
+  const canSeeTrend = canSeeStats || can("hr.payroll.list")
+
   const [stats, setStats] = useState(null)
   const [loadingStats, setLoadingStats] = useState(true)
-  const [statsError, setStatsError] = useState(false)
+  const [statsError, setStatsError] = useState("") // "" = ok · ข้อความจาก server (เช่น 403 นอกสาขาที่ดูแล)
   const [statsReq, setStatsReq] = useState(0)
+
+  // ตัวกรองสาขาของภาพรวม — ส่ง branch_id ให้ /hr/dashboard และ /hr/dashboard/payroll-trend
+  const [branch, setBranch] = useState(ALL_BRANCHES)
+  const scopedBranches = !canPickAnyBranch()
+  const [branchList, setBranchList] = useState([])
+  const [branchesLoading, setBranchesLoading] = useState(false)
+  useEffect(() => {
+    if (!canSeeTrend) return undefined
+    let alive = true
+    setBranchesLoading(true)
+    // scope own_branch → เฉพาะสาขาที่ดูแล (/auth/my-branches) · scope all → ทุกสาขา
+    const load = scopedBranches
+      ? fetchMyBranches()
+      : apiAuth("/order/branch/search").then((d) => (Array.isArray(d) ? d : []).map((b) => ({ id: Number(b.id), name: b.branch_name || `สาขา ${b.id}` })))
+    load
+      .then((list) => { if (alive) setBranchList(list.filter((b) => Number.isFinite(b.id))) })
+      .catch(() => { if (alive) setBranchList([]) })
+      .finally(() => { if (alive) setBranchesLoading(false) })
+    return () => { alive = false }
+  }, [canSeeTrend, scopedBranches])
 
   // Invalid / missing tab → rewrite to the default (replace, no history entry)
   useEffect(() => {
@@ -742,13 +769,25 @@ export default function HRDashboard() {
     }
     let alive = true
     setLoadingStats(true)
-    setStatsError(false)
-    apiAuth("/hr/dashboard")
+    setStatsError("")
+    const q = branch === ALL_BRANCHES ? "" : `?branch_id=${encodeURIComponent(branch)}`
+    apiAuth(`/hr/dashboard${q}`)
       .then((d) => { if (alive) setStats(d) })
-      .catch(() => { if (alive) { setStats(null); setStatsError(true) } })
+      .catch((e) => { if (alive) { setStats(null); setStatsError(e?.message || "โหลดข้อมูลแดชบอร์ดไม่สำเร็จ") } })
       .finally(() => { if (alive) setLoadingStats(false) })
     return () => { alive = false }
-  }, [statsReq, canSeeStats])
+  }, [statsReq, canSeeStats, branch])
+
+  // ตัวเลือกสาขา = รายชื่อสาขา ∪ สาขาที่ server ส่งมาใน employees_per_branch (อยู่ในขอบเขตแล้ว)
+  const branchOptions = useMemo(() => {
+    const m = new Map()
+    branchList.forEach((b) => m.set(b.id, b.name))
+    ;(Array.isArray(stats?.employees_per_branch) ? stats.employees_per_branch : []).forEach((b) => {
+      const id = Number(b.branch_id)
+      if (Number.isFinite(id) && !m.has(id)) m.set(id, b.branch_name || `สาขา ${id}`)
+    })
+    return [...m.entries()].map(([id, name]) => ({ value: String(id), label: name })).sort((a, b) => a.label.localeCompare(b.label, "th"))
+  }, [branchList, stats])
 
   // Badges only when stats loaded cleanly (the strip reports errors itself)
   const badges = canSeeStats && !loadingStats && !statsError ? stats : null
@@ -847,6 +886,22 @@ export default function HRDashboard() {
           error={statsError}
           onRetry={() => setStatsReq((n) => n + 1)}
           onGo={(key) => nav.byKey[key] && setTab(key)}
+        />
+      )}
+
+      {canSeeTrend && (
+        <DashboardOverview
+          stats={stats}
+          loading={loadingStats}
+          error={statsError}
+          onRetry={() => setStatsReq((n) => n + 1)}
+          branch={branch}
+          branchOptions={branchOptions}
+          branchesLoading={branchesLoading}
+          scoped={scopedBranches}
+          onBranchChange={setBranch}
+          showStatus={canSeeStats}
+          showTrend={canSeeTrend}
         />
       )}
 

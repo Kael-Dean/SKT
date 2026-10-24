@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../lib/api"
 import { saveAuth, getActiveBranch } from "../lib/auth"
+import { useCan } from "../lib/permissions"
 
 export default function BranchSwitcher() {
   const [branches, setBranches] = useState([])
@@ -15,6 +16,9 @@ export default function BranchSwitcher() {
   const ref = useRef(null)
 
   const activeId = getActiveBranch()
+  // สิทธิ์สลับสาขา (backend account.switch_branch) — ไม่มีสิทธิ์ = ไม่แสดง switcher และไม่ยิง my-branches
+  const { can } = useCan()
+  const allowed = can("account.branch.switch")
 
   const loadBranches = useCallback(() => {
     setLoading(true)
@@ -24,7 +28,7 @@ export default function BranchSwitcher() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { loadBranches() }, [loadBranches])
+  useEffect(() => { if (allowed) loadBranches() }, [allowed, loadBranches])
 
   // ปิดเมื่อคลิกนอกกล่อง
   useEffect(() => {
@@ -61,7 +65,9 @@ export default function BranchSwitcher() {
     } catch (err) {
       setSwitchingId(null)
       if (err.status === 403) {
-        setError("ไม่มีสิทธิ์เข้าถึงสาขานี้")
+        // ข้อความจาก backend (detail) เช่น "ไม่มีสิทธิ์เข้าถึงสาขานี้" — token/สาขาเดิมไม่ถูกแตะ (PR 41 §3)
+        const detail = typeof err?.data?.detail === "string" ? err.data.detail.trim() : ""
+        setError(detail || "ไม่มีสิทธิ์เข้าถึงสาขานี้")
         loadBranches() // refresh รายการสาขาที่เข้าถึงได้
       } else if (err.status === 404) {
         setError("ไม่พบสาขาที่เลือก")
@@ -73,7 +79,7 @@ export default function BranchSwitcher() {
   }
 
   // ผู้ใช้สาขาเดียว (หรือยังไม่มีข้อมูล) → ซ่อน switcher
-  if (loading || branches.length <= 1) return null
+  if (!allowed || loading || branches.length <= 1) return null
 
   return (
     <div className="relative" ref={ref}>

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/api-proxy/:path*/",
+      "destination": "https://um-backend-staging-243977022740.asia-southeast1.run.app/:path*/"
+    },
+    {
+      "source": "/api-proxy/:path*",
+      "destination": "https://um-backend-staging-243977022740.asia-southeast1.run.app/:path*"
+    }
+  ]
+}

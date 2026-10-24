@@ -5,7 +5,9 @@
 // go through parseDays()/fmtDays() so ".5" survives and ".0" stays tidy.
 //
 // The fiscal year runs 1 April – 31 March, labelled by the BE year it starts in.
-// Weekends and declared holidays are excluded from every leave day count.
+// Weekends and declared holidays are excluded from every leave day count —
+// except ลาคลอด, which counts calendar days (ระเบียบ 10 ข้อ 51 ค, backend PR #39):
+// to − from + 1, weekends and holidays included.
 
 import { getFiscalYearBeStart } from "./debtFiscalYear"
 
@@ -48,18 +50,36 @@ function parseISO(iso) {
 
 const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
+const leaveTypeName = (lt) =>
+  typeof lt === "string" ? lt : lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
+
+/**
+ * True when a leave type is counted in calendar days rather than working days.
+ * Only ลาคลอด (ระเบียบ 10 ข้อ 51 ค). Matched on the type's name or code — never on
+ * a hard-coded id, which differs between environments.
+ *
+ * @param {object|string} leaveType  row from GET /hr/leave-types, or its name
+ */
+export function countsCalendarDays(leaveType) {
+  const name = leaveTypeName(leaveType)
+  const code = typeof leaveType === "object" ? String(leaveType?.code ?? leaveType?.key ?? "") : ""
+  return /ลาคลอด/.test(name) || /^(maternity|maturity)/i.test(code)
+}
+
 /**
  * Client-side preview of the day count the backend will compute.
  * Excludes Saturdays, Sundays and declared holidays; a half day counts as 0.5.
+ * With `calendarDays` (ลาคลอด) every day in the range counts.
  *
  * @param {object}   o
- * @param {string}   o.from       ISO date "YYYY-MM-DD"
- * @param {string}   o.to         ISO date "YYYY-MM-DD"
- * @param {boolean}  o.isHalfDay  same-day request counted as 0.5
- * @param {Array}    o.holidays   HolidayOut[] — only `holiday_date` is read
- * @returns {number} working days in the range
+ * @param {string}   o.from          ISO date "YYYY-MM-DD"
+ * @param {string}   o.to            ISO date "YYYY-MM-DD"
+ * @param {boolean}  o.isHalfDay     same-day request counted as 0.5
+ * @param {Array}    o.holidays      HolidayOut[] — only `holiday_date` is read
+ * @param {boolean}  o.calendarDays  count weekends and holidays too (see countsCalendarDays)
+ * @returns {number} days in the range
  */
-export function countLeaveDays({ from, to, isHalfDay = false, holidays = [] }) {
+export function countLeaveDays({ from, to, isHalfDay = false, holidays = [], calendarDays = false }) {
   const start = parseISO(from)
   const end = parseISO(to || from)
   if (!start || !end || end < start) return 0
@@ -68,9 +88,11 @@ export function countLeaveDays({ from, to, isHalfDay = false, holidays = [] }) {
 
   let days = 0
   for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dow = d.getDay() // 0 = Sun, 6 = Sat
-    if (dow === 0 || dow === 6) continue
-    if (closed.has(toISO(d))) continue
+    if (!calendarDays) {
+      const dow = d.getDay() // 0 = Sun, 6 = Sat
+      if (dow === 0 || dow === 6) continue
+      if (closed.has(toISO(d))) continue
+    }
     days += 1
   }
 

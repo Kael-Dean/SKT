@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
+import SelectDropdown from "../../../components/SelectDropdown"
+import BranchLockNote from "../../../components/BranchLockNote"
+import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 
 // ปีงบประมาณไทย (Apr→Mar): ปัจจุบัน
 function currentFiscalYear() {
@@ -38,14 +41,35 @@ export default function HRLeaveRegisterTab() {
   const [pdfLoading, setPdfLoading] = useState({})
   const [pdfErr,     setPdfErr]     = useState("")
 
+  // ตัวกรองสาขา (ไม่บังคับ) — scope "own_branch" ล็อกที่สาขาที่ใช้งานอยู่
+  const branchLock = useBranchLock()
+  const [branchId, setBranchId] = useState(branchLock.activeKey)
+  const [branches, setBranches] = useState([])
+  useEffect(() => {
+    if (branchLock.locked) setBranchId(branchLock.activeKey)
+  }, [branchLock.locked, branchLock.activeKey])
+  useEffect(() => {
+    apiAuth("/order/branch/search")
+      .then((data) => setBranches((Array.isArray(data) ? data : []).map((b) => ({ value: String(b.id), label: b.branch_name }))))
+      .catch(() => {})
+  }, [])
+
+  // query เดียวกันทั้ง JSON / PDF / Excel
+  const buildQs = useCallback(() => {
+    const p = new URLSearchParams({ fiscal_year: String(fiscalYear) })
+    const b = scopedBranchId(branchId)
+    if (b) p.set("branch_id", b)
+    return p.toString()
+  }, [fiscalYear, branchId])
+
   const fetchSummary = useCallback(() => {
     setLoading(true)
     setError("")
-    apiAuth(`/hr/leave/annual-summary?fiscal_year=${fiscalYear}`)
+    apiAuth(`/hr/leave/annual-summary?${buildQs()}`)
       .then(setRows)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
-  }, [fiscalYear])
+  }, [buildQs])
 
   useEffect(() => { fetchSummary() }, [fetchSummary])
 
@@ -55,7 +79,7 @@ export default function HRLeaveRegisterTab() {
     setPdfErr("")
     try {
       const ep = type === "summary" ? "annual-summary-pdf" : "register-pdf"
-      const { blob, filename } = await apiDownload(`/hr/leave/${ep}?fiscal_year=${fiscalYear}`)
+      const { blob, filename } = await apiDownload(`/hr/leave/${ep}?${buildQs()}`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -83,6 +107,19 @@ export default function HRLeaveRegisterTab() {
             max={2580}
             className="w-28 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-indigo-500/60"
           />
+        </div>
+        <div className="w-full sm:w-52">
+          <label htmlFor="leave-reg-branch" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">สาขา</label>
+          <SelectDropdown
+            id="leave-reg-branch"
+            size="sm"
+            options={[{ value: "", label: "ทุกสาขา" }, ...branches]}
+            value={branchId}
+            onChange={setBranchId}
+            placeholder="ทุกสาขา"
+            disabled={branchLock.locked}
+          />
+          {branchLock.locked && <BranchLockNote className="mt-1" />}
         </div>
         <button onClick={fetchSummary} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-gray-800">
           ค้นหา
@@ -125,12 +162,12 @@ export default function HRLeaveRegisterTab() {
         {/* Excel twins: same query, -pdf → -xlsx (independent loading state) */}
         <ExcelDownloadButton
           label="Excel สรุปประจำปี"
-          getPdfPath={() => `/hr/leave/annual-summary-pdf?fiscal_year=${fiscalYear}`}
+          getPdfPath={() => `/hr/leave/annual-summary-pdf?${buildQs()}`}
           fallbackName={`leave-summary-${fiscalYear}.xlsx`}
         />
         <ExcelDownloadButton
           label="Excel ทะเบียนการลา"
-          getPdfPath={() => `/hr/leave/register-pdf?fiscal_year=${fiscalYear}`}
+          getPdfPath={() => `/hr/leave/register-pdf?${buildQs()}`}
           fallbackName={`leave-register-${fiscalYear}.xlsx`}
         />
       </div>

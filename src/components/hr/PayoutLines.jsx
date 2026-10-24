@@ -1,7 +1,7 @@
 // src/components/hr/PayoutLines.jsx
 // รายละเอียดสลิปเงินเดือนหนึ่งรายการ: รายได้ / รายการหัก / รับสุทธิ (gross − หัก = สุทธิ)
 // ใช้ทั้งหน้า HR (HRPayrollTab) และหน้าสลิปของพนักงาน (MyPayslips)
-import { DEDUCTION_LINES, INCOME_LINES, money, netOf, toNum, totalDeductions } from "../../lib/payroll"
+import { DEDUCTION_LINES, INCOME_LINES, daysWorkedText, money, netOf, toNum, totalDeductions } from "../../lib/payroll"
 import { cx } from "../../lib/styles"
 
 function Lines({ title, lines, record, tone }) {
@@ -16,7 +16,12 @@ function Lines({ title, lines, record, tone }) {
         <dl className="mt-1.5 divide-y divide-gray-100 dark:divide-line">
           {shown.map((l) => (
             <div key={l.key} className="flex items-baseline justify-between gap-4 py-1.5 text-sm">
-              <dt className="text-gray-700 dark:text-gray-300">{l.label}</dt>
+              <dt className="text-gray-700 dark:text-gray-300">
+                {l.key === "base_salary" && record.days_worked != null ? (
+                  // ลูกจ้างรายวัน (3C daily-paid): ค่าจ้าง = ค่าจ้างรายวัน × จำนวนวัน เช่น "22 วัน × 351"
+                  <>ค่าจ้างรายวัน <span className="tabular-nums text-gray-500 dark:text-gray-400">({daysWorkedText(record)})</span></>
+                ) : l.label}
+              </dt>
               <dd className="tabular-nums text-gray-900 dark:text-gray-100">
                 {tone === "minus" && toNum(record[l.key]) !== 0 ? "−" : ""}
                 {money(record[l.key] ?? 0)}

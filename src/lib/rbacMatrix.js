@@ -73,7 +73,9 @@ export const PERMISSION_MATRIX = Object.freeze({
   "self.salary_cert": { no: 17, roles: ALL },
   "self.kpi": { no: 18, roles: ALL },
   "self.ooo": { no: 19, roles: ALL },
-  "hr.dashboard": { no: 20, roles: [] },
+  // matrix #20 ว่างใน AMC xlsx — backend ngod5-dashboard-3h (Vivid 2026-10-23) เปิดให้ ผู้จัดการ / หัวหน้าแผนกบุคคล / เจ้าหน้าที่บุคคล
+  // (+ Super Admin) — fallback เท่านั้น, /auth/me/permissions คือความจริง. regenerate จาก rbac_matrix.py แล้วต้องคงค่านี้
+  "hr.dashboard": { no: 20, roles: [101, 117, 130] },
   "hr.employee.list": { no: 21, roles: [101, 102, 103, 106, 117, 130] },
   "hr.employee.view": { no: 22, roles: [101, 102, 103, 106, 117, 130] },
   "hr.employee.export": { no: 23, roles: [117, 130] },
@@ -153,6 +155,16 @@ export const PERMISSION_MATRIX = Object.freeze({
   // งวด 3 (3K, backend PR #30) — GET /hr/loans/queue: หัวหน้า 110–124, ผช.ผจก. 102/103, 101, 105
   // เพิ่มตาม api-handoff ระหว่างรอ rbac_matrix.py ฉบับใหม่ (ยังไม่มีเลขฟังก์ชัน) — คัดลอกไฟล์จาก backend ทับได้เลย
   "loan.queue": { no: null, roles: [101, 102, 103, 105, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124] },
+  // งวด 3 (3P สวัสดิการ) + งวด 4 (3Q วินัย) — เพิ่มตาม api-handoff ระหว่างรอ rbac_matrix.py ฉบับใหม่ (ยังไม่มีเลขฟังก์ชัน)
+  // คัดลอกไฟล์จาก backend ทับได้เลย
+  "welfare.view": { no: null, roles: [101, 102, 103, 106, 117, 130] },
+  "welfare.submit": { no: null, roles: [106, 117, 130] },
+  "welfare.approve": { no: null, roles: [101] },
+  "welfare.settings": { no: null, roles: [117] },
+  "discipline.topics": { no: null, roles: [106, 117, 130] },
+  "discipline.view": { no: null, roles: [101, 102, 103, 106, 117, 130] },
+  "discipline.decide.asst": { no: null, roles: [101, 102, 103] },
+  "discipline.decide.manager": { no: null, roles: [101] },
   "salary_cert.view": { no: 94, roles: [101] },
   "salary_cert.decide": { no: 95, roles: [101] },
   "salary_cert.pdf": { no: 96, roles: [117, 130] },

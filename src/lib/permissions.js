@@ -49,6 +49,8 @@ export const MODULE_LABEL = Object.freeze({
   "HR: KPI evaluation": "HR · ประเมิน KPI",
   "HR: Staff loans": "HR · สินเชื่อพนักงาน",
   "HR: Salary certificates": "HR · หนังสือรับรองเงินเดือน",
+  "HR: Welfare": "HR · สวัสดิการ",
+  "HR: Discipline": "HR · วินัยและการตักเตือน",
   "HR: System": "HR · ระบบ",
   "HR: Reports": "HR · รายงาน",
   "Debt accounting": "บัญชีหนี้",
@@ -73,7 +75,7 @@ export const PERMISSIONS = Object.freeze({
   "account.login": { no: 1, module: "Account", label: "เข้าสู่ระบบ / ออกจากระบบ", en: "Log in / out", roles: "public" },
   "account.password.change": { no: 2, module: "Account", label: "เปลี่ยนรหัสผ่านของตนเอง", en: "Change own password", roles: "any" },
   "account.password.reset": { no: 3, module: "Account", label: "ขอรีเซ็ตรหัสผ่านผ่าน LINE", en: "Request password reset via LINE", roles: "public" },
-  "account.branch.switch": { code: "login", no: 4, module: "Account", label: "สลับสาขาที่ทำงาน", en: "Switch active branch", roles: "any" },
+  "account.branch.switch": { code: "account.switch_branch", no: 4, module: "Account", label: "สลับสาขาที่ทำงาน", en: "Switch active branch", roles: "any", note: "POST /auth/switch-branch — account.switch_branch (Super Admin ผ่านเสมอ)" },
   "account.notifications": { no: 5, module: "Account", label: "ดูการแจ้งเตือนของตนเอง", en: "View own notifications", roles: "any" },
 
   // ── Employee self-service ──
@@ -91,6 +93,12 @@ export const PERMISSIONS = Object.freeze({
   "self.salaryCert.request": { no: 17, module: "Employee self-service", label: "ขอหนังสือรับรองเงินเดือน", en: "Request salary certificate", roles: "any" },
   "self.kpi.view": { no: 18, module: "Employee self-service", label: "ดูผลประเมิน KPI ของตนเอง", en: "View own KPI results", roles: "any" },
   "self.ooo.request": { no: 19, module: "Employee self-service", label: "ยื่นขอออกนอกพื้นที่ / ดู / ยกเลิก", en: "File / view / cancel own out-of-office request", roles: "any" },
+  // 3L — แบบประเมินตนเอง + ผลหลังอนุมัติ (PUT /personnel/me/kpi/self-assessment · GET /personnel/me/kpi/result)
+  "self.kpi.result": { no: 18, module: "Employee self-service", label: "ประเมินตนเอง / ดูผลการประเมินของฉัน (หลังอนุมัติ)", en: "Own KPI self-assessment / approved result", roles: "any", variant: true },
+  // 3P / 3Q — self-service ที่ backend เช็คแค่การล็อกอิน (ยังไม่มีเลขฟังก์ชันใน matrix)
+  "self.welfare.view": { code: "login", no: null, module: "Employee self-service", label: "ดูสวัสดิการของฉัน (คำขอเบิก / สิทธิ์คงเหลือ / ครอบครัวที่ได้รับสิทธิ์)", en: "View own welfare", roles: "any", note: "GET /personnel/me/welfare" },
+  "self.discipline.report": { code: "login", no: null, module: "Employee self-service", label: "แจ้งเรื่องการกระทำผิดระเบียบของเพื่อนร่วมงาน / ดูสถานะเรื่องที่แจ้ง", en: "Report misconduct / view own reports' status", roles: "any", note: "POST/GET /personnel/me/discipline-reports" },
+  "self.discipline.history": { code: "login", no: null, module: "Employee self-service", label: "ดูประวัติการตักเตือนของฉัน + หนังสือ (PDF)", en: "View own discipline history", roles: "any", note: "GET /personnel/me/discipline" },
 
   // ── HR: Employee records ──
   "hr.dashboard.view": { no: 20, module: "HR: Employee records", label: "ดูแดชบอร์ด HR", en: "View HR dashboard", roles: [1, 3] },
@@ -104,6 +112,9 @@ export const PERMISSIONS = Object.freeze({
   "hr.employees.deactivate": { no: 28, module: "HR: Employee records", label: "ระงับ / เปิดใช้งานบัญชีพนักงาน", en: "Deactivate / reactivate employee", roles: [1, 3] },
   "hr.employees.terminate": { no: 29, module: "HR: Employee records", label: "บันทึกการพ้นสภาพ + ใบสรุปการพ้นสภาพ", en: "Terminate employee + settlement record", roles: [1, 3] },
   "hr.employees.resetPassword": { no: 30, module: "HR: Employee records", label: "รีเซ็ตรหัสผ่านให้พนักงาน / ส่งข้อมูลเข้าระบบอีกครั้ง", en: "Reset password / resend credentials for staff", roles: [1, 3] },
+  // 3G (PR 45) — ประวัติกิจกรรม (ประชุม / สัมมนา / ฝึกอบรม / สอบ) บนหน้าพนักงาน
+  "hr.employee.activities.view": { code: "hr.employee.view", no: 22, module: "HR: Employee records", label: "ดูประวัติกิจกรรมของพนักงาน (ประชุม / สัมมนา / ฝึกอบรม / สอบ)", en: "View employee activity history", roles: [1, 3], variant: true, note: "GET /hr/employees/{id}/activities" },
+  "hr.employee.activities.edit": { code: "hr.employee.edit_personal", no: 25, module: "HR: Employee records", label: "เพิ่ม / แก้ไข / ลบ ประวัติกิจกรรม + ใบประกาศ", en: "Add / edit / delete employee activities", roles: [1, 3], variant: true, note: "POST/PATCH/DELETE /hr/employees/{id}/activities" },
   "hr.employees.branchAssign": { no: 31, module: "HR: Employee records", label: "กำหนดสาขาเพิ่มเติมให้พนักงาน (ดู / เพิ่ม / ถอน)", en: "Assign extra branches to employee", roles: [1] },
 
   // ── HR: Leave ──
@@ -117,7 +128,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.leave.quota.edit": { no: 39, module: "HR: Leave", label: "แก้ไขโควตาการลารายคน", en: "Override employee leave quota", roles: [1, 3] },
   "hr.leave.quota.reset": { no: 40, module: "HR: Leave", label: "รีเซ็ตโควตาการลาประจำปี (ทั้งองค์กร)", en: "Reset leave quotas for new fiscal year", roles: [1, 3] },
   "hr.leave.print": { no: 41, module: "HR: Leave", label: "พิมพ์ใบลาของพนักงาน", en: "Print employee leave form (PDF)", roles: [1, 3] },
-  "hr.leave.calendar": { no: 42, module: "HR: Leave", label: "ดูปฏิทินการลา (แยกตามสาขา)", en: "View leave calendar", roles: [1, 3] },
+  "hr.leave.calendar": { no: 42, module: "HR: Leave", label: "ดูปฏิทินการลา (แยกตามสาขา)", en: "View leave calendar", roles: [1, 3], note: "3H: GET /hr/leave-calendar/days (PR 42) · /hr/leave-calendar — หัวหน้าสาขา (110) เห็นเฉพาะสาขาที่ดูแล" },
   "hr.leaveTypes.manage": { no: 43, module: "HR: Leave", label: "ตั้งค่าประเภทการลา (โควตา / เปิด-ปิด)", en: "Configure leave types", roles: [1, 3], note: "PATCH = 1,3 · GET /hr/leave-types = ทุกคนที่ล็อกอิน (ดู hr.leaveTypes.view)" },
   "hr.leaveTypes.view": { code: "login", no: 43, module: "HR: Leave", label: "ดูประเภทการลา", en: "View leave types", roles: "any", variant: true },
 
@@ -138,6 +149,7 @@ export const PERMISSIONS = Object.freeze({
   // ── HR: Issue reports ──
   "hr.issues.list": { no: 54, module: "HR: Issue reports", label: "ดูคำร้องแก้ไขข้อมูลจากพนักงาน", en: "View data-correction reports", roles: [1, 3] },
   "hr.issues.decide": { no: 55, module: "HR: Issue reports", label: "อนุมัติ / ปฏิเสธคำร้องแก้ไขข้อมูล", en: "Approve / deny data-correction report", roles: [1, 3] },
+  "hr.issues.stats": { code: "issue.view", no: 54, module: "HR: Issue reports", label: "ดูสถิติคำร้องแก้ไขข้อมูล", en: "Data-correction report statistics", roles: [1, 3], variant: true, note: "3F: GET /hr/issue-reports/stats" },
 
   // ── HR: Out-of-office ──
   "hr.ooo.list": { code: ["ooo.view", "ooo.approve.head", "ooo.approve.asst", "ooo.confirm.manager", "ooo.reject"], no: 56, module: "HR: Out-of-office", label: "ดูรายการ / สรุป / การตั้งค่า ออกนอกพื้นที่", en: "View out-of-office list / summary / settings", roles: [1, 2, 3, 6, 7] },
@@ -149,6 +161,7 @@ export const PERMISSIONS = Object.freeze({
 
   // ── HR: Payroll ──
   "hr.payroll.generate": { no: 62, module: "HR: Payroll", label: "คำนวณเงินเดือนรายคน", en: "Generate payroll (one employee)", roles: [1, 3] },
+  "hr.payroll.daysWorked": { code: "payroll.generate", no: 62, module: "HR: Payroll", label: "บันทึกจำนวนวันทำงานของลูกจ้างรายวัน (ก่อนคำนวณเงินเดือน)", en: "Record days worked (daily-paid)", roles: [1, 3], variant: true, note: "3C daily-paid: GET/PUT /hr/payroll/days-worked/{y}/{m}" },
   "hr.payroll.generateBulk": { no: 63, module: "HR: Payroll", label: "คำนวณเงินเดือนทั้งองค์กร (ประจำเดือน)", en: "Generate payroll (all employees)", roles: [1, 3] },
   "hr.payroll.list": { no: 64, module: "HR: Payroll", label: "ดูรายการ / สรุปเงินเดือนประจำเดือน", en: "View payroll list / summary", roles: [1, 3] },
   "hr.payroll.history": { no: 65, module: "HR: Payroll", label: "ดูประวัติเงินเดือนรายพนักงาน", en: "View employee payroll history", roles: [1, 3] },
@@ -187,6 +200,11 @@ export const PERMISSIONS = Object.freeze({
   "hr.kpi.reopen": { no: 88, module: "HR: KPI evaluation", label: "ปรับสิทธิ์การได้ขั้นด้วยมือ / ส่งกลับแก้ไขคะแนน", en: "Override eligibility / reopen evaluation", roles: [1, 2, 7] },
   "hr.kpi.review.asstManager": { no: 89, module: "HR: KPI evaluation", label: "ตรวจสอบผลประเมินครั้งแรก — ผู้ช่วยผู้จัดการ", en: "Review results: asst. manager", roles: [1, 7] },
   "hr.kpi.approve.manager": { no: 90, module: "HR: KPI evaluation", label: "อนุมัติผลประเมินและปรับขั้นเงินเดือน — ผู้จัดการ", en: "Final approval: manager", roles: [1, 2] },
+  // 3L KPI rework (งวด 4)
+  "hr.kpi.notify": { code: "kpi.window", no: 78, module: "HR: KPI evaluation", label: "แจ้งผู้ประเมิน (ส่งการแจ้งเตือนช่วงประเมิน)", en: "Notify evaluators", roles: [1, 2, 3], variant: true, note: "POST /hr/kpi/fiscal-years/{fy}/notify-evaluators" },
+  "hr.kpi.monthlyForm": { code: ["kpi.monthly", "kpi.score.head"], no: 81, module: "HR: KPI evaluation", label: "แบบประเมินรายเดือน 12 รายการ (หัวหน้าสาขา: เฉพาะพนักงานในสาขาตน)", en: "Monthly 12-item form", roles: [1, 3, 6], variant: true, note: "PUT /hr/kpi/monthly-form · GET /hr/employees/{id}/kpi/form — backend จำกัดสาขาของหัวหน้าเอง" },
+  "hr.kpi.selfAssessment.view": { code: ["kpi.view", "kpi.score.head", "kpi.score.asst", "kpi.score.manager", "kpi.score.board"], no: 80, module: "HR: KPI evaluation", label: "ดูแบบประเมินตนเองของผู้ถูกประเมิน", en: "View evaluatee self-assessment", roles: [1, 2, 3, 6, 7], variant: true, note: "GET /hr/kpi/evaluations/{id}/self-assessment" },
+  "hr.kpi.override": { code: "kpi.override", no: 88, module: "HR: KPI evaluation", label: "ยกเลิกผลประเมินที่อนุมัติแล้ว (คืนขั้น/เงินเดือน แล้วส่งกลับประเมินใหม่)", en: "Revoke approved evaluation", roles: [1, 2, 7], variant: true, note: "POST /hr/kpi/evaluations/{id}/revoke" },
 
   // ── HR: Staff loans ──
   // 3K (backend PR #30): ผู้บังคับบัญชา → ผู้จัดการ (ส่งคณะทำงานฯ) → บันทึกมติคณะทำงานกองทุนฯ (101/105)
@@ -201,9 +219,23 @@ export const PERMISSIONS = Object.freeze({
   "hr.loans.fundLedger": { code: "report.hr.loans_active", no: 115, module: "HR: Staff loans", label: "ทะเบียนคุมเงินกองทุนฯ (PDF)", en: "Loan fund ledger PDF", roles: [1, 2, 7], variant: true, note: "GET /hr/reports/loans/fund-ledger?fiscal_year=พ.ศ. — 101, 102" },
 
   // ── HR: Salary certificates ──
-  "hr.salaryCert.list": { no: 94, module: "HR: Salary certificates", label: "ดูคำขอหนังสือรับรองเงินเดือน", en: "View salary-cert requests", roles: [1, 3] },
-  "hr.salaryCert.decide": { no: 95, module: "HR: Salary certificates", label: "อนุมัติ / ปฏิเสธคำขอ", en: "Approve / deny request", roles: [1, 3] },
-  "hr.salaryCert.print": { no: 96, module: "HR: Salary certificates", label: "พิมพ์หนังสือรับรอง / แบบฟอร์มคำขอ", en: "Print certificate / request form (PDF)", roles: [1, 3] },
+  "hr.salaryCert.list": { code: "salary_cert.view", no: 94, module: "HR: Salary certificates", label: "ดูคำขอหนังสือรับรองเงินเดือน", en: "View salary-cert requests", roles: [1, 2, 3], note: "PR 44 — ผู้จัดการ (101) พิจารณา · legacy fallback รวม MANAGER" },
+  "hr.salaryCert.decide": { code: "salary_cert.decide", no: 95, module: "HR: Salary certificates", label: "อนุมัติ / ปฏิเสธคำขอ", en: "Approve / deny request", roles: [1, 2, 3], note: "PR 44 — ผู้จัดการ (101) พิจารณา · legacy fallback รวม MANAGER" },
+  "hr.salaryCert.print": { code: "salary_cert.pdf", no: 96, module: "HR: Salary certificates", label: "พิมพ์หนังสือรับรอง / แบบฟอร์มคำขอ", en: "Print certificate / request form (PDF)", roles: [1, 2, 3], note: "PR 44 — ผู้จัดการ (101) พิจารณา · legacy fallback รวม MANAGER" },
+
+  // ── HR: Welfare (3P, งวด 3) — code ใหม่ยังไม่มีเลขฟังก์ชันใน matrix ──
+  "hr.welfare.view": { code: ["welfare.view", "welfare.approve"], no: null, module: "HR: Welfare", label: "ดูคำขอเบิกสวัสดิการ / ยอดคงเหลือ / การตั้งค่า", en: "View welfare claims / balances / settings", roles: [1, 2, 3, 7], note: "GET /hr/welfare/claims · /hr/employees/{id}/welfare-balance · GET /hr/welfare/settings" },
+  "hr.welfare.submit": { code: "welfare.submit", no: null, module: "HR: Welfare", label: "บันทึกคำขอเบิกสวัสดิการ / บันทึกการจ่าย", en: "Enter welfare claim / mark paid", roles: [1, 3], note: "POST /hr/welfare/claims (+ /preview) · POST …/{id}/mark-paid" },
+  "hr.welfare.approve": { code: "welfare.approve", no: null, module: "HR: Welfare", label: "อนุมัติ / ไม่อนุมัติคำขอเบิกสวัสดิการ — ผู้จัดการ", en: "Approve / reject welfare claim (manager)", roles: [1, 2], note: "POST …/{id}/approve · …/{id}/reject — อนุมัติคำขอของตนเองไม่ได้ (403)" },
+  "hr.welfare.board": { code: ["welfare.approve", "welfare.submit"], no: null, module: "HR: Welfare", label: "บันทึกมติคณะกรรมการ (เมื่อตั้งค่าให้ต้องผ่านคณะกรรมการ)", en: "Record board approval", roles: [1, 2, 3], variant: true, note: "POST …/{id}/board — ผจก. หรือ HR" },
+  "hr.welfare.settings": { code: "welfare.settings", no: null, module: "HR: Welfare", label: "แก้ไขการตั้งค่าสวัสดิการ / อัตราค่าการศึกษาบุตร", en: "Edit welfare settings / education rates", roles: [1, 3], note: "PATCH /hr/welfare/settings · PUT /hr/welfare/education-rates" },
+  "hr.welfare.dependants.view": { code: ["hr.employee.view", "welfare.view"], no: null, module: "HR: Welfare", label: "ดูผู้มีสิทธิ์รับสวัสดิการของพนักงาน", en: "View employee dependants", roles: [1, 2, 3, 7], variant: true, note: "GET /hr/employees/{id}/dependants — แก้ไขใช้ hr.employees.editPersonal" },
+
+  // ── HR: Discipline (3Q, งวด 4) — code ใหม่ยังไม่มีเลขฟังก์ชันใน matrix ──
+  "hr.discipline.topics": { code: "discipline.topics", no: null, module: "HR: Discipline", label: "จัดการหัวข้อระเบียบ + การตั้งค่าวินัย", en: "Manage discipline topics & settings", roles: [1, 3], note: "POST/PATCH/DELETE /hr/discipline/topics · PATCH /hr/discipline/settings" },
+  "hr.discipline.view": { code: "discipline.view", no: null, module: "HR: Discipline", label: "ดูเรื่องร้องเรียนและประวัติการตักเตือน (ไม่เห็นผู้แจ้ง)", en: "View cases & histories (no reporter)", roles: [1, 2, 3, 7], note: "GET /hr/discipline/cases · /hr/employees/{id}/discipline · GET /hr/discipline/settings" },
+  "hr.discipline.decide": { code: (me) => me.has("discipline.decide.asst") || me.has("discipline.decide.manager") || Boolean(me.senior), no: null, module: "HR: Discipline", label: "พิจารณาเรื่องร้องเรียน (ส่งต่อ / ลงโทษ / ยุติเรื่อง) ตามขั้นของตน", en: "Decide discipline cases at own stage", roles: [1, 2, 6, 7], note: "ขั้นหัวหน้า = หัวหน้าของผู้ถูกแจ้ง (backend คำนวณจากตำแหน่ง — หน้าเว็บประมาณด้วยตำแหน่งหัวหน้า senior) · ผช.ผจก. discipline.decide.asst · ผจก. discipline.decide.manager — ปุ่มจริงดู can_decide / within_my_stage จาก backend" },
+  "hr.discipline.cases": { code: (me) => ["discipline.view", "discipline.decide.asst", "discipline.decide.manager"].some((c) => me.has(c)) || Boolean(me.senior), no: null, module: "HR: Discipline", label: "เปิดรายการเรื่องร้องเรียน (หัวหน้าเห็นเฉพาะเรื่องของตน)", en: "Open discipline case list", roles: [1, 2, 3, 6, 7], feOnly: true, note: "GET /hr/discipline/cases — backend กรองรายการตามสิทธิ์เอง" },
 
   // ── HR: System ──
   "hr.audit.view": { no: 97, module: "HR: System", label: "ดูบันทึกการใช้งานระบบ (Audit log)", en: "View audit log", roles: [1, 3] },
@@ -230,6 +262,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.reports.kpiIndividual": { no: 116, module: "HR: Reports", label: "ผลประเมิน KPI รายบุคคล (PDF)", en: "KPI individual PDF", roles: [1, 3, 7] },
   "hr.reports.kpiBranch": { no: 117, module: "HR: Reports", label: "ผลประเมิน KPI รายสาขา", en: "KPI branch report", roles: [1, 3, 7] },
   "hr.reports.kpiOrganisation": { no: 118, module: "HR: Reports", label: "สรุป KPI ทั้งองค์กร", en: "KPI organisation report", roles: [1, 3, 7] },
+  "hr.reports.welfare": { code: "welfare.view", no: null, module: "HR: Reports", label: "รายงานสวัสดิการ (สรุปการเบิก / ทะเบียนผู้มีสิทธิ์) PDF", en: "Welfare claims / dependants report", roles: [1, 2, 3, 7], note: "3P: GET /hr/reports/welfare/claims · /hr/reports/welfare/dependants" },
   "hr.reports.resignedRetired": { no: 119, module: "HR: Reports", label: "รายงานผู้ลาออก / เกษียณ / ถูกให้ออก (ดู / PDF)", en: "Resigned / retired report", roles: [1, 3, 7] },
 
   // ── Debt accounting ──
@@ -531,7 +564,9 @@ export const HR_KPI_PERMS = Object.freeze(Object.keys(PERMISSIONS).filter((k) =>
  */
 export const HR_HUB_PERMS = Object.freeze([
   "hr.dashboard.view",
-  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
+  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS,
+    // WP0 scaffold: 3H ปฏิทินการลา · 3P สวัสดิการ · 3Q วินัย · 3F สถิติคำร้อง
+    "hr.leave.calendar", "hr.welfare.view", "hr.welfare.submit", "hr.welfare.settings", "hr.discipline.cases", "hr.discipline.topics", "hr.issues.stats"]),
 ])
 
 /** คีย์ Phase 1 report ทั้ง 19 ตัว (P01–P19) */
@@ -547,6 +582,8 @@ export const DOCUMENTS_PERMS = Object.freeze([
   "trading.reports.view", "plan.reports.saleGoal", ...PHASE1_REPORT_PERMS,
   // รายงานฝ่ายบุคคล (report.hr.*) — กล่อง "รายงานฝ่ายบุคคล" ในหน้าเดียวกัน
   ...Object.keys(PERMISSIONS).filter((k) => k.startsWith("hr.reports.")),
+  // R12 — รายงานออกนอกพื้นที่ / ประวัติการตักเตือน ในหน้าเดียวกัน (ผู้ถือ ooo.view / discipline.view อย่างเดียวก็เข้าได้)
+  "hr.ooo.list", "hr.discipline.view",
 ])
 
 // ─── กฎพิเศษที่ผูกกับ "ผู้ใช้" ไม่ใช่ role (คงไว้โดยเจตนา) ─────────────────────

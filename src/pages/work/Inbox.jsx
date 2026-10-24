@@ -6,6 +6,8 @@
 // Deep link (?type=leave|out_of_office&id=N) from NotificationBell opens the
 // detail after re-checking the request's *current* status (notifications can
 // be stale). One source failing (e.g. 403 for the role) never hides the other.
+// + 3M หนังสือรับรองเงินเดือน: คิวความเห็นผู้บังคับบัญชา (SalaryCertSupervisorQueue) — ทุก role
+//   (หัวหน้าตามสายบังคับบัญชา ไม่ผูกกับ role) จึงวางนอกเงื่อนไข approver
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import Portal from "../../components/Portal"
@@ -40,6 +42,7 @@ import {
 } from "../../lib/approvalActions"
 import useModalDismiss from "../../lib/useModalDismiss"
 import PageTitle from "../../components/PageTitle"
+import SalaryCertSupervisorQueue from "../../components/hr/SalaryCertSupervisorQueue"
 import { keepBackState, useDrill } from "../../lib/drill"
 
 const cardCls =
@@ -428,6 +431,7 @@ export default function Inbox() {
   const [loading, setLoading] = useState(approver)
   const [tab, setTab] = useState("all")
   const [banner, setBanner] = useState(null) // {tone, text}
+  const [certQueueCount, setCertQueueCount] = useState(0) // คิวความเห็นหนังสือรับรองเงินเดือน
   const [detail, setDetail] = useState(null) // {kind, id, loading, item?, error?, fromLink}
   const [decision, setDecision] = useState(null) // {item, mode}
 
@@ -574,6 +578,9 @@ export default function Inbox() {
 
       {can("hr.loans.queue", roleId) && <LoanQueueNotice />}
 
+      {/* หนังสือรับรองเงินเดือน — หัวหน้าให้ความเห็น (ทุกคนเรียกได้; ไม่ใช่หัวหน้า = คิวว่าง ไม่แสดง) */}
+      <SalaryCertSupervisorQueue onCount={setCertQueueCount} />
+
       {banner && (
         <Notice tone={banner.tone} onDismiss={() => setBanner(null)}>
           {banner.text}
@@ -581,7 +588,7 @@ export default function Inbox() {
       )}
 
       {!approver ? (
-        <div className={cardCls}>
+        certQueueCount > 0 ? null : <div className={cardCls}>
           <EmptyState
             icon={<IconInbox className="size-12" />}
             title="ไม่มีงานที่ต้องอนุมัติ"

@@ -5,7 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import useNotifications from "../hooks/useNotifications"
-import { inboxLink, relativeTimeTh, fmtDateTimeTh, KIND_LABEL } from "../lib/approvalActions"
+import { notificationLink, relativeTimeTh, fmtDateTimeTh, NOTIFICATION_REF_LABEL } from "../lib/approvalActions"
 import { useDrill } from "../lib/drill"
 
 const PANEL_Z = 10050
@@ -85,8 +85,8 @@ function NotificationRow({ n, onOpen }) {
             >
               {isAction ? "ต้องพิจารณา" : "แจ้งให้ทราบ"}
             </span>
-            {KIND_LABEL[n.ref_type] && (
-              <span className="text-xs text-gray-400 dark:text-gray-500">{KIND_LABEL[n.ref_type]}</span>
+            {NOTIFICATION_REF_LABEL[n.ref_type] && (
+              <span className="text-xs text-gray-400 dark:text-gray-500">{NOTIFICATION_REF_LABEL[n.ref_type]}</span>
             )}
           </span>
           <span
@@ -179,7 +179,7 @@ export default function NotificationBell() {
   const openNotification = (n) => {
     markRead(n.id)
     setOpen(false)
-    drillTo(inboxLink(n.ref_type, n.ref_id))
+    drillTo(notificationLink(n))
   }
 
   const badge = unreadCount > 99 ? "99+" : String(unreadCount)

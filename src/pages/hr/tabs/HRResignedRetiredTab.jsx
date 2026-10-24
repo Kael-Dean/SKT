@@ -7,6 +7,7 @@ import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
+import { exitTypeLabel, normalizeExitType } from "../../../lib/exitTypes"
 
 const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"]
 
@@ -27,11 +28,6 @@ const EXIT_TYPE_OPTIONS = [
   { value: "failed_probation", label: "ไม่ผ่านทดลองงาน" },
   { value: "contract_end",     label: "สิ้นสุดสัญญาจ้าง" },
 ]
-
-const EXIT_TYPE_LABEL = {
-  retired: "เกษียณอายุ", deceased: "เสียชีวิต", resigned: "ลาออก",
-  dismissed: "ไล่ออก", failed_probation: "ไม่ผ่านทดลองงาน", contract_end: "สิ้นสุดสัญญาจ้าง",
-}
 
 function fmtBE(d) {
   return d || "—"
@@ -234,8 +230,8 @@ export default function HRResignedRetiredTab() {
                     <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtBE(row.exit_date)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {row.exit_type ? (
-                        <Badge tone={EXIT_TYPE_TONE[row.exit_type] ?? "neutral"}>
-                          {EXIT_TYPE_LABEL[row.exit_type] ?? row.exit_type}
+                        <Badge tone={EXIT_TYPE_TONE[normalizeExitType(row.exit_type)] ?? "neutral"}>
+                          {exitTypeLabel(row.exit_type)}
                         </Badge>
                       ) : (
                         <span className="text-gray-400 text-xs">—</span>

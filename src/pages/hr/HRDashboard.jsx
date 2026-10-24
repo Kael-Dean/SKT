@@ -2,7 +2,7 @@
 // HR Dashboard (งานบุคคล) — stat strip + grouped left rail (26 sections, 7 groups)
 // + Ctrl/⌘K quick switcher. Everything (rail, <lg menu, switcher, section header,
 // document.title) reads from the single HR_NAV config below.
-// URL contract: ?tab=<key> (push on navigation, invalid → replace to employees);
+// URL contract: ?tab=<key> (push on navigation, invalid → replace to the first allowed tab);
 // sub-tabs inside sections write &sub=<value> with replace (see lib/useSubTab).
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
@@ -25,6 +25,7 @@ import {
   HandCoins,
   HeartHandshake,
   History,
+  LayoutDashboard,
   ListChecks,
   MapPin,
   RotateCw,
@@ -84,6 +85,15 @@ import { backState, keepBackState } from "../../lib/drill"
 
 // perm / anyOf = permission key ของแต่ละแท็บ (src/lib/permissions.js) — ผู้ใช้เห็นเฉพาะแท็บที่มีสิทธิ์
 const HR_NAV = [
+  {
+    group: "ภาพรวม",
+    items: [
+      // กราฟ/สถานะอยู่ในแท็บของตัวเอง — เดิมแสดงเหนือทุกแท็บ บนมือถือต้องเลื่อนผ่าน ~2.6 จอทุกครั้ง
+      { key: "overview", anyOf: ["hr.dashboard.view", "hr.payroll.list"], label: "ภาพรวม", icon: LayoutDashboard,
+        description: "สถานะพนักงาน พนักงานต่อสาขา และแนวโน้มเงินเดือน 12 เดือน",
+        keywords: ["ภาพรวม", "dashboard", "สถิติ", "กราฟ", "แนวโน้ม", "พนักงานต่อสาขา", "overview"] },
+    ],
+  },
   {
     group: "บุคลากร",
     items: [
@@ -260,8 +270,9 @@ const badgeText = (n) => (n > 99 ? "99+" : String(n))
 
 // ─── Section body ────────────────────────────────────────────────────────────
 
-function renderSection(key, { onGoToPositions }) {
+function renderSection(key, { onGoToPositions, overview }) {
   switch (key) {
+    case "overview":           return <DashboardOverview embedded {...overview} />
     case "employees":          return <HREmployeesTab />
     case "leave":              return <HRLeaveTab />
     case "relocation":         return <HRRelocationTab />
@@ -889,22 +900,6 @@ export default function HRDashboard() {
         />
       )}
 
-      {canSeeTrend && (
-        <DashboardOverview
-          stats={stats}
-          loading={loadingStats}
-          error={statsError}
-          onRetry={() => setStatsReq((n) => n + 1)}
-          branch={branch}
-          branchOptions={branchOptions}
-          branchesLoading={branchesLoading}
-          scoped={scopedBranches}
-          onBranchChange={setBranch}
-          showStatus={canSeeStats}
-          showTrend={canSeeTrend}
-        />
-      )}
-
       <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
         <HRRail nav={nav} activeKey={activeKey} badges={badges} onNavigate={setTab} onOpenSwitcher={openSwitcher} />
 
@@ -927,7 +922,22 @@ export default function HRDashboard() {
 
           <div ref={contentRef} className={cx(cardCls, "min-w-0 p-4 lg:p-5 xl:p-6")}>
             <PageSection key={activeKey} title={active.label} icon={active.icon}>
-              {renderSection(activeKey, { onGoToPositions: goToPositions })}
+              {renderSection(activeKey, {
+                onGoToPositions: goToPositions,
+                overview: {
+                  stats,
+                  loading: loadingStats,
+                  error: statsError,
+                  onRetry: () => setStatsReq((n) => n + 1),
+                  branch,
+                  branchOptions,
+                  branchesLoading,
+                  scoped: scopedBranches,
+                  onBranchChange: setBranch,
+                  showStatus: canSeeStats,
+                  showTrend: canSeeTrend,
+                },
+              })}
             </PageSection>
           </div>
         </div>

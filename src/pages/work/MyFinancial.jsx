@@ -18,6 +18,7 @@ import { EmptyState, ErrorState, SkeletonText } from "../../components/ui"
 import MyPayslipsPanel from "../../components/hr/MyPayslipsPanel"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
+import { getTenure, tenureText } from "../../lib/tenure"
 
 // ─── a) ค่าที่บันทึกไว้ ────────────────────────────────────────────────────────
 // `always` = แสดงแม้เป็น 0 (ให้เห็นว่าไม่มีรายการนี้), ไม่งั้นแสดงเฉพาะที่มีค่า
@@ -78,6 +79,16 @@ function OnFileCard() {
   const [data, setData] = useState(null)
   const [state, setState] = useState("loading") // loading | ready | missing | error
   const [error, setError] = useState("")
+  // อายุงานระดับวัน (3G) มากับ GET /personnel/me — ไม่ใช้ financial.job_age แล้ว
+  const [tenure, setTenure] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    apiAuth("/personnel/me")
+      .then((me) => { if (alive) setTenure(getTenure(me)) })
+      .catch(() => { /* ไม่มีอายุงาน → ไม่แสดง */ })
+    return () => { alive = false }
+  }, [])
 
   const load = useCallback(() => {
     setState("loading")
@@ -104,8 +115,8 @@ function OnFileCard() {
         <h2 id="fin-onfile-h" className="text-base font-semibold text-gray-900 dark:text-gray-100">เงินเดือนและรายการหักประจำ</h2>
         {state === "ready" && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {data.job_age != null && <>อายุงาน <span className="tabular-nums">{data.job_age}</span> ปี</>}
-            {data.job_age != null && updated && " · "}
+            {tenure && <>อายุงาน <span className="tabular-nums">{tenureText(tenure)}</span></>}
+            {tenure && updated && " · "}
             {updated && <>ปรับปรุงล่าสุด {updated}</>}
           </p>
         )}

@@ -18,6 +18,12 @@ import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import Can from "../../components/Can"
 import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
+// WP0 scaffold — ช่องที่ WP2 (3P) / WP3 (3Q) / WP6 (3C รายวัน) เติมเนื้อหา
+import PersonnelDependantsTab from "./tabs/PersonnelDependantsTab"
+import PersonnelDisciplineTab from "./tabs/PersonnelDisciplineTab"
+import PersonnelPayBasisTab from "./tabs/PersonnelPayBasisTab"
+import PersonnelActivitiesTab from "./tabs/PersonnelActivitiesTab"
+import { getTenure, tenureText } from "../../lib/tenure"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -301,6 +307,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
           <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} />
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
+          <InfoRow label="อายุงาน" value={getTenure(data) ? tenureText(data) : null} />
           <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
         </div>
       )}
@@ -324,9 +331,9 @@ export default function HRPersonnelDetail() {
       {Object.keys(fin).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
           <SectionTitle>ข้อมูลการเงิน</SectionTitle>
+          <PersonnelPayBasisTab employeeId={id} financial={fin} />
           <InfoRow label="เงินเดือนปัจจุบัน" value={fmt(fin.current_salary)} />
           <InfoRow label="เงินกู้คงเหลือ" value={fmt(fin.current_loan)} />
-          <InfoRow label="อายุงาน" value={fin.job_age != null ? `${fin.job_age} ปี` : null} />
           <InfoRow label="ประกันสังคม" value={fmt(fin.current_ss)} />
           <InfoRow label="กองทุนสำรอง" value={fmt(fin.current_prov)} />
           {fin.current_reserve !== undefined && (
@@ -464,6 +471,21 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      {/* ผู้มีสิทธิ์รับสวัสดิการ (3P) — WP2 */}
+      <Can perm="hr.welfare.dependants.view">
+        <PersonnelDependantsTab employeeId={id} employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
+      </Can>
+
+      {/* ประวัติการตักเตือน (3Q) — WP3 */}
+      <Can perm="hr.discipline.view">
+        <PersonnelDisciplineTab employeeId={id} employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
+      </Can>
+
+      {/* ประวัติกิจกรรม — ประชุม / สัมมนา / ฝึกอบรม / สอบ (3G · PR 45) */}
+      <Can perm="hr.employee.activities.view">
+        <PersonnelActivitiesTab employeeId={id} employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()} />
+      </Can>
 
       <RelocationPanel userId={id} />
 

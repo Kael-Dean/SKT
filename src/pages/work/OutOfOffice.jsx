@@ -17,6 +17,7 @@ import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import PageTitle from "../../components/PageTitle"
+import FormApplicantHeader from "../../components/FormApplicantHeader"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -354,6 +355,9 @@ export default function OutOfOffice() {
             <h2 id="ooo-form-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">
               ยื่นคำขอใหม่
             </h2>
+
+            {/* หัวฟอร์ม (วันที่ / ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจาก form-defaults — แสดงอย่างเดียว ไม่ส่งไป backend */}
+            <FormApplicantHeader />
 
             <fieldset>
               <legend className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">

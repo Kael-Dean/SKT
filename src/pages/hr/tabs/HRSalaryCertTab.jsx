@@ -1,108 +1,236 @@
 // src/pages/hr/tabs/HRSalaryCertTab.jsx
-// 13G — Salary Certificate Requests: HR list + approve/deny + PDF downloads
-import { useEffect, useState, useCallback } from "react"
-import { apiAuth, apiDownload } from "../../../lib/api"
-import Portal from "../../../components/Portal"
-import { PageLoader, ErrorState, EmptyState, Badge, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
-import { cx, tabPanelCls } from "../../../lib/styles"
-import useModalDismiss from "../../../lib/useModalDismiss"
-
-const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ" }
-const STATUS_TONE = { pending: "pending", approved: "success", denied: "danger" }
-const PURPOSE_LABEL = {
-  document:       "เพื่อใช้เป็นหลักฐาน",
-  loan_self:      "เพื่อกู้เงิน",
-  loan_guarantee: "เพื่อค้ำประกันเงินกู้",
-}
+// 13G + PR 44 — คำขอหนังสือรับรองเงินเดือน: รายการ + ผู้จัดการอนุมัติ/ไม่อนุมัติ + PDF
+//   GET   /hr/salary-cert-requests?status=pending   (pending = pending_supervisor + pending_manager)
+//   PATCH /hr/salary-cert-requests/{id}/approve|deny { comment }  → manager_comment (deny บังคับ)
+//         ทำได้จากทั้งสองขั้นที่รอ — ผู้จัดการไม่ต้องรอความเห็นหัวหน้า แต่ต้องเห็นความเห็นก่อนตัดสิน
+//   GET   …/{id}/certificate-pdf (approved) · …/{id}/request-form-pdf
+// สิทธิ์: hr.salaryCert.decide = ปุ่มอนุมัติ/ไม่อนุมัติ · hr.salaryCert.print = ปุ่ม PDF
+import { useEffect, useId, useState, useCallback } from "react"
+import { apiAuth } from "../../../lib/api"
+import { apiDetail } from "../../../lib/apiErrors"
+import { useCan } from "../../../lib/permissions"
+import { fmtDateTimeTh, requestNotificationsRefresh } from "../../../lib/approvalActions"
+import {
+  SALARY_CERT_STATUS as S, downloadSalaryCertPdf, isSalaryCertPending,
+  salaryCertPurposeLabel, salaryCertStatusLabel, salaryCertStatusTone,
+} from "../../../lib/salaryCert"
+import { SalaryCertProgress, SupervisorOpinionNote } from "../../../components/hr/SalaryCertParts"
+import { PageLoader, ErrorState, EmptyState, Badge, Tabs, Sheet, toast, tabId, panelId, useSubTab } from "../../../components/ui"
+import {
+  cx, tabPanelCls, baseField, labelCls, errorTextCls, neutralBtnCls, submitBtnCls, dangerBtnCls,
+} from "../../../lib/styles"
 
 function fmtDate(d) {
   if (!d) return "—"
   try { return new Date(d).toLocaleDateString("th-TH") } catch { return d }
 }
 
+// Backend sends approved_by as a user id (no name field yet) — only show it when it's a name.
+function approverName(r) {
+  const v = r.approved_by_name ?? r.approved_by
+  return typeof v === "string" && !/^\d+$/.test(v.trim()) ? v : null
+}
+
+const smBtn = "!h-11 md:!h-9 !px-3 !text-xs"
+
+// ─── ผู้จัดการตัดสิน (เห็นความเห็นหัวหน้าก่อน) ────────────────────────────────
+function DecisionSheet({ req, action, onClose, onDone }) {
+  const uid = useId()
+  const [comment, setComment] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+  const isDeny = action === "deny"
+
+  const submit = async (ev) => {
+    ev?.preventDefault()
+    const text = comment.trim()
+    if (isDeny && !text) {
+      setError("ระบุเหตุผลที่ไม่อนุมัติ")
+      document.getElementById(`${uid}-comment`)?.focus()
+      return
+    }
+    setBusy(true)
+    try {
+      await apiAuth(`/hr/salary-cert-requests/${req.id}/${isDeny ? "deny" : "approve"}`, {
+        method: "PATCH",
+        body: text ? { comment: text } : {},
+      })
+      toast.success(isDeny ? "บันทึกไม่อนุมัติแล้ว" : "อนุมัติแล้ว", { description: `คำขอของ ${req.user_name ?? `#${req.id}`}` })
+      requestNotificationsRefresh()
+      onDone()
+    } catch (e) {
+      setError(apiDetail(e) || e?.message || "ดำเนินการไม่สำเร็จ")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      busy={busy}
+      size="md"
+      title={isDeny ? "ไม่อนุมัติคำขอ" : "อนุมัติคำขอ"}
+      subtitle={`${req.user_name ?? "พนักงาน"} · ${salaryCertPurposeLabel(req.purpose_type)} · ${req.copies_count ?? 1} ฉบับ`}
+      footer={
+        <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+          <button type="button" onClick={onClose} disabled={busy} className={cx(neutralBtnCls, "h-12 md:h-10")}>ยกเลิก</button>
+          <button type="submit" form={`${uid}-form`} disabled={busy} className={cx(isDeny ? dangerBtnCls : submitBtnCls, "h-12 md:h-10")}>
+            {busy ? "กำลังบันทึก…" : isDeny ? "ยืนยันไม่อนุมัติ" : "ยืนยันอนุมัติ"}
+          </button>
+        </div>
+      }
+    >
+      <form id={`${uid}-form`} onSubmit={submit} noValidate className="space-y-4">
+        <SupervisorOpinionNote r={req} />
+        <div>
+          <label htmlFor={`${uid}-comment`} className={labelCls}>
+            {isDeny ? "เหตุผลที่ไม่อนุมัติ" : "ความเห็นผู้จัดการ"}
+            {isDeny
+              ? <span className="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>
+              : <span className="font-normal text-gray-500 dark:text-gray-400"> (ถ้ามี)</span>}
+          </label>
+          <textarea
+            id={`${uid}-comment`}
+            rows={3}
+            maxLength={500}
+            value={comment}
+            onChange={(e) => { setComment(e.target.value); if (error) setError("") }}
+            aria-required={isDeny || undefined}
+            aria-invalid={!!error || undefined}
+            aria-describedby={error ? `${uid}-comment-err` : undefined}
+            placeholder={isDeny ? "ผู้ยื่นจะเห็นเหตุผลนี้" : "ความเห็นเพิ่มเติม"}
+            className={cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm resize-y", error && "!border-red-500 dark:!border-red-400")}
+          />
+          {error && <p id={`${uid}-comment-err`} role="alert" className={errorTextCls}>{error}</p>}
+        </div>
+      </form>
+    </Sheet>
+  )
+}
+
+// ─── แถว ─────────────────────────────────────────────────────────────────────
+function RequestCard({ r, canDecide, canPrint, pdfLoading, onDecide, onPdf }) {
+  const pending = isSalaryCertPending(r.status)
+  const decided = r.status === S.APPROVED || r.status === S.DENIED
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200/70 dark:bg-surface dark:shadow-none dark:ring-line">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-gray-900 dark:text-gray-100">{r.user_name}</p>
+            <Badge tone={salaryCertStatusTone(r.status)}>{salaryCertStatusLabel(r.status)}</Badge>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+            {[
+              ["สาขา", r.branch_name || "—"],
+              ["จุดประสงค์", salaryCertPurposeLabel(r.purpose_type)],
+              ["จำนวนฉบับ", `${r.copies_count ?? 1} ฉบับ`],
+              ["วันที่ยื่น", fmtDate(r.requested_at)],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{k}</p>
+                <p className="font-medium text-gray-800 dark:text-gray-200">{v}</p>
+              </div>
+            ))}
+          </div>
+
+          <SalaryCertProgress r={r} />
+
+          {/* ผู้จัดการต้องเห็นความเห็นหัวหน้าก่อนตัดสิน — แถวที่ตัดสินแล้วแสดงเมื่อมีเท่านั้น */}
+          <SupervisorOpinionNote r={r} emptyText={pending ? undefined : null} />
+
+          {decided && (r.manager_comment || approverName(r) || r.approved_at) && (
+            <div className={cx(
+              "rounded-lg px-3 py-2 text-sm",
+              r.status === S.DENIED
+                ? "bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-200"
+                : "bg-indigo-50 text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-100",
+            )}>
+              <p className="flex flex-wrap items-baseline gap-x-2">
+                <span className="font-medium">
+                  {approverName(r)
+                    ? (r.status === S.DENIED ? "ไม่อนุมัติโดย" : "อนุมัติโดย")
+                    : (r.status === S.DENIED ? "ไม่อนุมัติเมื่อ" : "อนุมัติเมื่อ")}
+                </span>
+                {approverName(r) && <span>{approverName(r)}</span>}
+                {r.approved_at && <span className="text-xs tabular-nums text-gray-600 dark:text-gray-400">{fmtDateTimeTh(r.approved_at)}</span>}
+              </p>
+              {r.manager_comment && <p className="break-words">ความเห็น: {r.manager_comment}</p>}
+            </div>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col gap-2">
+          {pending && canDecide && (
+            <div className="flex gap-2">
+              <button type="button" onClick={() => onDecide(r, "approve")} className={cx(submitBtnCls, smBtn)} aria-label={`อนุมัติคำขอของ ${r.user_name ?? `#${r.id}`}`}>อนุมัติ</button>
+              <button type="button" onClick={() => onDecide(r, "deny")} className={cx(dangerBtnCls, smBtn)} aria-label={`ไม่อนุมัติคำขอของ ${r.user_name ?? `#${r.id}`}`}>ไม่อนุมัติ</button>
+            </div>
+          )}
+          {canPrint && (
+            <div className="flex flex-wrap gap-2">
+              {r.status === S.APPROVED && (
+                <button type="button" onClick={() => onPdf(r.id, "certificate")} disabled={pdfLoading[`${r.id}_certificate`]} className={cx(neutralBtnCls, smBtn)}>
+                  {pdfLoading[`${r.id}_certificate`] ? "กำลังโหลด…" : "หนังสือรับรอง (PDF)"}
+                </button>
+              )}
+              <button type="button" onClick={() => onPdf(r.id, "form")} disabled={pdfLoading[`${r.id}_form`]} className={cx(neutralBtnCls, smBtn)}>
+                {pdfLoading[`${r.id}_form`] ? "กำลังโหลด…" : "แบบฟอร์มคำขอ (PDF)"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── แท็บ ────────────────────────────────────────────────────────────────────
 export default function HRSalaryCertTab() {
+  const { can } = useCan()
+  const canDecide = can("hr.salaryCert.decide")
+  const canPrint = can("hr.salaryCert.print")
+
   const [subTab, setSubTab] = useSubTab(["pending", "all"], "pending")
-  const [requests,  setRequests]  = useState([])
-  const [loading,   setLoading]   = useState(true)
-  const [error,     setError]     = useState("")
-
-  const [modal,     setModal]     = useState(null)   // { id, action:"approve"|"deny", userName }
-  const [comment,   setComment]   = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [submitMsg,  setSubmitMsg]  = useState("")
-  const { backdropProps: modalBackdrop } = useModalDismiss(() => setModal(null), { open: !!modal, disabled: submitting })
-
-  const [pdfLoading, setPdfLoading] = useState({})   // { [id]: bool }
-  const [pdfErr,     setPdfErr]     = useState("")
+  const [requests, setRequests] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [decision, setDecision] = useState(null) // { req, action }
+  const [pdfLoading, setPdfLoading] = useState({}) // { [id_type]: bool }
 
   const fetchRequests = useCallback(() => {
     setLoading(true)
     setError("")
-    const url = subTab === "pending"
-      ? "/hr/salary-cert-requests?status=pending"
-      : "/hr/salary-cert-requests"
-    apiAuth(url)
-      .then(setRequests)
-      .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
+    apiAuth(subTab === "pending" ? "/hr/salary-cert-requests?status=pending" : "/hr/salary-cert-requests")
+      .then((d) => setRequests(Array.isArray(d) ? d : d?.items ?? []))
+      .catch((e) => setError(apiDetail(e) || e?.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
   }, [subTab])
 
   useEffect(() => { fetchRequests() }, [fetchRequests])
 
-  const openModal = (req, action) => {
-    setModal({ id: req.id, action, userName: req.user_name })
-    setComment("")
-    setSubmitMsg("")
-  }
-
-  const handleConfirm = async () => {
-    if (!modal) return
-    if (modal.action === "deny" && !comment.trim()) {
-      setSubmitMsg("กรุณาระบุเหตุผลการปฏิเสธ")
-      return
-    }
-    setSubmitting(true)
-    setSubmitMsg("")
-    try {
-      const ep   = modal.action === "approve" ? "approve" : "deny"
-      const body = comment.trim() ? { comment: comment.trim() } : {}
-      await apiAuth(`/hr/salary-cert-requests/${modal.id}/${ep}`, { method: "PATCH", body })
-      setModal(null)
-      fetchRequests()
-    } catch (e) {
-      setSubmitMsg(`${e.message || "ดำเนินการไม่สำเร็จ"}`)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const downloadPdf = async (id, type) => {
     const key = `${id}_${type}`
     setPdfLoading((p) => ({ ...p, [key]: true }))
-    setPdfErr("")
     try {
       const ep = type === "certificate" ? "certificate-pdf" : "request-form-pdf"
-      const { blob, filename } = await apiDownload(`/hr/salary-cert-requests/${id}/${ep}`)
-      const url = URL.createObjectURL(blob)
-      const a   = document.createElement("a")
-      a.href     = url
-      a.download = filename || `salary_cert_${id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await downloadSalaryCertPdf(`/hr/salary-cert-requests/${id}/${ep}`, `salary_cert_${id}.pdf`)
     } catch (e) {
-      setPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
+      toast.error("ดาวน์โหลดไม่สำเร็จ", { description: apiDetail(e) || e?.message })
     } finally {
       setPdfLoading((p) => ({ ...p, [key]: false }))
     }
   }
 
-  const pendingCount = subTab === "all" ? requests.filter((r) => r.status === "pending").length : requests.length
+  const pendingCount = subTab === "all" ? requests.filter((r) => isSalaryCertPending(r.status)).length : requests.length
 
   return (
     <div className="space-y-4">
       <Tabs
         items={[
-          { value: "pending", label: "รออนุมัติ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "pending", label: "รอพิจารณา", count: pendingCount > 0 ? pendingCount : null },
           { value: "all", label: "ทั้งหมด" },
         ]}
         value={subTab}
@@ -112,137 +240,42 @@ export default function HRSalaryCertTab() {
       />
 
       <div role="tabpanel" id={panelId("hr-salary-cert", subTab)} aria-labelledby={tabId("hr-salary-cert", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
-      {error && <ErrorState message={error} onRetry={fetchRequests} />}
-      {pdfErr && <ErrorState message={pdfErr} />}
+        {error && <ErrorState message={error} onRetry={fetchRequests} />}
 
-      {loading ? (
-        <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอหนังสือรับรอง…" />
-      ) : requests.length === 0 ? (
-        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm">
-          <EmptyState
-            title="ไม่มีคำขอหนังสือรับรองเงินเดือน"
-            description={subTab === "pending"
-              ? "ยังไม่มีคำขอที่รออนุมัติในขณะนี้"
-              : "ยังไม่มีคำขอหนังสือรับรองเงินเดือนในระบบ"}
-          />
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {requests.map((r) => (
-            <div key={r.id} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">{r.user_name}</p>
-                    <Badge tone={STATUS_TONE[r.status] ?? "neutral"}>
-                      {STATUS_LABEL[r.status] ?? r.status}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">สาขา</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-200">{r.branch_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">จุดประสงค์</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-200">{PURPOSE_LABEL[r.purpose_type] ?? r.purpose_type}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนฉบับ</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-200">{r.copies_count} ฉบับ</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">วันที่ยื่น</p>
-                      <p className="font-medium text-gray-800 dark:text-gray-200">{fmtDate(r.requested_at)}</p>
-                    </div>
-                  </div>
-                  {r.supervisor_comment && (
-                    <p className={`text-xs rounded-lg px-3 py-1.5 ${r.status === "denied" ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300" : "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300"}`}>
-                      ความเห็น: {r.supervisor_comment}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2 shrink-0">
-                  {r.status === "pending" && (
-                    <div className="flex gap-2">
-                      <button onClick={() => openModal(r, "approve")} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><polyline points="20 6 9 17 4 12" /></svg>
-                        อนุมัติ
-                      </button>
-                      <button onClick={() => openModal(r, "deny")} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                        ปฏิเสธ
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex gap-2 flex-wrap">
-                    {r.status === "approved" && (
-                      <button
-                        onClick={() => downloadPdf(r.id, "certificate")}
-                        disabled={pdfLoading[`${r.id}_certificate`]}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
-                      >
-                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
-                        {pdfLoading[`${r.id}_certificate`] ? "กำลังโหลด…" : "หนังสือรับรอง"}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => downloadPdf(r.id, "form")}
-                      disabled={pdfLoading[`${r.id}_form`]}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-600 hover:bg-gray-500 text-white text-xs font-semibold transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800"
-                    >
-                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="15" y2="17" /></svg>
-                      {pdfLoading[`${r.id}_form`] ? "กำลังโหลด…" : "แบบฟอร์ม"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {loading ? (
+          <PageLoader variant="cards" rows={3} message="กำลังโหลดคำขอหนังสือรับรอง…" />
+        ) : !error && requests.length === 0 ? (
+          <div className="rounded-2xl bg-white shadow-sm ring-1 ring-gray-200/70 dark:bg-surface dark:ring-line">
+            <EmptyState
+              title="ไม่มีคำขอหนังสือรับรองเงินเดือน"
+              description={subTab === "pending" ? "ยังไม่มีคำขอที่รอพิจารณาในขณะนี้" : "ยังไม่มีคำขอหนังสือรับรองเงินเดือนในระบบ"}
+            />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {requests.map((r) => (
+              <RequestCard
+                key={r.id}
+                r={r}
+                canDecide={canDecide}
+                canPrint={canPrint}
+                pdfLoading={pdfLoading}
+                onDecide={(req, action) => setDecision({ req, action })}
+                onPdf={downloadPdf}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Modal */}
-      {modal && (
-        <Portal>
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...modalBackdrop}>
-            <div role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6 space-y-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                {modal.action === "approve" ? "ยืนยันอนุมัติ" : "ยืนยันปฏิเสธ"}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                คำขอของ <span className="font-semibold text-gray-900 dark:text-gray-100">{modal.userName}</span>
-              </p>
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
-                  ความเห็น {modal.action === "deny" && <span className="text-red-500">* (บังคับ)</span>}
-                </label>
-                <input
-                  type="text"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder={modal.action === "deny" ? "กรุณาระบุเหตุผล (บังคับ)" : "ความเห็นเพิ่มเติม (ถ้ามี)"}
-                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              {submitMsg && <p className="text-sm text-center text-red-600 dark:text-red-400">{submitMsg}</p>}
-              <div className="flex gap-3">
-                <button onClick={() => setModal(null)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer">
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={submitting}
-                  className={`flex-1 h-10 rounded-xl text-white text-sm font-semibold transition shadow-sm disabled:opacity-60 cursor-pointer ${modal.action === "approve" ? "bg-emerald-600 hover:bg-emerald-500" : "bg-red-600 hover:bg-red-500"}`}
-                >
-                  {submitting ? "กำลังดำเนินการ..." : "ยืนยัน"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Portal>
+      {decision && (
+        <DecisionSheet
+          key={`${decision.req.id}-${decision.action}`}
+          req={decision.req}
+          action={decision.action}
+          onClose={() => setDecision(null)}
+          onDone={() => { setDecision(null); fetchRequests() }}
+        />
       )}
     </div>
   )

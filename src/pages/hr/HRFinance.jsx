@@ -5,6 +5,7 @@ import { apiAuth } from "../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../components/ui"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import PageTitle from "../../components/PageTitle"
+import { getTenure, tenureText } from "../../lib/tenure"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -18,7 +19,7 @@ export default function HRFinance() {
   const fetchEmployees = () => {
     setLoading(true)
     setError("")
-    apiAuth("/hr/personnel?is_active=true")
+    apiAuth("/hr/personnel?is_active=true&include=financial")
       .then(setEmployees)
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
@@ -28,8 +29,8 @@ export default function HRFinance() {
 
   const openEdit = (emp) => setEditModal(emp)
 
-  // คำนวณยอดรวมจาก financial data ที่มี
-  const totalPayroll = employees.reduce((s, e) => s + (Number(e.financial?.current_salary) || 0), 0)
+  // คำนวณยอดรวมจาก financial data ที่มี — ลูกจ้างรายวัน (pay_basis daily) ไม่มีเงินเดือนประจำ ไม่นับรวม
+  const totalPayroll = employees.reduce((s, e) => s + (e.financial?.pay_basis === "daily" ? 0 : Number(e.financial?.current_salary) || 0), 0)
 
   return (
     <div className="space-y-5 pb-10">
@@ -105,13 +106,20 @@ export default function HRFinance() {
                       <p className="text-xs text-gray-500 dark:text-gray-400">{e.position ?? "—"}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300 tabular-nums">
-                      {fin.current_salary != null ? fmt(fin.current_salary) : <span className="text-gray-400 dark:text-gray-500">—</span>}
+                      {fin.pay_basis === "daily"
+                        ? <span className="text-xs font-medium text-gray-600 dark:text-gray-400">ลูกจ้างรายวัน</span>
+                        : fin.current_salary != null ? fmt(fin.current_salary) : <span className="text-gray-400 dark:text-gray-500">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden sm:table-cell">
                       {fin.current_loan != null ? fmt(fin.current_loan) : "—"}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums hidden md:table-cell">
-                      {fin.job_age != null ? `${fin.job_age} ปี` : "—"}
+                      {/* 3G: อายุงานระดับวันมาจาก tenure — GET /hr/personnel (รายการ) ยังไม่ส่ง จึงสำรองด้วยค่าเดิมที่ HR บันทึก */}
+                      {getTenure(e)
+                        ? tenureText(e)
+                        : fin.job_age != null
+                          ? <span title="ค่าที่ฝ่ายบุคคลบันทึกเอง (ปีเต็ม) — อายุงานแบบละเอียดดูในโปรไฟล์เจ้าหน้าที่">{fin.job_age} ปี<span aria-hidden="true">*</span><span className="sr-only"> (ค่าที่บันทึกเอง)</span></span>
+                          : "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button

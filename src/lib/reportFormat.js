@@ -91,7 +91,12 @@ export function excelErrorMessage(err) {
     return "ยังไม่รองรับไฟล์ Excel สำหรับรายงานนี้"
   }
   if (status === 401) return "หมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง"
-  if (status === 403) return "บัญชีนี้ไม่มีสิทธิ์ดาวน์โหลดรายงานนี้"
+  // 403: show the backend's reason as-is (e.g. "ท่านดูรายงานได้เฉพาะสาขาที่ท่านดูแล") — PR 41 §4
+  if (status === 403) {
+    const reason = detail || msg
+    if (reason && reason.toLowerCase() !== "forbidden" && !/^HTTP \d+$/.test(reason)) return reason.slice(0, 200)
+    return "บัญชีนี้ไม่มีสิทธิ์ดาวน์โหลดรายงานนี้"
+  }
   if (status === 422) return (isThai(msg) && msg.slice(0, 200)) || "ข้อมูลที่เลือกไม่ถูกต้อง ตรวจแล้วลองใหม่"
   if (!status && err instanceof TypeError) return "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจอินเทอร์เน็ตแล้วลองใหม่"
   return (isThai(msg) && msg.slice(0, 200)) || "สร้างไฟล์ Excel ไม่สำเร็จ ลองใหม่อีกครั้ง"

@@ -1,20 +1,22 @@
 // src/components/hr/DashboardOverview.jsx
-// ภาพรวมบนหน้า HR dashboard (3H) — ใต้แถบตัวเลขสรุป
+// ภาพรวมบนหน้า HR dashboard (3H) — แท็บ "ภาพรวม" (embedded) หรือวางเดี่ยวแบบพับได้
 //
 //   <DashboardOverview stats={GET /hr/dashboard} loading error branchId branchOptions onBranchChange
-//     showStatus={can("hr.dashboard.view")} showTrend={…} />
+//     showStatus={can("hr.dashboard.view")} showTrend={…} embedded />
 //
 // • ตัวกรองสาขา: "ทุกสาขา" = ไม่ส่ง branch_id · ตัวเลือกจาก /auth/my-branches (scope own_branch)
 //   หรือรายชื่อสาขาทั้งหมด (scope all) — หน้าแม่เป็นเจ้าของ state เพราะแถบตัวเลขสรุปใช้ branch_id เดียวกัน
 // • สถานะพนักงาน: status_breakdown (ปีงบประมาณ 1 เม.ย. – 31 มี.ค.) · ไม่แสดงทดลองงาน (ระเบียบไม่มี — รอ AMC)
 // • พนักงานต่อสาขา: employees_per_branch เรียงมาก → น้อย
-// • ซ่อน/แสดงทั้งส่วนได้ (จำใน localStorage) — HR เปิดหน้านี้ทั้งวัน ไม่ต้องเลื่อนผ่านทุกครั้ง
+// • embedded: อยู่ใน PageSection ที่มีหัวข้อแล้ว → ไม่มีหัวข้อ/ปุ่มพับของตัวเอง
+// • ไม่ embedded: ซ่อน/แสดงทั้งส่วนได้ (จำใน localStorage)
 import { useMemo, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { cx, cardCls, focusRingCls } from "../../lib/styles"
 import SelectDropdown from "../SelectDropdown"
 import { EmptyState, ErrorState, Skeleton } from "../ui"
 import DashboardPayrollTrend from "./DashboardPayrollTrend"
+import { exitTypeLabel } from "../../lib/exitTypes"
 
 export const ALL_BRANCHES = "all"
 const COLLAPSE_KEY = "hr.dashboard.overview.collapsed"
@@ -88,7 +90,8 @@ function StatusCard({ data }) {
                 <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                   {reasons.map((r) => (
                     <li key={r.reason ?? r.label}>
-                      {r.label || r.reason} <span className="tabular-nums text-gray-700 dark:text-gray-300">{nf(r.count)}</span>
+                      {/* backend ไม่มีชื่อไทยให้ค่าเก่า (resign ฯลฯ) → label null */}
+                      {r.label || exitTypeLabel(r.reason) || "ไม่ระบุ"} <span className="tabular-nums text-gray-700 dark:text-gray-300">{nf(r.count)}</span>
                     </li>
                   ))}
                 </ul>
@@ -167,8 +170,10 @@ export default function DashboardOverview({
   onBranchChange,
   showStatus = true,
   showTrend = true,
+  embedded = false,
 }) {
-  const [collapsed, setCollapsed] = useState(readCollapsed)
+  const [collapsedPref, setCollapsed] = useState(readCollapsed)
+  const collapsed = !embedded && collapsedPref
   const toggle = () => {
     setCollapsed((c) => {
       try { localStorage.setItem(COLLAPSE_KEY, c ? "0" : "1") } catch { /* private mode */ }
@@ -178,9 +183,9 @@ export default function DashboardOverview({
   const branchId = branch === ALL_BRANCHES ? null : Number(branch)
 
   return (
-    <section aria-labelledby="hr-overview-title" className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 id="hr-overview-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">
+    <section aria-labelledby={embedded ? undefined : "hr-overview-title"} aria-label={embedded ? "ภาพรวมบุคลากร" : undefined} className="space-y-3">
+      <div className={cx("flex flex-wrap items-center gap-x-4 gap-y-2", embedded ? "justify-end" : "justify-between")}>
+        {!embedded && <h2 id="hr-overview-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">
           <button
             type="button"
             onClick={toggle}
@@ -191,7 +196,7 @@ export default function DashboardOverview({
             <ChevronDown aria-hidden="true" className={cx("size-4 text-gray-500 transition-transform duration-200 dark:text-gray-400", collapsed && "-rotate-90")} strokeWidth={2} />
             ภาพรวมบุคลากร
           </button>
-        </h2>
+        </h2>}
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <label htmlFor="hr-overview-branch" className="shrink-0 text-sm text-gray-600 dark:text-gray-300">สาขา</label>
           <div className="min-w-0 flex-1 sm:w-64 sm:flex-none">

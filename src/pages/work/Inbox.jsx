@@ -388,7 +388,8 @@ const TABS = [
 ]
 
 // ─── สินเชื่อกองทุนฯ (3K) — คิวพิจารณาอยู่ที่ /hr/dashboard?tab=loans ─────────
-// หัวหน้าที่ไม่มีเมนู HR อื่นก็เห็นทางเข้าจากกล่องงานนี้ (GET /hr/loans/queue)
+// หัวหน้าแผนกการเงิน / ผู้จัดการ / ผช.ผจก. เห็นทางเข้าจากกล่องงานนี้ (GET /hr/loans/queue — finance-first, PR #50)
+// หัวหน้าสาขา/แผนกอื่นไม่มีขั้นพิจารณาแล้ว: ไม่ผ่าน hr.loans.queue และคิวว่างก็ไม่แสดง
 function LoanQueueNotice() {
   const { drillTo } = useDrill()
   const [count, setCount] = useState(null)

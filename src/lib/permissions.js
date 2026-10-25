@@ -66,8 +66,10 @@ export const MODULE_LABEL = Object.freeze({
   "Frontend only": "เฉพาะหน้าเว็บ",
 })
 
-// ตำแหน่งที่เห็นคิวสินเชื่อ (handoff #30) — ใช้ตารางใน rbacMatrix.js เผื่อ /auth/me/permissions ยังไม่ส่ง code loan.queue
+// ตำแหน่งที่เห็นคิวสินเชื่อ (3K finance-first, backend PR #50) — ใช้ตารางใน rbacMatrix.js แทน code loan.queue
+// เพราะ backend อาจยังให้ code นี้กับหัวหน้าสาขา/แผนก (เรียกได้แต่ได้ []) — ไม่ให้เมนูโผล่ให้คนที่ไม่มีงาน
 const LOAN_QUEUE_POSITIONS = new Set(PERMISSION_MATRIX["loan.queue"]?.roles ?? [])
+const LOAN_FINANCE_CHECK_POSITIONS = new Set(PERMISSION_MATRIX["loan.finance_check"]?.roles ?? [])
 
 export const PERMISSIONS = Object.freeze({
 
@@ -207,15 +209,18 @@ export const PERMISSIONS = Object.freeze({
   "hr.kpi.override": { code: "kpi.override", no: 88, module: "HR: KPI evaluation", label: "ยกเลิกผลประเมินที่อนุมัติแล้ว (คืนขั้น/เงินเดือน แล้วส่งกลับประเมินใหม่)", en: "Revoke approved evaluation", roles: [1, 2, 7], variant: true, note: "POST /hr/kpi/evaluations/{id}/revoke" },
 
   // ── HR: Staff loans ──
-  // 3K (backend PR #30): ผู้บังคับบัญชา → ผู้จัดการ (ส่งคณะทำงานฯ) → บันทึกมติคณะทำงานกองทุนฯ (101/105)
-  "hr.loans.list": { no: 91, module: "HR: Staff loans", label: "ดูรายการสินเชื่อทั้งหมด", en: "View all loans", roles: [1, 2], note: "GET /hr/loans — loan.view (ผู้จัดการเท่านั้น; HR ยังไม่ได้ รอ AMC ตอบ)" },
-  "hr.loans.queue": { code: (me) => me.has("loan.queue") || LOAN_QUEUE_POSITIONS.has(me.roleId), no: null, module: "HR: Staff loans", label: "ดูสินเชื่อที่รอตนพิจารณา + เห็นชอบ / ไม่เห็นชอบ (ผู้บังคับบัญชา)", en: "Loan approval queue / supervisor endorse", roles: [1, 2, 6, 7], note: "GET /hr/loans/queue · supervisor-endorse/-reject — backend ตรวจว่าเป็นผู้บังคับบัญชาของผู้กู้ (คนอื่น 403)" },
-  "hr.loans.approve.hr": { no: 92, module: "HR: Staff loans", label: "ส่งเรื่องเข้าคณะทำงานกองทุนฯ / ไม่อนุมัติ — ผู้จัดการ", en: "Manager forward to committee / reject loan", roles: [1, 2], note: "PATCH /hr/loans/{id}/hr-approve · hr-reject" },
-  "hr.loans.approve.finance": { no: 93, module: "HR: Staff loans", label: "บันทึกมติคณะทำงานกองทุนฯ (อนุมัติจ่าย / ไม่อนุมัติ)", en: "Record committee decision (disburse / reject)", roles: [1, 2], note: "PATCH /hr/loans/{id}/finance-confirm · finance-reject" },
-  "hr.loans.detail": { code: ["loan.view", "loan.approve.hr", "loan.confirm.finance", "loan.queue", "report.hr.loan_schedule"], no: 93, module: "HR: Staff loans", label: "ดูตารางผ่อน / หนังสือกู้และค้ำประกัน (PDF) รายสัญญา", en: "Loan schedule / contract PDF", roles: [1, 2], variant: true, note: "GET /hr/loans/{id}/schedule · contract-pdf (active/closed เท่านั้น) · schedule-pdf" },
+  // 3K finance-first (backend PR #50): ยื่น → หัวหน้าแผนกการเงินตรวจสอบ (112) → ผู้จัดการเสนอคณะทำงานฯ (101)
+  // → ผู้จัดการบันทึกมติ + วันที่จ่ายเงิน. ปุ่มพิจารณาแสดงตาม "อยู่ใน /hr/loans/queue ของผู้ใช้" + สถานะ (lib/loans.js)
+  // — backend เลือกผู้พิจารณาเอง (ผู้จัดการกู้ → ผช.ผจก. · หัวหน้าการเงินกู้ → เริ่มที่ finance_checked · ไม่มีหัวหน้าการเงิน → ผู้จัดการ)
+  "hr.loans.list": { no: 91, module: "HR: Staff loans", label: "ดูรายการสินเชื่อทั้งหมด", en: "View all loans", roles: [1, 2], note: "GET /hr/loans — loan.view (ผู้จัดการ 101 + หัวหน้าแผนกการเงิน 112)" },
+  "hr.loans.queue": { code: (me) => me.superAdmin || LOAN_QUEUE_POSITIONS.has(me.roleId) || me.has("loan.finance_check"), no: null, module: "HR: Staff loans", label: "ดูสินเชื่อที่รอตนพิจารณา (หัวหน้าแผนกการเงิน → ผู้จัดการ)", en: "Loan approval queue (finance head → manager)", roles: [1, 2, 7], note: "GET /hr/loans/queue — 112, 101, ผช.ผจก. 102/103 (เมื่อผู้จัดการเป็นผู้กู้); หัวหน้าสาขา/แผนกอื่นได้ [] จึงไม่แสดงเมนู" },
+  "hr.loans.financeCheck": { code: (me) => me.has("loan.finance_check") || LOAN_FINANCE_CHECK_POSITIONS.has(me.roleId), no: null, module: "HR: Staff loans", label: "ตรวจสอบคำขอกู้ (ตรวจสอบแล้ว ส่งผู้จัดการ / ไม่ผ่านการตรวจสอบ) — หัวหน้าแผนกการเงิน", en: "Finance check / reject loan request", roles: [1], variant: true, note: "POST /hr/loans/{id}/finance-check {note?} · finance-check-reject {reason} — ปุ่มแสดงเมื่ออยู่ในคิวของผู้ใช้ (ไม่มีหัวหน้าการเงิน → ผู้จัดการ)" },
+  "hr.loans.approve.hr": { no: 92, module: "HR: Staff loans", label: "เสนอคณะทำงานกองทุนฯ / ไม่อนุมัติ — ผู้จัดการ", en: "Manager forward to committee / reject loan", roles: [1, 2], note: "PATCH /hr/loans/{id}/hr-approve {} · hr-reject {reason} — ผช.ผจก. เมื่อผู้จัดการเป็นผู้กู้ (ตามคิว)" },
+  "hr.loans.approve.finance": { code: "loan.approve.hr", no: 93, module: "HR: Staff loans", label: "บันทึกมติคณะทำงานกองทุนฯ (อนุมัติจ่าย / ไม่อนุมัติ) — ผู้จัดการ", en: "Record committee decision (disburse / reject)", roles: [1, 2], note: "PATCH /hr/loans/{id}/finance-confirm · finance-reject — ผู้จัดการ (ผช.ผจก. เมื่อผู้จัดการเป็นผู้กู้, ตามคิว); 105 ไม่ได้แล้ว" },
+  "hr.loans.detail": { code: ["loan.view", "loan.approve.hr", "loan.confirm.finance", "loan.queue", "report.hr.loan_schedule"], no: 93, module: "HR: Staff loans", label: "ดูตารางผ่อน / หนังสือกู้และค้ำประกัน (PDF) รายสัญญา", en: "Loan schedule / contract PDF", roles: [1, 2], variant: true, note: "GET /hr/loans/{id}/schedule · contract-pdf (active/closed เท่านั้น) · schedule-pdf — รวม 112 (loan.view)" },
   "hr.loans.payoff": { code: "loan.confirm.finance", no: 93, module: "HR: Staff loans", label: "คำนวณยอดปิดบัญชี / บันทึกการชำระปิดบัญชี", en: "Payoff quote / record payoff", roles: [1, 2], variant: true, note: "GET/POST /hr/loans/{id}/payoff — 101, 105" },
   "hr.loans.settings": { code: "loan.confirm.finance", no: 93, module: "HR: Staff loans", label: "ตั้งค่ากองทุน (คณะทำงานกองทุนฯ / อายุเกษียณ)", en: "Loan fund settings", roles: [1, 2], variant: true, note: "GET/PATCH /hr/loans/settings — 101, 105" },
-  "hr.loans.overdue": { code: ["loan.view", "loan.confirm.finance"], no: 93, module: "HR: Staff loans", label: "ดูงวดค้างชำระ + เบี้ยปรับ", en: "Overdue instalments", roles: [1, 2], variant: true, note: "GET /hr/loans/overdue" },
+  "hr.loans.overdue": { code: "loan.confirm.finance", no: 93, module: "HR: Staff loans", label: "ดูงวดค้างชำระ + เบี้ยปรับ", en: "Overdue instalments", roles: [1, 2], variant: true, note: "GET /hr/loans/overdue — 101, 105 (112 ไม่ได้)" },
   "hr.loans.fundLedger": { code: "report.hr.loans_active", no: 115, module: "HR: Staff loans", label: "ทะเบียนคุมเงินกองทุนฯ (PDF)", en: "Loan fund ledger PDF", roles: [1, 2, 7], variant: true, note: "GET /hr/reports/loans/fund-ledger?fiscal_year=พ.ศ. — 101, 102" },
 
   // ── HR: Salary certificates ──

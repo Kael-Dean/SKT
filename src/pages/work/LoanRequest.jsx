@@ -19,7 +19,7 @@ import {
 } from "../../lib/styles"
 import { Badge, EmptyState, ErrorState, Skeleton, Tabs, panelId, tabId } from "../../components/ui"
 import {
-  LOAN_PURPOSE_LABEL, LOAN_PURPOSE_OPTIONS, asList, guarantorText, loanStatusLabel, loanStatusTone,
+  LOAN_PAPERS_HINT, LOAN_PURPOSE_LABEL, LOAN_PURPOSE_OPTIONS, asList, guarantorText, loanStatusLabel, loanStatusTone,
   money, thaiDate, warningList,
 } from "../../lib/loans"
 import PageTitle from "../../components/PageTitle"
@@ -56,6 +56,15 @@ function Warnings({ items, className }) {
     <ul role="status" className={cx("space-y-1 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900 dark:bg-amber-500/10 dark:text-amber-200", className)}>
       {items.map((w) => <li key={w}>{w}</li>)}
     </ul>
+  )
+}
+
+/** คำขอที่รอหัวหน้าแผนกการเงินตรวจสอบ — บอกผู้กู้ให้นำเอกสารมาส่ง (3K finance-first) */
+function PapersHint({ className }) {
+  return (
+    <p role="status" className={cx("rounded-xl bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-900 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30", className)}>
+      {LOAN_PAPERS_HINT}
+    </p>
   )
 }
 
@@ -182,6 +191,7 @@ function HistoryCard({ loan }) {
         <Stat label={loan.disbursed_on ? "วันที่ได้รับเงิน" : "วันที่ยื่น"}>{thaiDate(loan.disbursed_on || loan.created_at)}</Stat>
       </dl>
       <p className="text-xs text-gray-500 dark:text-gray-400">ผู้ค้ำประกัน: {guarantorText(loan)}</p>
+      {loan.status === "pending" && <PapersHint />}
       {loan.status === "rejected" && reason && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-500/10 dark:text-red-200">เหตุผล: {reason}</p>
       )}
@@ -404,6 +414,7 @@ export default function LoanRequest() {
             <Stat label="งวดสุดท้าย (ประมาณ)">{thaiDate(result.last_due_date, { long: true })}</Stat>
             <Stat label="ดอกเบี้ยรวมโดยประมาณ">{money(result.total_interest_estimate)}</Stat>
           </dl>
+          <PapersHint />
           <Warnings items={warns} />
           <div className="grid grid-cols-2 gap-3">
             <button type="button" onClick={resetForm} className={neutralBtnCls}>ยื่นคำขอใหม่</button>

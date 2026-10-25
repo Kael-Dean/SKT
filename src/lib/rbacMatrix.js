@@ -149,12 +149,17 @@ export const PERMISSION_MATRIX = Object.freeze({
   "kpi.override": { no: 88, roles: [101, 102] },
   "kpi.review.asst": { no: 89, roles: [101, 102] },
   "kpi.approve.manager": { no: 90, roles: [101] },
-  "loan.view": { no: 91, roles: [101] },
+  // 3K finance-first (backend PR #50): หัวหน้าแผนกการเงิน (112) ได้ loan.view ด้วย
+  "loan.view": { no: 91, roles: [101, 112] },
   "loan.approve.hr": { no: 92, roles: [101] },
+  // ใช้เฉพาะ payoff / ตั้งค่ากองทุน / ค้างชำระ แล้ว — บันทึกมติคณะทำงานฯ ย้ายไปผู้จัดการ (105 ไม่ได้แล้ว)
   "loan.confirm.finance": { no: 93, roles: [101, 105] },
-  // งวด 3 (3K, backend PR #30) — GET /hr/loans/queue: หัวหน้า 110–124, ผช.ผจก. 102/103, 101, 105
-  // เพิ่มตาม api-handoff ระหว่างรอ rbac_matrix.py ฉบับใหม่ (ยังไม่มีเลขฟังก์ชัน) — คัดลอกไฟล์จาก backend ทับได้เลย
-  "loan.queue": { no: null, roles: [101, 102, 103, 105, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124] },
+  // 3K finance-first (backend PR #50) — GET /hr/loans/queue: หัวหน้าแผนกการเงิน 112 (pending), ผู้จัดการ 101
+  // (finance_checked / manager_forwarded; ได้ pending ด้วยเมื่อไม่มีหัวหน้าแผนกการเงิน), ผช.ผจก. 102/103 (เมื่อผู้จัดการเป็นผู้กู้)
+  // หัวหน้าสาขา/แผนกอื่นได้ [] แล้ว (ไม่มีขั้นผู้บังคับบัญชา) — คัดลอกไฟล์จาก backend ทับได้เลย
+  "loan.queue": { no: null, roles: [101, 102, 103, 112] },
+  // POST /hr/loans/{id}/finance-check · finance-check-reject — ชื่อ code ยังไม่ยืนยันจาก backend (ปุ่มจริงตามคิว)
+  "loan.finance_check": { no: null, roles: [101, 112] },
   // งวด 3 (3P สวัสดิการ) + งวด 4 (3Q วินัย) — เพิ่มตาม api-handoff ระหว่างรอ rbac_matrix.py ฉบับใหม่ (ยังไม่มีเลขฟังก์ชัน)
   // คัดลอกไฟล์จาก backend ทับได้เลย
   "welfare.view": { no: null, roles: [101, 102, 103, 106, 117, 130] },

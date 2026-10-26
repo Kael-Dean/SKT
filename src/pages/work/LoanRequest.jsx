@@ -242,6 +242,7 @@ export default function LoanRequest() {
   const [elig, setElig] = useState(null)
   const [eligLoading, setEligLoading] = useState(true)
   const [eligErr, setEligErr] = useState("")
+  const [loanUnavailable, setLoanUnavailable] = useState(false)
   const [myId, setMyId] = useState(null)
 
   const [form, setForm] = useState(EMPTY_FORM)
@@ -261,9 +262,14 @@ export default function LoanRequest() {
   const loadElig = useCallback(() => {
     setEligLoading(true)
     setEligErr("")
+    setLoanUnavailable(false)
     apiAuth("/personnel/me/loans/eligibility")
       .then(setElig)
-      .catch((e) => setEligErr(apiDetail(e) || "ลองใหม่อีกครั้ง"))
+      .catch((e) => {
+        // 404 = backend ที่ต่ออยู่ยังไม่มีระบบสินเชื่อ 3K (เช่น production ยังไม่ deploy) — ไม่ให้ยื่นเข้า flow รุ่นเก่า
+        if (e?.status === 404) setLoanUnavailable(true)
+        else setEligErr(apiDetail(e) || "ลองใหม่อีกครั้ง")
+      })
       .finally(() => setEligLoading(false))
   }, [])
 
@@ -434,7 +440,15 @@ export default function LoanRequest() {
       <Tabs items={tabs} value={tab} onChange={setTab} ariaLabel="ขอกู้เงิน" idBase={ID_BASE} />
 
       <div role="tabpanel" id={panelId(ID_BASE, tab)} aria-labelledby={tabId(ID_BASE, tab)} tabIndex={0} className="space-y-5 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40">
-        {tab === "form" && (
+        {tab === "form" && loanUnavailable && (
+          <div className={cardCls}>
+            <EmptyState
+              title="ยังยื่นคำขอกู้ผ่านระบบไม่ได้"
+              description="ระบบสินเชื่อกองทุนสงเคราะห์ยังไม่เปิดใช้งาน กรุณาติดต่อฝ่ายบุคคลหรือหัวหน้าแผนกการเงิน"
+            />
+          </div>
+        )}
+        {tab === "form" && !loanUnavailable && (
           <>
             <EligibilityCard data={elig} loading={eligLoading} error={eligErr} onRetry={loadElig} />
 

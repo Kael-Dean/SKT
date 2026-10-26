@@ -129,7 +129,7 @@ export function todayIso() {
 /** ชื่อผู้กู้จาก loan object (รองรับหลายรูปแบบที่ backend เคยส่ง) */
 export function borrowerName(loan) {
   if (!loan) return "—"
-  const full = loan.user_display_name || loan.borrower_name || [loan.user_first_name, loan.user_last_name].filter(Boolean).join(" ")
+  const full = loan.employee_name || loan.user_display_name || loan.borrower_name || [loan.user_first_name, loan.user_last_name].filter(Boolean).join(" ")
   return full || (loan.user_id != null ? `รหัส ${loan.user_id}` : "—")
 }
 

@@ -1,83 +1,84 @@
-import { lazy, Suspense } from "react"
+import { Suspense } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import AppLayout from "./components/AppLayout"          // shell หลัก — เก็บ static (อยู่บน critical path)
 import Login from "./pages/work/Login"                  // entry route "/" — เก็บ eager
 import { PageLoader } from "./components/ui"            // fallback ระหว่างโหลด chunk
 import RequirePermission from "./components/RequirePermission"
 import { DOCUMENTS_PERMS, HR_HUB_PERMS, canBringInMill } from "./lib/permissions"
+import { lazyWithReload } from "./lib/chunkReload"      // chunk หายหลัง deploy → reload 1 ครั้ง แทนหน้าขาว
 
 /* -------- หน้าทั้งหมด lazy-load: แต่ละ route แตกเป็น chunk แยก โหลดเมื่อเข้าถึง -------- */
-const Home = lazy(() => import("./pages/work/Home"))
-const Documents = lazy(() => import("./pages/work/Documents"))
-const Order = lazy(() => import("./pages/work/Order"))
-const Sales = lazy(() => import("./pages/work/Sales"))
-const Buy = lazy(() => import("./pages/work/Buy"))
-const MemberSignup = lazy(() => import("./pages/work/MemberSignup"))
-const MemberSearch = lazy(() => import("./pages/work/MemberSearch"))
-const Stock = lazy(() => import("./pages/work/Stock"))
+const Home = lazyWithReload(() => import("./pages/work/Home"))
+const Documents = lazyWithReload(() => import("./pages/work/Documents"))
+const Order = lazyWithReload(() => import("./pages/work/Order"))
+const Sales = lazyWithReload(() => import("./pages/work/Sales"))
+const Buy = lazyWithReload(() => import("./pages/work/Buy"))
+const MemberSignup = lazyWithReload(() => import("./pages/work/MemberSignup"))
+const MemberSearch = lazyWithReload(() => import("./pages/work/MemberSearch"))
+const Stock = lazyWithReload(() => import("./pages/work/Stock"))
 
-const CustomerAdd = lazy(() => import("./pages/work/CustomerAdd"))
-const CompanyAdd = lazy(() => import("./pages/work/CompanyAdd"))
-const CustomerSearch = lazy(() => import("./pages/work/CustomerSearch"))
+const CustomerAdd = lazyWithReload(() => import("./pages/work/CustomerAdd"))
+const CompanyAdd = lazyWithReload(() => import("./pages/work/CompanyAdd"))
+const CustomerSearch = lazyWithReload(() => import("./pages/work/CustomerSearch"))
 
-const StockTransferOut = lazy(() => import("./pages/work/StockTransferOut"))
-const StockTransferIn = lazy(() => import("./pages/work/StockTransferIn"))
-const StockBringIn = lazy(() => import("./pages/work/StockBringIn"))
-const StockTransferMill = lazy(() => import("./pages/work/StockTransferMill"))
-const StockDamageOut = lazy(() => import("./pages/work/StockDamageOut"))
-const StockBringInMill = lazy(() => import("./pages/work/StockBringInMill"))
-const MemberTermination = lazy(() => import("./pages/work/MemberTermination"))
-const Share = lazy(() => import("./pages/work/Share"))
+const StockTransferOut = lazyWithReload(() => import("./pages/work/StockTransferOut"))
+const StockTransferIn = lazyWithReload(() => import("./pages/work/StockTransferIn"))
+const StockBringIn = lazyWithReload(() => import("./pages/work/StockBringIn"))
+const StockTransferMill = lazyWithReload(() => import("./pages/work/StockTransferMill"))
+const StockDamageOut = lazyWithReload(() => import("./pages/work/StockDamageOut"))
+const StockBringInMill = lazyWithReload(() => import("./pages/work/StockBringInMill"))
+const MemberTermination = lazyWithReload(() => import("./pages/work/MemberTermination"))
+const Share = lazyWithReload(() => import("./pages/work/Share"))
 
-const OperationPlan = lazy(() => import("./pages/organization/OperationPlan.jsx"))
-const BusinessEdit = lazy(() => import("./pages/organization/BusinessEdit.jsx"))
-const DebtHub = lazy(() => import("./pages/organization/debt/DebtHub.jsx"))
-const DebtTracking = lazy(() => import("./pages/organization/debt/DebtTracking.jsx"))
-const DebtReport = lazy(() => import("./pages/organization/debt-report/DebtReport.jsx"))
+const OperationPlan = lazyWithReload(() => import("./pages/organization/OperationPlan.jsx"))
+const BusinessEdit = lazyWithReload(() => import("./pages/organization/BusinessEdit.jsx"))
+const DebtHub = lazyWithReload(() => import("./pages/organization/debt/DebtHub.jsx"))
+const DebtTracking = lazyWithReload(() => import("./pages/organization/debt/DebtTracking.jsx"))
+const DebtReport = lazyWithReload(() => import("./pages/organization/debt-report/DebtReport.jsx"))
 
-const OrderCorrection = lazy(() => import("./pages/work/OrderCorrection.jsx"))
-const RiceSpecCreate = lazy(() => import("./pages/work/RiceSpecCreate.jsx"))
+const OrderCorrection = lazyWithReload(() => import("./pages/work/OrderCorrection.jsx"))
+const RiceSpecCreate = lazyWithReload(() => import("./pages/work/RiceSpecCreate.jsx"))
 
 /** ✅ Phase 3B — HR */
-const HRStaffSignup = lazy(() => import("./pages/hr/HRStaffSignup.jsx"))
-const HRUserList = lazy(() => import("./pages/hr/HRUserList.jsx"))
-const HRLeaveManagement = lazy(() => import("./pages/hr/HRLeaveManagement.jsx"))
-const HRFinance = lazy(() => import("./pages/hr/HRFinance.jsx"))
-const HRRelocation = lazy(() => import("./pages/hr/HRRelocation.jsx"))
-const HRDashboard = lazy(() => import("./pages/hr/HRDashboard.jsx"))
-const HRKpiPage = lazy(() => import("./pages/hr/HRKpiPage.jsx"))
-const HRIssueReports = lazy(() => import("./pages/hr/HRIssueReports.jsx"))
-const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
-const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
+const HRStaffSignup = lazyWithReload(() => import("./pages/hr/HRStaffSignup.jsx"))
+const HRUserList = lazyWithReload(() => import("./pages/hr/HRUserList.jsx"))
+const HRLeaveManagement = lazyWithReload(() => import("./pages/hr/HRLeaveManagement.jsx"))
+const HRFinance = lazyWithReload(() => import("./pages/hr/HRFinance.jsx"))
+const HRRelocation = lazyWithReload(() => import("./pages/hr/HRRelocation.jsx"))
+const HRDashboard = lazyWithReload(() => import("./pages/hr/HRDashboard.jsx"))
+const HRKpiPage = lazyWithReload(() => import("./pages/hr/HRKpiPage.jsx"))
+const HRIssueReports = lazyWithReload(() => import("./pages/hr/HRIssueReports.jsx"))
+const HRPersonnelDetail = lazyWithReload(() => import("./pages/hr/HRPersonnelDetail.jsx"))
+const HRSalaryTier = lazyWithReload(() => import("./pages/hr/HRSalaryTier.jsx"))
 /** WP0 scaffold — 3P สวัสดิการ · 3Q วินัย · 3H ปฏิทินการลา (หน้าแยก = แท็บเดียวกับใน /hr/dashboard) */
-const HRWelfare = lazy(() => import("./pages/hr/HRWelfare.jsx"))
-const HRDiscipline = lazy(() => import("./pages/hr/HRDiscipline.jsx"))
-const HRLeaveCalendar = lazy(() => import("./pages/hr/HRLeaveCalendar.jsx"))
+const HRWelfare = lazyWithReload(() => import("./pages/hr/HRWelfare.jsx"))
+const HRDiscipline = lazyWithReload(() => import("./pages/hr/HRDiscipline.jsx"))
+const HRLeaveCalendar = lazyWithReload(() => import("./pages/hr/HRLeaveCalendar.jsx"))
 /** WP0 scaffold — self-service: 3P · 3Q · 3L · 3M (13G) */
-const MyWelfare = lazy(() => import("./pages/work/MyWelfare.jsx"))
-const MyDiscipline = lazy(() => import("./pages/work/MyDiscipline.jsx"))
-const MyKpi = lazy(() => import("./pages/work/MyKpi.jsx"))
-const MySalaryCert = lazy(() => import("./pages/work/MySalaryCert.jsx"))
-const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
-const MyPayslips = lazy(() => import("./pages/work/MyPayslips.jsx"))
-const MyFinancial = lazy(() => import("./pages/work/MyFinancial.jsx"))
-const LeaveRequest = lazy(() => import("./pages/work/LeaveRequest.jsx"))
+const MyWelfare = lazyWithReload(() => import("./pages/work/MyWelfare.jsx"))
+const MyDiscipline = lazyWithReload(() => import("./pages/work/MyDiscipline.jsx"))
+const MyKpi = lazyWithReload(() => import("./pages/work/MyKpi.jsx"))
+const MySalaryCert = lazyWithReload(() => import("./pages/work/MySalaryCert.jsx"))
+const MyProfile = lazyWithReload(() => import("./pages/work/MyProfile.jsx"))
+const MyPayslips = lazyWithReload(() => import("./pages/work/MyPayslips.jsx"))
+const MyFinancial = lazyWithReload(() => import("./pages/work/MyFinancial.jsx"))
+const LeaveRequest = lazyWithReload(() => import("./pages/work/LeaveRequest.jsx"))
 /** งวด 2 — 3O ขอออกนอกสถานที่ */
-const OutOfOffice = lazy(() => import("./pages/work/OutOfOffice.jsx"))
-const OutOfOfficeApprovals = lazy(() => import("./pages/work/OutOfOfficeApprovals.jsx"))
+const OutOfOffice = lazyWithReload(() => import("./pages/work/OutOfOffice.jsx"))
+const OutOfOfficeApprovals = lazyWithReload(() => import("./pages/work/OutOfOfficeApprovals.jsx"))
 /** Dev-only index of all HR pages (not registered in production builds) */
-const DevHrHub = import.meta.env.DEV ? lazy(() => import("./pages/dev/DevHrHub.jsx")) : null
-const DevMobileKit = import.meta.env.DEV ? lazy(() => import("./pages/dev/DevMobileKit.jsx")) : null
-const Inbox = lazy(() => import("./pages/work/Inbox.jsx"))
-const FacilityReport = lazy(() => import("./pages/work/FacilityReport.jsx"))
-const ChangePassword = lazy(() => import("./pages/work/ChangePassword.jsx"))
-const MyRelocation = lazy(() => import("./pages/work/MyRelocation.jsx"))
-const HolidayCalendar = lazy(() => import("./pages/work/HolidayCalendar.jsx"))
-const LoanRequest = lazy(() => import("./pages/work/LoanRequest.jsx"))
-const ForgotPassword = lazy(() => import("./pages/work/ForgotPassword.jsx"))
-const ResetPassword = lazy(() => import("./pages/work/ResetPassword.jsx"))
+const DevHrHub = import.meta.env.DEV ? lazyWithReload(() => import("./pages/dev/DevHrHub.jsx")) : null
+const DevMobileKit = import.meta.env.DEV ? lazyWithReload(() => import("./pages/dev/DevMobileKit.jsx")) : null
+const Inbox = lazyWithReload(() => import("./pages/work/Inbox.jsx"))
+const FacilityReport = lazyWithReload(() => import("./pages/work/FacilityReport.jsx"))
+const ChangePassword = lazyWithReload(() => import("./pages/work/ChangePassword.jsx"))
+const MyRelocation = lazyWithReload(() => import("./pages/work/MyRelocation.jsx"))
+const HolidayCalendar = lazyWithReload(() => import("./pages/work/HolidayCalendar.jsx"))
+const LoanRequest = lazyWithReload(() => import("./pages/work/LoanRequest.jsx"))
+const ForgotPassword = lazyWithReload(() => import("./pages/work/ForgotPassword.jsx"))
+const ResetPassword = lazyWithReload(() => import("./pages/work/ResetPassword.jsx"))
 /** Admin — สิทธิ์ตามบทบาท (read-only) */
-const RolePermissions = lazy(() => import("./pages/admin/RolePermissions.jsx"))
+const RolePermissions = lazyWithReload(() => import("./pages/admin/RolePermissions.jsx"))
 
 /* -------- สิทธิ์: ทุก route guard ใช้ permission key จาก src/lib/permissions.js --------
    (role ids อยู่ที่ src/lib/roles.js เท่านั้น — ห้าม hardcode เลข role ในไฟล์นี้) */

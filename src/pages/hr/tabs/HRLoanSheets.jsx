@@ -539,9 +539,13 @@ function PayoffPanel({ loan, onRecorded }) {
 
 /** รายละเอียดสัญญา — loan = แถวจากรายการ (ข้อมูลตารางผ่อนโหลดเพิ่ม) */
 export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged }) {
-  const canSchedule = can("hr.loans.detail")
+  // หนังสือกู้ PDF = hr.loans.detail · ตารางผ่อน (GET /schedule, schedule-pdf) ต้อง loan.view (hr.loans.schedule)
+  // — code อื่นใน hr.loans.detail (loan.queue, report.hr.loan_schedule ฯลฯ) ได้ 403 จึงไม่ดึง/ไม่แสดงเลย
+  const canDocs = can("hr.loans.detail")
+  const canSchedule = can("hr.loans.schedule")
   const [schedule, setSchedule] = useState(null)
   const [schedErr, setSchedErr] = useState("")
+  const [schedForbidden, setSchedForbidden] = useState(false)
   const [loadingSched, setLoadingSched] = useState(canSchedule)
 
   const loadSchedule = useCallback(async () => {
@@ -551,7 +555,9 @@ export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged 
     try {
       setSchedule(await apiAuth(`/hr/loans/${loan.id}/schedule`))
     } catch (err) {
-      setSchedErr(errText(err, "โหลดตารางผ่อนไม่สำเร็จ"))
+      // สิทธิ์ใน token ไม่ตรงกับ backend → ซ่อนส่วนตารางผ่อนเงียบ ๆ ไม่ขึ้น error
+      if (err?.status === 403) setSchedForbidden(true)
+      else setSchedErr(errText(err, "โหลดตารางผ่อนไม่สำเร็จ"))
     } finally {
       setLoadingSched(false)
     }
@@ -629,18 +635,18 @@ export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged 
 
         {loan.status === "pending" && fromQueue && <LoanEligibilityPanel userId={borrowerId(loan)} />}
 
-        {canSchedule && (
+        {((canDocs && hasContract(loan)) || (canSchedule && !schedForbidden && rows.length > 0)) && (
           <div className="flex flex-wrap gap-2">
-            {hasContract(loan) && (
+            {canDocs && hasContract(loan) && (
               <LoanPdfButton path={`/hr/loans/${loan.id}/contract-pdf`} label="หนังสือกู้ + ค้ำประกัน" fallbackName={`loan_contract_${loan.id}.pdf`} />
             )}
-            {rows.length > 0 && (
+            {canSchedule && !schedForbidden && rows.length > 0 && (
               <LoanPdfButton path={`/hr/loans/${loan.id}/schedule-pdf`} label="ตารางผ่อน PDF" fallbackName={`loan_schedule_${loan.id}.pdf`} />
             )}
           </div>
         )}
 
-        {canSchedule && (
+        {canSchedule && !schedForbidden && (
           <section aria-label="ตารางผ่อนชำระ" className="space-y-2">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">ตารางผ่อนชำระ</h3>
             {loadingSched ? (

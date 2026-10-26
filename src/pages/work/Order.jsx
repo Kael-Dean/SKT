@@ -10,6 +10,7 @@ import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import BranchLockNote from "../../components/BranchLockNote"
 import DateInput from "../../components/ThaiDateField"
 import PageTitle from "../../components/PageTitle"
+import AllTimeToggle, { ALL_TIME_START, ALL_TIME_END } from "../../components/AllTimeToggle"
 
 /** ----------- Utils ----------- */
 const onlyDigits = (s = "") => s.replace(/\D+/g, "")
@@ -127,6 +128,7 @@ const Order = () => {
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
+    allTime: false,
 
     branchId: branchLock.activeKey, branchName: "",
     klangId: "", klangName: "",
@@ -261,14 +263,14 @@ const Order = () => {
 
   /** ---------- Fetch orders (BUY or SELL) + Request Guard ---------- */
   const fetchOrders = async () => {
-    if (!validateDates(filters.startDate, filters.endDate)) return
+    if (!filters.allTime && !validateDates(filters.startDate, filters.endDate)) return
 
     const myReq = ++listReqId.current  // ทำให้คำขอเก่ากลายเป็นของเดิม
     try {
       setLoading(true)
       const params = new URLSearchParams()
-      params.set("start_date", filters.startDate)
-      params.set("end_date", filters.endDate)
+      params.set("start_date", filters.allTime ? ALL_TIME_START : filters.startDate)
+      params.set("end_date", filters.allTime ? ALL_TIME_END : filters.endDate)
       const branchId = scopedBranchId(filters.branchId)
       if (branchId) params.set("branch_id", branchId)
       if (filters.klangId) params.set("klang_id", filters.klangId)
@@ -309,6 +311,14 @@ const Order = () => {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchOrders() }, [mode]) // โหลดใหม่เมื่อเปลี่ยนโหมด
+
+  // สลับ "ดูทั้งหมด (ทุกช่วงเวลา)" → โหลดใหม่ทันที (ข้ามรอบแรกตอน mount)
+  const allTimeMounted = useRef(false)
+  useEffect(() => {
+    if (!allTimeMounted.current) { allTimeMounted.current = true; return }
+    fetchOrders()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.allTime])
 
   /** ---------- Auto refresh on debounced search ---------- */
   useEffect(() => {
@@ -384,6 +394,7 @@ const Order = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
+      allTime: false,
 
       branchId: branchLock.activeKey, branchName: "",
       klangId: "", klangName: "",
@@ -401,12 +412,14 @@ const Order = () => {
   const endIndex = Math.min(rows.length, page * PAGE_SIZE)
   // จำนวนคอลัมน์จริงต่อโหมด — ใช้กับ skeleton/empty ให้ตรง layout
   const colCount = mode === "buy" ? 12 : 11
-  const dateError = !!errors.startDate || !!errors.endDate
+  const dateError = !filters.allTime && (!!errors.startDate || !!errors.endDate)
+  const setAllTime = (v) => setFilters((p) => ({ ...p, allTime: v }))
 
   // Active filters (badge on the phone disclosure). Dates count only when changed from the default range.
   const activeFilterCount =
-    (filters.startDate !== firstDayThisMonth ? 1 : 0) +
-    (filters.endDate !== today ? 1 : 0) +
+    (filters.allTime ? 1 : 0) +
+    (!filters.allTime && filters.startDate !== firstDayThisMonth ? 1 : 0) +
+    (!filters.allTime && filters.endDate !== today ? 1 : 0) +
     (filters.branchId && !branchLock.locked ? 1 : 0) +
     (filters.klangId ? 1 : 0) +
     (filters.specId ? 1 : 0) +
@@ -426,9 +439,10 @@ const Order = () => {
           aria-describedby={errors.startDate ? "order-start-err" : undefined}
           value={filters.startDate}
           onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
-          error={!!errors.startDate}
+          error={!filters.allTime && !!errors.startDate}
+          disabled={filters.allTime}
         />
-        {errors.startDate && <div id="order-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
+        {!filters.allTime && errors.startDate && <div id="order-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
       </div>
 
       {/* วันที่สิ้นสุด */}
@@ -440,10 +454,14 @@ const Order = () => {
           aria-describedby={errors.endDate ? "order-end-err" : undefined}
           value={filters.endDate}
           onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
-          error={!!errors.endDate}
+          error={!filters.allTime && !!errors.endDate}
+          disabled={filters.allTime}
         />
-        {errors.endDate && <div id="order-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
+        {!filters.allTime && errors.endDate && <div id="order-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
       </div>
+
+      {/* มือถือ: ปุ่มดูทั้งหมดอยู่ในตัวกรอง (desktop อยู่แถวปุ่มค้นหา) */}
+      {isPhone && <AllTimeToggle active={filters.allTime} onChange={setAllTime} />}
 
       {/* สาขา */}
       <div>
@@ -655,7 +673,7 @@ const Order = () => {
             <div className="grid gap-3 md:grid-cols-6">
               {filterFields}
 
-              <div className="flex items-end gap-2 md:col-span-6">
+              <div className="flex flex-wrap items-end gap-2 md:col-span-6">
                 <button
                   onClick={fetchOrders}
                   type="button"
@@ -682,6 +700,7 @@ const Order = () => {
                 >
                   รีเซ็ต
                 </button>
+                <AllTimeToggle active={filters.allTime} onChange={setAllTime} />
               </div>
             </div>
           </div>

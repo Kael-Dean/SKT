@@ -21,6 +21,7 @@ import { useDrill } from "../../../lib/drill"
 import { cx, iconBtnCls, neutralBtnCls } from "../../../lib/styles"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 import SelectDropdown from "../../../components/SelectDropdown"
+import ThaiDateField from "../../../components/ThaiDateField"
 import { Badge, DataList, EmptyState, ErrorState, Sheet, Skeleton, toast } from "../../../components/ui"
 import {
   WEEKDAY_SHORT,
@@ -72,15 +73,34 @@ function TypeDot({ type, halfDay, className = "" }) {
   return <span aria-hidden="true" className={cx("inline-block size-2.5 shrink-0 rounded-full", leaveTypeDotCls(type, halfDay), className)} />
 }
 
-function MonthNav({ year, month0, onShift, onToday, isCurrent }) {
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, m) => ({
+  value: String(m),
+  label: new Date(2000, m, 1).toLocaleDateString("th-TH", { month: "long" }),
+}))
+
+/** ปี ค.ศ. ที่เลือกได้ (แสดงเป็น พ.ศ.) — ย้อนหลัง 5 ปี ถึงล่วงหน้า 2 ปี และรวมปีที่กำลังดูเสมอ */
+function yearOptions(viewYear) {
+  const thisYear = new Date().getFullYear()
+  const from = Math.min(thisYear - 5, viewYear)
+  const to = Math.max(thisYear + 2, viewYear)
+  return Array.from({ length: to - from + 1 }, (_, i) => to - i).map((y) => ({ value: String(y), label: `พ.ศ. ${y + 543}` }))
+}
+
+// เลื่อนทีละเดือน · เลือกเดือน / ปีตรง ๆ · กระโดดไปวันที่ (เปิดรายละเอียดวันนั้น)
+function MonthNav({ year, month0, onShift, onPick, onPickDate, onToday, isCurrent }) {
+  const years = useMemo(() => yearOptions(year), [year])
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
+      <h2 className="sr-only" aria-live="polite">{fmtMonthTH(year, month0)}</h2>
       <button type="button" className={iconBtnCls} onClick={() => onShift(-1)} aria-label="เดือนก่อนหน้า">
         <ChevronLeft className="size-5" aria-hidden="true" />
       </button>
-      <h2 className="min-w-[9.5rem] text-center text-base font-semibold text-gray-900 dark:text-gray-100 tabular-nums" aria-live="polite">
-        {fmtMonthTH(year, month0)}
-      </h2>
+      <div className="w-32">
+        <SelectDropdown size="sm" ariaLabel="เดือน" options={MONTH_OPTIONS} value={String(month0)} onChange={(v) => onPick(year, Number(v))} showSwatch={false} />
+      </div>
+      <div className="w-32">
+        <SelectDropdown size="sm" ariaLabel="ปี พ.ศ." options={years} value={String(year)} onChange={(v) => onPick(Number(v), month0)} showSwatch={false} />
+      </div>
       <button type="button" className={iconBtnCls} onClick={() => onShift(1)} aria-label="เดือนถัดไป">
         <ChevronRight className="size-5" aria-hidden="true" />
       </button>
@@ -89,6 +109,15 @@ function MonthNav({ year, month0, onShift, onToday, isCurrent }) {
           เดือนนี้
         </button>
       )}
+      <div className="w-44 sm:ml-2">
+        <ThaiDateField
+          value=""
+          placeholder="ไปวันที่…"
+          ariaLabel="ไปวันที่"
+          className="!rounded-lg !px-3 !py-2 md:!text-sm"
+          onChange={(e) => e.target.value && onPickDate(e.target.value)}
+        />
+      </div>
     </div>
   )
 }
@@ -423,6 +452,15 @@ export default function HRLeaveCalendarTab() {
     })
   }, [])
   const goToday = () => { const d = new Date(); setYm({ y: d.getFullYear(), m: d.getMonth() }) }
+  const pickMonth = (y, m) => setYm({ y, m })
+  // "ไปวันที่": เปลี่ยนเดือนก่อน แล้วเปิดรายละเอียดวันนั้นเมื่อข้อมูลเดือนนั้นโหลดเสร็จ (effect ด้านล่าง)
+  const [pendingDate, setPendingDate] = useState(null)
+  const pickDate = (iso) => {
+    const d = parseISO(iso)
+    if (!d) return
+    setYm({ y: d.getFullYear(), m: d.getMonth() })
+    setPendingDate(iso)
+  }
   const isCurrent = ym.y === now.getFullYear() && ym.m === now.getMonth()
 
   // ตัวเลือกสาขา = สาขาที่ backend ส่งมา (อยู่ในขอบเขตแล้ว) ∪ my-branches
@@ -445,6 +483,13 @@ export default function HRLeaveCalendarTab() {
 
   const days = useMemo(() => filterDays(current?.days ?? [], branchId), [current, branchId])
   const types = useMemo(() => leaveTypeSummary(days), [days])
+
+  useEffect(() => {
+    // current = ข้อมูลของเดือนที่กำลังดูโหลดเสร็จแล้ว (ไม่ใช่ของเดือนก่อนที่ค้างอยู่)
+    if (!pendingDate || !current || !pendingDate.startsWith(monthFrom.slice(0, 7))) return
+    setOpenDay(days.find((d) => d.date === pendingDate) ?? { date: pendingDate, branches: [], onLeave: 0 })
+    setPendingDate(null)
+  }, [pendingDate, current, monthFrom, days])
   const hasHeadcount = Boolean(current?.branches.some((b) => b.headcount))
 
   const summary = useMemo(() => {
@@ -464,7 +509,7 @@ export default function HRLeaveCalendarTab() {
     <div className="space-y-4">
       {/* toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <MonthNav year={ym.y} month0={ym.m} onShift={shiftMonth} onToday={goToday} isCurrent={isCurrent} />
+        <MonthNav year={ym.y} month0={ym.m} onShift={shiftMonth} onPick={pickMonth} onPickDate={pickDate} onToday={goToday} isCurrent={isCurrent} />
         <div className="flex w-full items-center gap-2 sm:w-auto">
           {onlyOneBranch ? (
             <p className="text-sm text-gray-600 dark:text-gray-300">

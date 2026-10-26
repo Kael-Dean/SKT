@@ -36,6 +36,7 @@ import {
   Recycle,
   Settings,
   ShoppingCart,
+  Tags,
   TrendingUp,
   TriangleAlert,
   UserPlus,
@@ -90,6 +91,7 @@ export const ALL_FUNCTIONS = [
       { label: "แก้ไขออเดอร์", path: "/order-correction", icon: "🛠️", perm: "trading.orders.edit" },
       { label: "คลังสินค้า", path: "/stock", icon: "🏭", perm: "trading.reports.view" },
       { label: "เพิ่มรหัสข้าว", path: "/spec/create", icon: "🌾", perm: "stock.spec.manage" },
+      { label: "จัดการรหัสข้าว", path: "/spec/manage", icon: "🏷️", perm: "stock.spec.manage" },
     ],
   },
   {
@@ -128,7 +130,7 @@ export const TRADING_GROUP = {
   group: "ธุรกิจรวบรวมผลผลิต",
   items: [
     ...ALL_FUNCTIONS[0].items,
-    ...ALL_FUNCTIONS[2].items.filter((i) => i.path !== "/spec/create"),
+    ...ALL_FUNCTIONS[2].items.filter((i) => i.path !== "/spec/create" && i.path !== "/spec/manage"),
   ],
 }
 
@@ -162,6 +164,7 @@ const ICONS = {
   "/order-correction": ListChecks,
   "/stock": Warehouse,
   "/spec/create": Wheat,
+  "/spec/manage": Tags,
   "/documents": FileText,
   "/operation-plan": Map,
   "/business-edit": Settings,

@@ -17,9 +17,9 @@ const todayThai = () =>
 
 function Item({ label, value, wide }) {
   return (
-    <div className={cx("min-w-0", wide && "col-span-2 sm:col-span-1")}>
+    <div className={cx("min-w-0", wide && "col-span-2 @xl:col-span-1")}>
       <dt className="text-xs text-gray-500 dark:text-gray-400">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm font-medium text-gray-900 dark:text-gray-100" title={value || undefined}>
+      <dd className="mt-0.5 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
         {value || <span className="font-normal text-gray-400 dark:text-gray-500">—</span>}
       </dd>
     </div>
@@ -39,10 +39,10 @@ export default function FormApplicantHeader({ className, showDate = true }) {
     <section
       aria-label="ผู้ยื่นคำขอ"
       aria-busy={loading || undefined}
-      className={cx("rounded-xl bg-gray-50 px-4 py-3 ring-1 ring-gray-200/70 dark:bg-white/[.03] dark:ring-line", className)}
+      className={cx("@container rounded-xl bg-gray-50 px-4 py-3 ring-1 ring-gray-200/70 dark:bg-white/[.03] dark:ring-line", className)}
     >
       {loading ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" aria-hidden="true">
+        <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-4" aria-hidden="true">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="space-y-1.5">
               <Skeleton rounded="rounded" className="h-3 w-12" />
@@ -51,7 +51,8 @@ export default function FormApplicantHeader({ className, showDate = true }) {
           ))}
         </div>
       ) : (
-        <dl className={cx("grid grid-cols-2 gap-x-4 gap-y-2", showDate ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
+        // นับคอลัมน์ตามความกว้างของการ์ดเอง (container query) ไม่ใช่ของจอ — การ์ดแคบในหน้าสองคอลัมน์จะได้ไม่ตัดข้อความ
+        <dl className={cx("grid grid-cols-2 gap-x-4 gap-y-2", showDate ? "@3xl:grid-cols-4" : "@xl:grid-cols-3")}>
           {showDate && <Item label="วันที่" value={todayThai()} />}
           <Item label="ข้าพเจ้า" value={name} />
           <Item label="ตำแหน่ง" value={defaults.position} />

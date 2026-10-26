@@ -57,9 +57,10 @@ function NotificationRow({ n, onOpen }) {
         type="button"
         onClick={() => onOpen(n)}
         className={[
-          "group relative flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-150",
-          "hover:bg-gray-50 focus-visible:bg-gray-50 focus:outline-none dark:hover:bg-gray-700/50 dark:focus-visible:bg-gray-700/50",
-          unread ? "bg-indigo-50/50 dark:bg-indigo-500/[0.07]" : "",
+          "group relative flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition-colors duration-150 focus:outline-none",
+          unread
+            ? "bg-indigo-50/50 hover:bg-indigo-100/70 focus-visible:bg-indigo-100/70 dark:bg-indigo-500/[0.07] dark:hover:bg-indigo-500/[0.14] dark:focus-visible:bg-indigo-500/[0.14]"
+            : "hover:bg-gray-100 focus-visible:bg-gray-100 dark:hover:bg-gray-700/50 dark:focus-visible:bg-gray-700/50",
         ].join(" ")}
       >
         {isAction && (
@@ -228,7 +229,7 @@ export default function NotificationBell() {
                 type="button"
                 onClick={markAllRead}
                 disabled={unreadCount === 0}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-500/10 dark:disabled:text-gray-600"
+                className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-semibold text-indigo-600 transition-colors duration-150 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-500/10 dark:disabled:text-gray-600"
               >
                 อ่านทั้งหมด
               </button>
@@ -253,7 +254,7 @@ export default function NotificationBell() {
                   <button
                     type="button"
                     onClick={refresh}
-                    className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                    className="cursor-pointer rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                   >
                     ลองอีกครั้ง
                   </button>
@@ -282,7 +283,7 @@ export default function NotificationBell() {
                   setOpen(false)
                   drillTo("/inbox")
                 }}
-                className="w-full px-4 py-2.5 text-center text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus-visible:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50 dark:hover:text-white"
+                className="w-full cursor-pointer px-4 py-2.5 text-center text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus-visible:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50 dark:hover:text-white"
               >
                 ไปที่กล่องงานรออนุมัติ
               </button>

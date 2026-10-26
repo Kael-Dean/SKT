@@ -4,7 +4,7 @@ import { apiAuth } from "../../lib/api";
 import { getUser } from "../../lib/auth";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  cx, baseField, labelCls, submitBtnCls, resetBtnCls, spinnerCls, primaryBtnCls, neutralBtnCls, dangerBtnCls,
+  cx, baseField, labelCls, helpTextCls, submitBtnCls, resetBtnCls, spinnerCls, primaryBtnCls, neutralBtnCls, dangerBtnCls,
 } from "../../lib/styles";
 import { SkeletonTableRows, Sheet, DataList, Badge, EmptyState, ConfirmDialog, toast } from "../../components/ui";
 import ComboBox from "../../components/ComboBox";
@@ -15,6 +15,7 @@ import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock";
 import BranchLockNote from "../../components/BranchLockNote";
 import DateInput from "../../components/ThaiDateField";
 import PageTitle from "../../components/PageTitle"
+import AllTimeToggle, { ALL_TIME_START, ALL_TIME_END } from "../../components/AllTimeToggle"
 
 /* ---------------- Utilities (ทนทานต่อค่าที่ไม่ใช่สตริง) ---------------- */
 const asString = (v) => (v === null || v === undefined ? "" : String(v));
@@ -91,10 +92,13 @@ function OrderCorrection() {
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
     endDate: today,
+    allTime: false,
     branchId: branchLock.activeKey,
     branchName: "",
     klangId: "",
     klangName: "",
+    specId: "",
+    specLabel: "",
     q: "",
   });
   const [errors, setErrors] = useState({ startDate: "", endDate: "" });
@@ -188,18 +192,20 @@ function OrderCorrection() {
 
   /* fetch orders (ป้องกันข้อมูลย้อนด้วย reqId) */
   const fetchOrders = async () => {
-    if (!validateDates(filters.startDate, filters.endDate)) return;
+    if (!filters.allTime && !validateDates(filters.startDate, filters.endDate)) return;
 
     const myReq = ++listReqId.current; // ทำให้คำขอเก่ากลายเป็นของเดิมทันที
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      params.set("start_date", filters.startDate);
-      params.set("end_date", filters.endDate);
+      params.set("start_date", filters.allTime ? ALL_TIME_START : filters.startDate);
+      params.set("end_date", filters.allTime ? ALL_TIME_END : filters.endDate);
       const branchId = scopedBranchId(filters.branchId);
       if (branchId) params.set("branch_id", branchId);
       if (filters.klangId) params.set("klang_id", filters.klangId);
       if (filters.q?.trim()) params.set("q", filters.q.trim());
+      // สินค้า: เลือกได้ 1 รายการ · ไม่เลือก = ทุกสินค้า (เหมือนหน้าดูออเดอร์)
+      if (filters.specId) params.set("spec_id", filters.specId);
 
       const endpoint = mode === "buy" ? `/order/orders/buy-report` : `/order/orders/sell-report`;
       const data = await apiAuth(`${endpoint}?${params.toString()}`);
@@ -243,6 +249,17 @@ function OrderCorrection() {
     fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  // สลับ "ดูทั้งหมด (ทุกช่วงเวลา)" → โหลดใหม่ทันที (ข้ามรอบแรกตอน mount)
+  const allTimeMounted = useRef(false);
+  useEffect(() => {
+    if (!allTimeMounted.current) {
+      allTimeMounted.current = true;
+      return;
+    }
+    fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.allTime]);
 
   useEffect(() => {
     if (filters.q.length >= 2 || filters.q.length === 0) fetchOrders();
@@ -299,15 +316,25 @@ function OrderCorrection() {
     return items;
   }, [page, totalPages]);
 
+  /* ตัวกรองสินค้า: โชว์ "ชั้นย่อย" ใต้ชื่อ แบบหน้าดูออเดอร์ */
+  const specSubLabel = (opt) => {
+    const vid = specDict[String(opt?.id)]?.variant_id;
+    const v = vid != null ? productForms.names?.variant?.[String(vid)] : "";
+    return v ? `ชั้นย่อย: ${v}` : "";
+  };
+
   /* reset filters */
   const resetFilters = () => {
     setFilters({
       startDate: firstDayThisMonth,
       endDate: today,
+      allTime: false,
       branchId: branchLock.activeKey,
       branchName: "",
       klangId: "",
       klangName: "",
+      specId: "",
+      specLabel: "",
       q: "",
     });
     if (!branchLock.locked) setKlangOptions([]);
@@ -764,9 +791,10 @@ function OrderCorrection() {
                 aria-describedby={errors.startDate ? "oc-start-err" : undefined}
                 value={filters.startDate}
                 onChange={(e) => setFilters((p) => ({ ...p, startDate: e.target.value }))}
-                error={!!errors.startDate}
+                error={!filters.allTime && !!errors.startDate}
+                disabled={filters.allTime}
               />
-              {errors.startDate && <div id="oc-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
+              {!filters.allTime && errors.startDate && <div id="oc-start-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.startDate}</div>}
             </div>
 
             <div>
@@ -777,9 +805,10 @@ function OrderCorrection() {
                 aria-describedby={errors.endDate ? "oc-end-err" : undefined}
                 value={filters.endDate}
                 onChange={(e) => setFilters((p) => ({ ...p, endDate: e.target.value }))}
-                error={!!errors.endDate}
+                error={!filters.allTime && !!errors.endDate}
+                disabled={filters.allTime}
               />
-              {errors.endDate && <div id="oc-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
+              {!filters.allTime && errors.endDate && <div id="oc-end-err" className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.endDate}</div>}
             </div>
 
             <div>
@@ -819,6 +848,24 @@ function OrderCorrection() {
               />
             </div>
 
+            {/* รายการสินค้า (spec) — ส่ง spec_id เดียว, ไม่เลือก = ทุกสินค้า */}
+            <div className="md:col-span-2">
+              <label className={labelCls}>รายการสินค้า (ไม่บังคับ)</label>
+              <ComboBox
+                options={specOptions.length ? [{ id: "", label: "— ทุกสินค้า —" }, ...specOptions] : specOptions}
+                value={filters.specId}
+                getValue={(o) => o.id}
+                getSubLabel={(o) => specSubLabel(o)}
+                onChange={(id, found) => setFilters((p) => ({ ...p, specId: id || "", specLabel: found?.label ?? "" }))}
+                placeholder={optionsLoading ? "— กำลังโหลด… —" : "— ทุกสินค้า —"}
+                disabled={optionsLoading || specOptions.length === 0}
+                searchable
+                title="รายการสินค้า"
+                ariaLabel="รายการสินค้า"
+              />
+              <p className={helpTextCls}>ไม่เลือก = ทุกสินค้า</p>
+            </div>
+
             <div className="md:col-span-2">
               <label className={labelCls} htmlFor="oc-q">
                 {mode === "buy" ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)" : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
@@ -832,11 +879,11 @@ function OrderCorrection() {
               />
             </div>
 
-            <div className="flex items-end gap-2 md:col-span-6">
+            <div className="flex flex-wrap items-end gap-2 md:col-span-6">
               <button
                 onClick={fetchOrders}
                 type="button"
-                disabled={!!errors.startDate || !!errors.endDate || loading}
+                disabled={(!filters.allTime && (!!errors.startDate || !!errors.endDate)) || loading}
                 className={submitBtnCls}
                 aria-busy={loading ? "true" : "false"}
               >
@@ -850,6 +897,7 @@ function OrderCorrection() {
               >
                 รีเซ็ต
               </button>
+              <AllTimeToggle active={filters.allTime} onChange={(v) => setFilters((p) => ({ ...p, allTime: v }))} />
             </div>
           </div>
         </div>

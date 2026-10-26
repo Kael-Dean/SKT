@@ -11,7 +11,8 @@
 **ชื่อโปรเจค:** ระบบ HR กลาง สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ (SKT)
 **ประเภท:** Web Application — Centralized HR System
 **Frontend Stack:** React 19 + Vite 7 + Tailwind CSS v4 + React Router v7 (HashRouter)
-**Backend:** Python FastAPI บน Google Cloud Run
+**Backend:** Python FastAPI บน Google Cloud Run — repo **https://github.com/FeatureRichDevelopment/um_backend** (อ่านดู route/schema ได้ แต่ห้ามแก้จากโปรเจคนี้)
+**Frontend repo:** https://github.com/Kael-Dean/SKT
 **Deploy:** Frontend อยู่บน Google Cloud Storage Bucket (Static Hosting)
 
 ---

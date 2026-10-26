@@ -42,23 +42,123 @@ export const PENDING = {
 
 export const PROFIT_LABEL = { profit: "กำไร", loss: "ขาดทุน" }
 
-/** score components — max points (staff split 42/28/20/10) */
-export const COMPONENTS = [
-  { key: "branch_head_score", label: "หัวหน้าสาขา", short: "หส.", max: 42 },
-  { key: "branch_score_component", label: "ผลงานสาขา", short: "สาขา", max: 28 },
-  { key: "asst_manager_score", label: "ผู้ช่วยผู้จัดการ", short: "ผช.", max: 20 },
-  { key: "manager_score", label: "ผู้จัดการ", short: "ผจก.", max: 10 },
-]
+// ─── Score components (3L rework: the evaluatee's position decides the scheme) ─
+// Maximums are NEVER hard-coded: they come from `ev.component_max` (every evaluation
+// response) or, for a row without it, from the catalogue's `schemes[ev.scheme].components`.
+/** component id (as in component_max) → evaluation field / endpoint / permission */
+export const COMPONENT_META = {
+  branch_head: { id: "branch_head", key: "branch_head_score", label: "หัวหน้าสาขา", short: "หส.", path: "branch-head-score", perm: "scoreBranchHead" },
+  branch: { id: "branch", key: "branch_score_component", label: "ผลงานสาขา", short: "สาขา", auto: true },
+  asst_manager: { id: "asst_manager", key: "asst_manager_score", label: "ผู้ช่วยผู้จัดการ", short: "ผช.", path: "asst-manager-score", perm: "scoreAsst" },
+  manager: { id: "manager", key: "manager_score", label: "ผู้จัดการ", short: "ผจก.", path: "manager-score", perm: "scoreManager" },
+  board: { id: "board", key: "board_score", label: "คณะกรรมการ", short: "กก.", path: "board-score", perm: "boardScore" },
+}
+const COMPONENT_ORDER = ["branch_head", "branch", "asst_manager", "manager", "board"]
+
+/** which component the 12-item monthly form feeds, per scheme (catalogue wins when loaded) */
+const INDIVIDUAL_FALLBACK = { staff: "branch_head", head: "manager", asst_manager: "manager", manager: "board" }
+
+/** { branch: 30, … } for this evaluation, or null when neither source knows the scheme */
+export function componentMaxOf(ev, catalogue) {
+  const own = ev?.component_max
+  if (own && typeof own === "object" && Object.keys(own).length) return own
+  const s = ev?.scheme && catalogue?.schemes?.[ev.scheme]
+  return s?.components && Object.keys(s.components).length ? s.components : null
+}
+
+/** [{ ...COMPONENT_META[id], max }] in display order — only the scheme's components */
+export function componentsOf(ev, catalogue) {
+  const max = componentMaxOf(ev, catalogue)
+  if (!max) return []
+  const ids = [...COMPONENT_ORDER.filter((id) => id in max), ...Object.keys(max).filter((id) => !COMPONENT_ORDER.includes(id))]
+  return ids.map((id) => ({
+    ...(COMPONENT_META[id] ?? { id, key: `${id}_score`, label: id, short: id }),
+    max: num(max[id]),
+  }))
+}
+
+/** component id fed by the monthly form for this evaluation's scheme */
+export function individualComponentOf(ev, catalogue) {
+  const fromCat = ev?.scheme && catalogue?.schemes?.[ev.scheme]?.individual_component
+  return fromCat || INDIVIDUAL_FALLBACK[ev?.scheme] || null
+}
 
 /** sum of entered components (preview before finalize) */
-export function partialTotal(ev) {
+export function partialTotal(ev, catalogue) {
   let sum = 0
   let any = false
-  for (const c of COMPONENTS) {
+  for (const c of componentsOf(ev, catalogue)) {
     const n = num(ev?.[c.key])
     if (n != null) { sum += n; any = true }
   }
   return any ? Math.round(sum * 100) / 100 : null
+}
+
+/** components of the scheme that have no score yet (auto `branch` included — finalize needs it) */
+export function missingComponents(ev, catalogue) {
+  return componentsOf(ev, catalogue).filter((c) => num(ev?.[c.key]) == null)
+}
+
+// ─── Grades (catalogue `grades`; tone is presentation only) ──────────────────
+export const GRADE_TONE = { excellent: "success", good: "info", fair: "pending", improve: "danger" }
+
+/** grade for a score from the catalogue bands (self-assessment preview only) */
+export function gradeFor(score, catalogue) {
+  const n = num(score)
+  const bands = Array.isArray(catalogue?.grades) ? [...catalogue.grades].sort((a, b) => num(b.min) - num(a.min)) : []
+  if (n == null || !bands.length) return null
+  return bands.find((g) => n >= num(g.min)) ?? null
+}
+
+// ─── Monthly form helpers ────────────────────────────────────────────────────
+const MONTH_ABBR = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
+export const DEFAULT_MONTH_ORDER = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3]
+
+/** calendar month 1–12 → "เม.ย." */
+export const monthAbbr = (m) => MONTH_ABBR[Number(m) - 1] ?? String(m)
+
+/** "เม.ย. 69" — BE year of that calendar month inside fiscal year `fy` (fy starts in April) */
+export function fyMonthLabel(fy, m) {
+  const y = Number(m) >= 4 ? Number(fy) : Number(fy) + 1
+  return `${monthAbbr(m)} ${String(y).slice(-2)}`
+}
+
+/** fiscal year whose evaluation window started most recently (window = 1 มี.ค. of the CE year after FY start) */
+export function latestWindowFiscalYear(date = new Date()) {
+  const ce = date.getFullYear()
+  return (date.getMonth() >= 2 ? ce - 1 : ce - 2) + 543
+}
+
+/** form item value clamp/validate: "" ok · NaN / out of range → message */
+export function itemError(value, max) {
+  if (value === "" || value == null) return ""
+  const n = Number(value)
+  if (!Number.isFinite(n)) return "กรอกเป็นตัวเลข"
+  if (n < 0 || (max != null && n > max)) return `0–${fmtScore(max)}`
+  return ""
+}
+
+// ─── Branch KPI (POST/GET /hr/kpi/branch — handoff G1) ──────────────────────
+// The backend does NOT validate these: the frontend enforces 0 ≤ v ≤ max, ≤ 2 decimals, all six required.
+export const BRANCH_KPI_FIELDS = [
+  { key: "member_participation", label: "การมีส่วนร่วมของสมาชิก", max: 10 },
+  { key: "online_market", label: "ตลาดออนไลน์", max: 10 },
+  { key: "business_target", label: "ผลการดำเนินงานตามเป้าหมายธุรกิจ", max: 40 },
+  { key: "debt_management", label: "การบริหารหนี้", max: 10 },
+  { key: "internal_control", label: "การควบคุมภายใน", max: 20 },
+  { key: "corporate_image", label: "ภาพลักษณ์องค์กร", max: 10 },
+]
+export const BRANCH_KPI_TOTAL = 100
+
+/** "" when valid · "required" when empty · otherwise a Thai message */
+export function branchKpiError(raw, max) {
+  const s = String(raw ?? "").trim()
+  if (s === "") return "required"
+  if (!/^-?\d*\.?\d*$/.test(s) || !Number.isFinite(Number(s)) || s === "." || s === "-") return "กรอกเป็นตัวเลข"
+  const n = Number(s)
+  if (n < 0 || n > max) return `0–${fmtScore(max)}`
+  if (/\.\d{3,}$/.test(s)) return "ทศนิยมไม่เกิน 2 ตำแหน่ง"
+  return ""
 }
 
 // ─── Permissions → permission keys (src/lib/permissions.js) ─────────────────
@@ -76,6 +176,12 @@ const KPI_PERMISSION_KEYS = {
   eligibility: "hr.kpi.reopen", // PATCH .../eligibility อยู่ฟังก์ชันเดียวกับ reopen (matrix #88)
   profit: "hr.kpi.profit.record",
   monthly: "hr.kpi.monthly",
+  branch: "hr.kpi.branch", // no 82 → backend kpi.branch (positions 101·102·103)
+  // 3L rework
+  monthlyForm: "hr.kpi.monthlyForm",
+  notify: "hr.kpi.notify",
+  selfView: "hr.kpi.selfAssessment.view",
+  override: "hr.kpi.override",
 }
 
 /** { scoreAsst: true, … } for the current user (or the given role id) */

@@ -4,8 +4,8 @@
 //
 //   ปีใน /hr/payroll* เป็น ค.ศ. เสมอ (ส่ง พ.ศ. → 422) — แปลงเป็น พ.ศ. เฉพาะตอนแสดงผล
 //   งวด: draft (ร่าง) → review (ตรวจสอบ) → approved (อนุมัติ) → closed (ปิดงวด)
-//   gross_income = เงินเดือน + ค่าตำแหน่ง + add_pending + add_holiday_pay + add_back_pay
-//   สุทธิ = gross − (ภาษี + ประกันสังคม + เงินสะสม + กองทุนสำรองฯ + เงินกู้ + กยศ. + งดจ่ายเงิน)
+//   gross_income = เงินเดือน + ค่าตำแหน่ง + add_pending + add_holiday_pay + add_back_pay + add_welfare (3P)
+//   สุทธิ = gross − (ภาษี + ประกันสังคม + เงินสะสม + กองทุนสำรองฯ + เงินกู้ + กยศ. + งดจ่ายเงิน + งดจ่าย (พักงาน) 3Q)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
@@ -71,10 +71,15 @@ export const INCOME_LINES = [
   { key: "add_pending", label: "เงินเพิ่มอื่น ๆ" },
   { key: "add_holiday_pay", label: "ค่าทำงานวันหยุด" },
   { key: "add_back_pay", label: "เงินเลื่อนขั้นพิเศษตกเบิก" },
+  // 3P — สวัสดิการที่อนุมัติแบบจ่ายผ่านเงินเดือน (payout_route = payroll); ไม่คิดภาษี
+  { key: "add_welfare", label: "เงินช่วยเหลือสวัสดิการ" },
 ]
 
 /** deduct_extra_leave — ต้องใช้คำว่า "งดจ่ายเงิน" เสมอ ห้ามใช้ "หักเงิน" (AMC: หักเงินกรณีนี้ทำไม่ได้ตามกฎหมาย) */
 export const EXTRA_LEAVE_LABEL = "งดจ่ายเงิน (ลาเกินสิทธิ์)"
+
+/** deduct_suspension (3Q) — ใช้คำว่า "งดจ่าย" เช่นเดียวกัน */
+export const SUSPENSION_LABEL = "งดจ่าย (พักงาน)"
 
 /** รายการหัก — ลำดับเดียวกับสลิป PDF */
 export const DEDUCTION_LINES = [
@@ -85,6 +90,8 @@ export const DEDUCTION_LINES = [
   { key: "deduct_loan", label: "เงินกู้" },
   { key: "deduct_slf", label: "กยศ." },
   { key: "deduct_extra_leave", label: EXTRA_LEAVE_LABEL },
+  // 3Q — คำสั่งพักงาน (ขั้น 6): อัตรารายวัน × วันทำงานที่ถูกพักในเดือนนั้น
+  { key: "deduct_suspension", label: SUSPENSION_LABEL },
 ]
 
 /** ยอดหักรวม — ใช้ค่าจาก backend ถ้ามี, ไม่งั้นรวมจากบรรทัด, ไม่มีบรรทัดเลย → gross − net */
@@ -98,3 +105,61 @@ export function totalDeductions(p) {
 }
 
 export const netOf = (p) => p?.final_payout ?? p?.net_payout ?? null
+
+// ─── ลูกจ้างรายวัน (3C daily-paid, migration section21C2_payroll_daily) ─────────
+//   financial.pay_basis "monthly" | "daily" — รายวันได้ ค่าจ้างรายวัน (settings.daily_wage, ค่าเริ่มต้น 351) × วันที่ HR บันทึก
+//   payout.days_worked — null สำหรับพนักงานรายเดือน
+//   backend ที่ยังไม่ migrate จะไม่มี field เหล่านี้ → หน้าเว็บซ่อนส่วนที่เกี่ยวข้อง
+
+export const PAY_BASIS_OPTIONS = [
+  { value: "monthly", label: "รายเดือน" },
+  { value: "daily", label: "รายวัน" },
+]
+
+export const payBasisLabel = (v) => PAY_BASIS_OPTIONS.find((o) => o.value === v)?.label ?? null
+
+/** จำนวนวัน: 22 → "22", 20.5 → "20.5" */
+export const fmtWorkDays = (v) => {
+  const n = Number(v)
+  if (v == null || v === "" || !Number.isFinite(n)) return "—"
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10)
+}
+
+/** ค่าจ้างต่อวันของ payout รายวัน = base_salary ÷ days_worked (backend คิด daily_wage × days) */
+export function dailyRateOf(p) {
+  const days = Number(p?.days_worked)
+  const base = Number(p?.base_salary)
+  if (!p || p.days_worked == null || !Number.isFinite(days) || days <= 0 || !Number.isFinite(base)) return null
+  return base / days
+}
+
+/** "22 วัน × 351" — null เมื่อเป็นพนักงานรายเดือน */
+export function daysWorkedText(p) {
+  if (p?.days_worked == null) return null
+  const rate = dailyRateOf(p)
+  const days = `${fmtWorkDays(p.days_worked)} วัน`
+  if (rate == null) return days
+  const r = Number.isInteger(Math.round(rate * 100) / 100) ? Math.round(rate).toLocaleString("th-TH") : money(rate)
+  return `${days} × ${r}`
+}
+
+/** จำนวนวันที่บันทึกได้: 0–31 ทีละครึ่งวัน */
+export function validWorkDays(v) {
+  const n = Number(v)
+  return Number.isFinite(n) && n >= 0 && n <= 31 && Math.abs(n * 2 - Math.round(n * 2)) < 1e-9
+}
+
+/**
+ * รายการที่ถูกข้ามจาก generate-bulk / recalculate (`errors`) → [{ key, name, text }]
+ * รูปแบบที่รองรับ: string · { employee_id, employee_name, detail|error|message|reason }
+ */
+export function skippedFrom(res) {
+  const list = Array.isArray(res?.errors) ? res.errors : []
+  return list.map((e, i) => {
+    if (typeof e === "string") return { key: `e${i}`, name: null, text: e }
+    const id = e?.employee_id ?? e?.user_id ?? null
+    const name = e?.employee_name ?? e?.name ?? (id != null ? `รหัส ${id}` : null)
+    const text = e?.detail ?? e?.error ?? e?.message ?? e?.reason ?? "คำนวณไม่สำเร็จ"
+    return { key: id != null ? `id${id}` : `e${i}`, name, text: typeof text === "string" ? text : JSON.stringify(text) }
+  })
+}

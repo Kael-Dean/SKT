@@ -39,23 +39,31 @@ const FIELDS = {
     options: [{ value: "working_days", label: "วันทำงานจริง" }, { value: "fixed", label: "จำนวนวันคงที่" }],
     hint: "วันทำงานจริง = จำนวนวันทำงานของเดือนตามปฏิทินวันหยุด",
   },
-  daily_rate_fixed_days: { label: "จำนวนวัน (ถ้าเลือกคงที่)", unit: "วัน", type: "days", when: (f) => f.daily_rate_divisor === "fixed" },
+  daily_rate_fixed_days: { label: "จำนวนวัน (ถ้าเลือกคงที่)", unit: "วัน", type: "days", hint: "ข้อบังคับสหกรณ์: เงินเดือน ÷ 24", when: (f) => f.daily_rate_divisor === "fixed" },
+  // 3C daily-paid — แสดงเฉพาะเมื่อ backend ส่ง field นี้มา (optionalKey)
+  daily_wage: {
+    label: "ค่าจ้างรายวัน", unit: "บาท/วัน", type: "baht", optionalKey: true,
+    hint: "ลูกจ้างรายวันได้รับ ค่าจ้างรายวัน × จำนวนวันที่บันทึกในแต่ละเดือน",
+  },
 }
 
 const GROUPS = [
   { title: "ประกันสังคม", keys: ["sso_rate_pct", "sso_wage_floor", "sso_wage_ceiling"], note: "หักจากค่าจ้างที่อยู่ระหว่างค่าจ้างขั้นต่ำกับเพดาน" },
   { title: "เงินสะสม", keys: ["reserve_rate_pct"] },
   { title: "ภาษีเงินได้หัก ณ ที่จ่าย", keys: ["tax_mode", "tax_flat_rate_pct", "tax_expense_pct", "tax_expense_cap", "tax_personal_allowance"] },
-  { title: "ค่าจ้างรายวัน", keys: ["daily_rate_divisor", "daily_rate_fixed_days"], note: "ใช้คำนวณงดจ่ายเงิน (ลาเกินสิทธิ์) และค่าทำงานวันหยุด" },
+  { title: "อัตรารายวันของพนักงานรายเดือน", keys: ["daily_rate_divisor", "daily_rate_fixed_days"], note: "เงินเดือน ÷ ตัวหาร = อัตรารายวัน ใช้คิดงดจ่ายเงิน (ลาเกินสิทธิ์) และค่าทำงานวันหยุด" },
+  { title: "ลูกจ้างรายวัน", keys: ["daily_wage"] },
 ]
 
-const KEYS = Object.keys(FIELDS)
-const toForm = (s) => Object.fromEntries(KEYS.map((k) => [k, s?.[k] == null ? "" : String(s[k])]))
+const ALL_KEYS = Object.keys(FIELDS)
+/** ช่องที่ backend รองรับ — optionalKey ต้องมีอยู่ในค่าที่โหลดมา (staging ที่ยังไม่ migrate จะไม่มี daily_wage) */
+const keysFor = (saved) => ALL_KEYS.filter((k) => !FIELDS[k].optionalKey || (saved != null && k in saved))
+const toForm = (s) => Object.fromEntries(ALL_KEYS.map((k) => [k, s?.[k] == null ? "" : String(s[k])]))
 const same = (k, a, b) => (FIELDS[k].type === "choice" ? a === b : a.trim() !== "" && b.trim() !== "" ? Number(a) === Number(b) : a.trim() === b.trim())
 
-function validate(f) {
+function validate(f, keys) {
   const e = {}
-  for (const k of KEYS) {
+  for (const k of keys) {
     const def = FIELDS[k]
     if (def.type === "choice" || (def.when && !def.when(f))) continue
     const v = f[k].trim()
@@ -156,7 +164,8 @@ export default function HRPayrollSettingsTab() {
   useEffect(() => { load() }, [load])
 
   const base = useMemo(() => toForm(saved), [saved])
-  const changedKeys = KEYS.filter((k) => !same(k, form[k], base[k]))
+  const keys = useMemo(() => keysFor(saved), [saved])
+  const changedKeys = keys.filter((k) => !same(k, form[k], base[k]))
   const dirty = changedKeys.length > 0
 
   const setValue = (k, v) => {
@@ -168,7 +177,7 @@ export default function HRPayrollSettingsTab() {
   const reset = () => { setForm(base); setErrors({}); setMsg(null) }
 
   const save = async () => {
-    const errs = validate(form)
+    const errs = validate(form, keys)
     setErrors(errs)
     if (Object.keys(errs).length) { setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" }); return }
     const body = {}
@@ -210,13 +219,13 @@ export default function HRPayrollSettingsTab() {
         <p className="text-sm text-gray-600 dark:text-gray-400">ดูได้อย่างเดียว — แก้ไขได้เฉพาะหัวหน้าแผนกบุคคล</p>
       )}
 
-      {GROUPS.map((g) => (
+      {GROUPS.filter((g) => g.keys.some((k) => keys.includes(k))).map((g) => (
         <fieldset key={g.title} className="rounded-2xl bg-white px-4 pt-3 pb-1 ring-1 ring-gray-200/70 shadow-sm dark:bg-surface dark:ring-line dark:shadow-none md:px-5">
           <legend className="sr-only">{g.title}</legend>
           <h3 aria-hidden="true" className="text-sm font-semibold text-gray-900 dark:text-gray-100">{g.title}</h3>
           {g.note && <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{g.note}</p>}
           <div className="mt-1 divide-y divide-gray-100 dark:divide-line">
-            {g.keys.map((k) => (
+            {g.keys.filter((k) => keys.includes(k)).map((k) => (
               <Field key={k} k={k} form={form} setValue={setValue} error={errors[k]} readOnly={!canEdit || saving} changed={changedKeys.includes(k)} />
             ))}
           </div>

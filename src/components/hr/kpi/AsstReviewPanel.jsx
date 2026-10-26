@@ -13,7 +13,7 @@ import { EligibilityDialog, ReopenDialog } from "./ReviewDialogs"
 import { NoteField } from "./KpiBits"
 import { useEvaluations } from "./useKpi"
 
-export default function AsstReviewPanel({ fy, perms, people, onChanged }) {
+export default function AsstReviewPanel({ fy, perms, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy, "finalized")
   const [selected, setSelected] = useState(() => new Set())
   const [dialog, setDialog] = useState(null) // { kind: "reopen"|"elig", ev }
@@ -91,6 +91,7 @@ export default function AsstReviewPanel({ fy, perms, people, onChanged }) {
           rows={rows}
           loading={loading}
           people={people}
+          catalogue={catalogue}
           selected={selected}
           onToggle={toggle}
           onToggleAll={(ids) => setSelected(new Set(ids))}

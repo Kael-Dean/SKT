@@ -54,12 +54,21 @@ function fmtNum(n) {
   return Number(n).toLocaleString("th-TH")
 }
 
+// 3Q termination_prefill ส่ง exit_type "dismiss" (เชิญออก/ไล่ออก) — ค่าใน TerminationReason คือ "dismissed"
+const PREFILL_EXIT_TYPE = { dismiss: "dismissed" }
+
 /** record จาก GET → ค่าในฟอร์ม (null → "" เพื่อให้ input เป็น controlled) */
-function toForm(record) {
+function toForm(record, prefill) {
   const f = {}
   for (const k of FORM_KEYS) f[k] = record?.id != null ? record[k] ?? "" : ""
   // preview (ยังไม่มีบันทึก) — backend เติม exit_date = วันนี้มาให้
   if (record?.id == null) f.exit_date = record?.exit_date ?? todayIso()
+  // 3Q: เปิดจากการลงโทษขั้น 7/8 — เติมเฉพาะตอนยังไม่มีบันทึก
+  if (record?.id == null && prefill) {
+    const t = PREFILL_EXIT_TYPE[prefill.exit_type] ?? prefill.exit_type
+    if (EXIT_TYPES.some((o) => o.value === t)) f.exit_type = t
+    if (prefill.severance_pay != null && prefill.severance_pay !== "") f.severance_pay = String(prefill.severance_pay)
+  }
   return f
 }
 
@@ -139,8 +148,10 @@ function LoanExposurePanel({ employeeId, asOf }) {
  * ฟอร์มบันทึกออกจากงานของพนักงาน 1 คน
  * @param employee  { id, first_name, last_name }
  * @param onSaved   ({ created }) => void — created = true เมื่อสร้างบันทึกใหม่ (บัญชีถูกปิดใช้งานแล้ว)
+ * @param prefill   (3Q) termination_prefill จากการลงโทษขั้น 7/8 { exit_type, reason, reference, severance_pay, note }
+ *                  ใช้เติมฟอร์มเฉพาะตอนยังไม่มีบันทึก; reason/reference/note แสดงเป็นข้อมูลอ้างอิง
  */
-export default function TerminationForm({ employee, onSaved, showHeader = true }) {
+export default function TerminationForm({ employee, onSaved, showHeader = true, prefill = null }) {
   const empId = employee?.id
   const empName = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim() || `รหัส ${empId}`
 
@@ -149,6 +160,9 @@ export default function TerminationForm({ employee, onSaved, showHeader = true }
   const [loadErr, setLoadErr] = useState("")
   const [form, setForm] = useState({})
   const initialRef = useRef({})
+  // prefill อ่านตอนโหลดเท่านั้น (ไม่ใส่ใน deps — กัน object ใหม่ทุก render ทำให้โหลดซ้ำ)
+  const prefillRef = useRef(prefill)
+  prefillRef.current = prefill
 
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState(null) // { ok, text } | null
@@ -163,7 +177,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true }
     setLoadErr("")
     try {
       const data = await apiAuth(`/hr/employees/${empId}/termination-record`)
-      const f = toForm(data)
+      const f = toForm(data, prefillRef.current)
       initialRef.current = f
       setRecord(data)
       setForm(f)
@@ -297,6 +311,17 @@ export default function TerminationForm({ employee, onSaved, showHeader = true }
         </p>
       )}
 
+      {isNew && prefill && (
+        <div className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:bg-amber-500/10 dark:text-amber-100">
+          <p className="font-semibold">เติมจากการลงโทษทางวินัย{prefill.reason ? ` — ${prefill.reason}` : ""}</p>
+          <p className="tabular-nums">
+            {prefill.reference ? `อ้างอิงหนังสือเลขที่ ${prefill.reference}` : "ไม่มีเลขที่หนังสืออ้างอิง"}
+            {prefill.severance_pay === 0 || prefill.severance_pay === "0" ? " · ไม่จ่ายเงินชดเชย (ค่าเริ่มต้นกรณีไล่ออก)" : ""}
+          </p>
+          {prefill.note && <p className="mt-0.5 whitespace-pre-wrap break-words text-amber-900 dark:text-amber-200/90">{prefill.note}</p>}
+        </div>
+      )}
+
       {/* ข้อมูลคำนวณ (read-only) */}
       <div className="space-y-2 rounded-xl bg-indigo-50 p-3 dark:bg-indigo-900/20">
         <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">ระบบคำนวณให้</p>
@@ -425,11 +450,11 @@ export default function TerminationForm({ employee, onSaved, showHeader = true }
 }
 
 /** Popup ออกจากงาน (หน้าโปรไฟล์เจ้าหน้าที่) — bottom sheet บนมือถือ, dialog กลางจอบน desktop */
-export function TerminationSheet({ open, onClose, employee, onSaved }) {
+export function TerminationSheet({ open, onClose, employee, onSaved, prefill = null }) {
   const name = `${employee?.first_name ?? ""} ${employee?.last_name ?? ""}`.trim()
   return (
     <Sheet open={open} onClose={onClose} title="บันทึกออกจากงาน" subtitle={name || undefined} size="lg">
-      {open && employee?.id != null && <TerminationForm employee={employee} onSaved={onSaved} showHeader={false} />}
+      {open && employee?.id != null && <TerminationForm employee={employee} onSaved={onSaved} showHeader={false} prefill={prefill} />}
     </Sheet>
   )
 }

@@ -7,15 +7,18 @@
 //   POST /hr/payroll/periods/{y}/{m}/recalculate | submit | approve | close   (+ return ใน ReturnPeriodSheet)
 //   ปีเป็น ค.ศ. ทุก route · สร้าง/แก้ได้เฉพาะงวดร่าง (นอกนั้น backend ตอบ 409 — ปุ่มปิดไว้ก่อน)
 //   ผู้จัดการ (hr.payroll.period.approve) มีแท็บย่อย "รออนุมัติ" (HRPayrollReviewPanel)
+//   ลูกจ้างรายวัน (3C daily-paid): GET/PUT /hr/payroll/days-worked/{y}/{m} ผ่าน DaysWorkedSheet — ต้องบันทึกวันก่อนสร้าง
+//     generate-bulk / recalculate ตอบ `errors` = คนที่ถูกข้าม (เช่น ยังไม่บันทึกวัน) → แสดงรายชื่อใต้การ์ดงวด
+//     settings.daily_wage ใช้แสดงค่าจ้างโดยประมาณ · backend ยังไม่ migrate (404) → ซ่อนส่วนรายวันทั้งหมด
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useId, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { ChevronRight, Info, RotateCcw } from "lucide-react"
+import { AlertTriangle, CalendarDays, ChevronRight, Info, RotateCcw, X } from "lucide-react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { useCan } from "../../../lib/permissions"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 import {
-  PERIOD_TONE, fmtDateTime, fmtPayMonth, money, netOf, periodLabel, periodList, toNum, totalDeductions,
+  PERIOD_TONE, daysWorkedText, fmtDateTime, fmtPayMonth, money, netOf, periodLabel, periodList, skippedFrom, toNum, totalDeductions,
 } from "../../../lib/payroll"
 import { cx, baseField, errorTextCls, labelCls, neutralBtnCls, primaryBtnCls, focusRingCls } from "../../../lib/styles"
 import SelectDropdown from "../../../components/SelectDropdown"
@@ -24,6 +27,7 @@ import {
 } from "../../../components/ui"
 import PayPeriodStepper from "../../../components/hr/PayPeriodStepper"
 import ReturnPeriodSheet from "../../../components/hr/ReturnPeriodSheet"
+import DaysWorkedSheet from "../../../components/hr/DaysWorkedSheet"
 import StatusMsg from "../../../components/hr/StatusMsg"
 import HRPayrollPayoutSheet from "./HRPayrollPayoutSheet"
 import HRPayrollReviewPanel from "./HRPayrollReviewPanel"
@@ -81,7 +85,7 @@ const ACTIONS = {
 
 // ─── Period card ─────────────────────────────────────────────────────────────
 
-function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, onAction, onReturn, onGenerateOne }) {
+function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, onAction, onReturn, onGenerateOne, onDaysWorked }) {
   const status = period?.status ?? "draft"
   const isDraft = status === "draft"
   const label = fmtPayMonth(ym.year, ym.month, { long: true })
@@ -97,6 +101,13 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, onAction
   const hrBtns = []
   const mgrBtns = []
   if (isDraft) {
+    if (perms.daysWorked && daily?.total > 0) {
+      hrBtns.push(
+        <button key="days" type="button" onClick={onDaysWorked} className={neutralBtnCls}>
+          <CalendarDays aria-hidden="true" className="size-4" strokeWidth={1.75} /> วันทำงานรายวัน
+        </button>,
+      )
+    }
     if (perms.generate) hrBtns.push(<button key="one" type="button" onClick={onGenerateOne} className={neutralBtnCls}>สร้างรายคน</button>)
     if (perms.bulk) hrBtns.push(<button key="bulk" type="button" onClick={() => onAction("bulk")} className={neutralBtnCls}>สร้างทั้งหมด</button>)
     if (perms.generate && count > 0) {
@@ -157,6 +168,23 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, onAction
         </div>
       )}
 
+      {daily?.total > 0 && (
+        <p className={cx(
+          "mt-4 flex items-start gap-1.5 text-sm",
+          isDraft && daily.missing > 0 ? "text-amber-800 dark:text-amber-200" : "text-gray-600 dark:text-gray-400",
+        )}>
+          {isDraft && daily.missing > 0
+            ? <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
+            : <CalendarDays aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />}
+          <span>
+            ลูกจ้างรายวัน <span className="tabular-nums">{daily.total}</span> คน
+            {daily.missing > 0
+              ? <> · ยังไม่บันทึกวันทำงาน <span className="font-semibold tabular-nums">{daily.missing}</span> คน{isDraft && " — จะถูกข้ามตอนสร้างเงินเดือน"}</>
+              : " · บันทึกวันทำงานครบแล้ว"}
+          </span>
+        </p>
+      )}
+
       {(buttons.length > 0 || note) && (
         <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 dark:border-line md:flex-row md:items-center md:justify-between">
           {note ? (
@@ -167,6 +195,51 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, onAction
           ) : <span />}
           {buttons.length > 0 && <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end [&>*:last-child:nth-child(odd)]:col-span-2">{buttons}</div>}
         </div>
+      )}
+    </section>
+  )
+}
+
+// ─── คนที่ถูกข้ามจากการสร้าง/คำนวณใหม่ ─────────────────────────────────────────
+
+function SkippedPanel({ items, onDismiss, onDaysWorked }) {
+  if (!items?.length) return null
+  return (
+    <section
+      aria-labelledby="payroll-skipped-h"
+      role="alert"
+      className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-950 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-400/25"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h3 id="payroll-skipped-h" className="flex items-center gap-1.5 font-semibold">
+          <AlertTriangle aria-hidden="true" className="size-4 shrink-0" strokeWidth={1.75} />
+          ข้าม {items.length} คน — ยังไม่ได้สร้างเงินเดือน
+        </h3>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="ปิดรายการที่ถูกข้าม"
+          className={cx("-m-1 rounded-lg p-1 text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-400/15 cursor-pointer", focusRingCls)}
+        >
+          <X aria-hidden="true" className="size-4" />
+        </button>
+      </div>
+      <ul className="mt-2 space-y-1">
+        {items.map((it) => (
+          <li key={it.key} className="flex flex-col sm:flex-row sm:gap-2">
+            {it.name && <span className="font-medium sm:w-48 sm:shrink-0">{it.name}</span>}
+            <span className="text-amber-900/90 dark:text-amber-100/85">{it.text}</span>
+          </li>
+        ))}
+      </ul>
+      {onDaysWorked && (
+        <button
+          type="button"
+          onClick={onDaysWorked}
+          className={cx("mt-2.5 rounded text-sm font-semibold text-amber-900 underline underline-offset-2 hover:no-underline dark:text-amber-100 cursor-pointer", focusRingCls)}
+        >
+          บันทึกวันทำงานรายวัน แล้วกดสร้างหรือคำนวณใหม่อีกครั้ง
+        </button>
       )}
     </section>
   )
@@ -249,7 +322,9 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
     bulk: can("hr.payroll.generateBulk"),
     approve: can("hr.payroll.period.approve"),
     slip: can("hr.payroll.payslip"),
+    daysWorked: can("hr.payroll.daysWorked"),
   }
+  const canSettings = can("hr.payroll.settings.view")
   const ym = splitMonth(filterMonth)
   const monthLabel = fmtPayMonth(ym.year, ym.month, { long: true })
 
@@ -267,6 +342,11 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
   const [genOpen, setGenOpen] = useState(false)
   const [detail, setDetail] = useState(null)
   const [downloading, setDownloading] = useState(null)
+  const [skipped, setSkipped] = useState([])
+  const [daysOpen, setDaysOpen] = useState(false)
+  // ลูกจ้างรายวันของเดือน { total, missing } — null = ไม่มีสิทธิ์ / backend ยังไม่รองรับ
+  const [daily, setDaily] = useState(null)
+  const [dailyWage, setDailyWage] = useState(null)
 
   const fetchPayrolls = useCallback(() => {
     const { year, month } = splitMonth(filterMonth)
@@ -291,8 +371,32 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
       .finally(() => setPeriodLoading(false))
   }, [filterMonth])
 
-  const refresh = useCallback(() => { fetchPayrolls(); fetchPeriod() }, [fetchPayrolls, fetchPeriod])
+  const summarizeDaily = useCallback((list) => {
+    const arr = Array.isArray(list) ? list : []
+    setDaily({ total: arr.length, missing: arr.filter((r) => r?.days == null).length })
+  }, [])
+
+  const fetchDaily = useCallback(() => {
+    if (!perms.daysWorked) { setDaily(null); return }
+    const { year, month } = splitMonth(filterMonth)
+    apiAuth(`/hr/payroll/days-worked/${year}/${month}`)
+      .then((d) => summarizeDaily(Array.isArray(d) ? d : d?.items))
+      .catch(() => setDaily(null)) // 404 = backend ยังไม่ migrate → ซ่อนส่วนรายวัน
+  }, [filterMonth, perms.daysWorked, summarizeDaily])
+
+  const refresh = useCallback(() => { fetchPayrolls(); fetchPeriod(); fetchDaily() }, [fetchPayrolls, fetchPeriod, fetchDaily])
   useEffect(() => { refresh() }, [refresh])
+  useEffect(() => { setSkipped([]) }, [filterMonth])
+
+  // ค่าจ้างรายวันจากการตั้งค่า — ใช้แสดงค่าจ้างโดยประมาณในหน้าบันทึกวัน (ไม่มี field = ไม่แสดง)
+  useEffect(() => {
+    if (!canSettings || !perms.daysWorked) return
+    let alive = true
+    apiAuth("/hr/payroll/settings")
+      .then((s) => { if (alive && s?.daily_wage != null && Number.isFinite(Number(s.daily_wage))) setDailyWage(Number(s.daily_wage)) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [canSettings, perms.daysWorked])
 
   const status = period?.status ?? "draft"
   const isDraft = status === "draft"
@@ -304,7 +408,10 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
     try {
       const res = await apiAuth(a.path(ym), { method: "POST", ...(a.body ? { body: a.body(ym) } : {}) })
       const n = res && typeof res === "object" ? (res.created ?? res.generated ?? res.count ?? null) : null
-      toast.success(a.success, { description: n != null ? `${monthLabel} · ${n} รายการ` : monthLabel })
+      const skip = skippedFrom(res)
+      if (skip.length) toast.warning(a.success, { description: `${monthLabel} · ข้าม ${skip.length} คน ดูรายชื่อใต้การ์ดงวด` })
+      else toast.success(a.success, { description: n != null ? `${monthLabel} · ${n} รายการ` : monthLabel })
+      if (action === "bulk" || action === "recalc") setSkipped(skip)
       setAction(null)
       refresh()
     } catch (err) {
@@ -368,9 +475,17 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
         onRetry={fetchPeriod}
         rows={payrolls}
         perms={perms}
+        daily={daily}
         onAction={(k) => { setActionErr(""); setAction(k) }}
         onReturn={() => setReturning(ym)}
         onGenerateOne={() => setGenOpen(true)}
+        onDaysWorked={() => setDaysOpen(true)}
+      />
+
+      <SkippedPanel
+        items={skipped}
+        onDismiss={() => setSkipped([])}
+        onDaysWorked={isDraft && perms.daysWorked && daily?.total > 0 ? () => setDaysOpen(true) : null}
       />
 
       {error && <ErrorState message={error} onRetry={fetchPayrolls} />}
@@ -380,7 +495,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
           items={payrolls}
           keyOf={(p) => p.id}
           title={(p) => p.employee_name}
-          subtitle={(p) => p.branch_name || `รหัส ${p.user_id}`}
+          subtitle={(p) => [p.branch_name || `รหัส ${p.user_id}`, p.days_worked != null && `รายวัน ${daysWorkedText(p)}`].filter(Boolean).join(" · ")}
           fields={[
             { label: "รายได้รวม", value: (p) => money(gross(p)), align: "right" },
             { label: "รายการหัก", value: (p) => (ded(p) == null ? "—" : money(ded(p))), align: "right" },
@@ -416,7 +531,10 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
                       <button type="button" onClick={() => setDetail(p)} className={cx("group flex items-center gap-1 rounded text-left cursor-pointer", focusRingCls)}>
                         <span>
                           <span className="block font-medium text-gray-900 group-hover:text-indigo-700 dark:text-gray-100 dark:group-hover:text-indigo-300">{p.employee_name}</span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400">{p.branch_name || `รหัส ${p.user_id}`}</span>
+                          <span className="block text-xs text-gray-500 dark:text-gray-400">
+                            {p.branch_name || `รหัส ${p.user_id}`}
+                            {p.days_worked != null && <span className="tabular-nums"> · รายวัน {daysWorkedText(p)}</span>}
+                          </span>
                         </span>
                         <ChevronRight aria-hidden="true" className="size-4 text-gray-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" />
                       </button>
@@ -469,6 +587,18 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth }) {
       />
 
       <GenerateOneSheet open={genOpen} ym={ym} onClose={() => setGenOpen(false)} onDone={refresh} />
+      {perms.daysWorked && (
+        <DaysWorkedSheet
+          open={daysOpen}
+          ym={ym}
+          canEdit={perms.daysWorked}
+          isDraft={isDraft}
+          dailyWage={dailyWage}
+          hasPayouts={payrolls.length > 0}
+          onClose={() => setDaysOpen(false)}
+          onSaved={(list) => (list.length ? summarizeDaily(list) : fetchDaily())}
+        />
+      )}
       <ReturnPeriodSheet period={returning} onClose={() => setReturning(null)} onDone={refresh} />
       <HRPayrollPayoutSheet
         payout={detail}

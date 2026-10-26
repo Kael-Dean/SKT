@@ -16,6 +16,7 @@ import {
   usePositionLookup,
 } from "../../lib/relocation"
 import PageTitle from "../../components/PageTitle"
+import FormApplicantHeader from "../../components/FormApplicantHeader"
 
 const BRANCH_SLOTS = Array.from({ length: MAX_BRANCH_PREFS }, (_, i) => i + 1)
 const POSITION_SLOTS = Array.from({ length: MAX_POSITION_PREFS }, (_, i) => i + 1)
@@ -39,7 +40,6 @@ function fmtDate(d) {
 }
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
-const selectCls = inputCls
 
 const EMPTY_FORM = {
   branch_pref_1: "", branch_pref_2: "",
@@ -72,6 +72,8 @@ export default function MyRelocation() {
   const [showFamily,   setShowFamily]   = useState(false)
   const [showPosition, setShowPosition] = useState(false)
   const [fieldErrors,  setFieldErrors]  = useState({})
+  const [addrLoading,  setAddrLoading]  = useState(false)
+  const [addrNote,     setAddrNote]     = useState("")
 
   const { positions, loading: loadingPositions, positionName } = usePositionLookup()
 
@@ -104,6 +106,23 @@ export default function MyRelocation() {
       return next
     })
     setFieldErrors((e) => (e[k] ? { ...e, [k]: undefined } : e))
+  }
+
+  // ที่อยู่ครอบครัว ← ที่อยู่ตามทะเบียนประวัติ (GET /personnel/me/leave-defaults → address_during_leave,
+  // handoff "Leave Request Autofill v2") — กดเติมเองเท่านั้น เพราะที่อยู่ครอบครัวอาจไม่ใช่ที่อยู่ตัวเอง; แก้ต่อได้
+  const fillHomeAddress = async () => {
+    setAddrLoading(true)
+    setAddrNote("")
+    try {
+      const d = await apiAuth("/personnel/me/leave-defaults")
+      const addr = (d?.address_during_leave ?? "").trim()
+      if (addr) setField("family_address", addr)
+      else setAddrNote("ยังไม่มีที่อยู่ในทะเบียนประวัติ กรอกเองได้เลย")
+    } catch (err) {
+      setAddrNote(err.message || "ดึงที่อยู่ไม่สำเร็จ กรอกเองได้เลย")
+    } finally {
+      setAddrLoading(false)
+    }
   }
 
   // เลือกตำแหน่งอย่างน้อย 1 อันดับ (และเปิดส่วนตำแหน่งอยู่) → ต้องตอบคำถาม "ถ้าเปลี่ยนตำแหน่งไม่ได้…"
@@ -222,6 +241,9 @@ export default function MyRelocation() {
           {formError && <ErrorState message={formError} />}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* หัวฟอร์ม (วันที่ / ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจาก form-defaults — แสดงอย่างเดียว ไม่ส่งไป backend */}
+            <FormApplicantHeader className="!bg-white shadow-sm dark:!bg-surface" />
+
             {/* Branch prefs */}
             <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-3">
               <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">สาขาที่ต้องการ (เลือกได้ {MAX_BRANCH_PREFS} อันดับ)</p>
@@ -276,8 +298,17 @@ export default function MyRelocation() {
               {showFamily && (
                 <div className="space-y-3 pt-1">
                   <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ที่อยู่ครอบครัว</label>
-                    <input type="text" value={form.family_address} onChange={(e) => setField("family_address", e.target.value)} className={inputCls} />
+                    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3">
+                      <label htmlFor="relo-family-address" className="text-xs font-medium text-gray-600 dark:text-gray-400">ที่อยู่ครอบครัว</label>
+                      <button type="button" onClick={fillHomeAddress} disabled={addrLoading}
+                        className="cursor-pointer rounded text-xs font-medium text-indigo-700 hover:underline disabled:cursor-wait disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300">
+                        {addrLoading ? "กำลังดึงที่อยู่…" : "ใช้ที่อยู่ตามทะเบียนประวัติ"}
+                      </button>
+                    </div>
+                    <input id="relo-family-address" type="text" value={form.family_address}
+                      onChange={(e) => { setField("family_address", e.target.value); if (addrNote) setAddrNote("") }}
+                      aria-describedby={addrNote ? "relo-family-address-note" : undefined} className={inputCls} />
+                    {addrNote && <p id="relo-family-address-note" className="mt-1 text-xs text-gray-500 dark:text-gray-400">{addrNote}</p>}
                   </div>
                   {[
                     { prefix: "family_father", label: "บิดา" },
@@ -286,10 +317,16 @@ export default function MyRelocation() {
                   ].map(({ prefix, label }) => (
                     <div key={prefix} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">{label} — สถานะ</label>
-                        <select value={form[`${prefix}_status`]} onChange={(e) => setField(`${prefix}_status`, e.target.value)} className={selectCls}>
-                          {FAMILY_STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                        </select>
+                        <label htmlFor={`relo-${prefix}-status`} className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">{label} — สถานะ</label>
+                        <SelectDropdown
+                          id={`relo-${prefix}-status`}
+                          size="sm"
+                          value={form[`${prefix}_status`]}
+                          onChange={(val) => setField(`${prefix}_status`, val)}
+                          placeholder="— ไม่ระบุ —"
+                          options={FAMILY_STATUS_OPTIONS}
+                          showSwatch={false}
+                        />
                       </div>
                       <div>
                         <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">อาชีพ</label>

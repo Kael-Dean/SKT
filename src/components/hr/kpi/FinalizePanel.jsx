@@ -10,11 +10,11 @@ import { apiAuth } from "../../../lib/api"
 import { cx } from "../../../lib/styles"
 import { ConfirmDialog, EmptyState, ErrorState, SkeletonTableRows, toast } from "../../ui"
 import { cardCls, errText, linkBtn, nf, primaryBtn, thCls } from "../positionUtils"
-import { SkippedTable, StatusBadge } from "./KpiBits"
-import { COMPONENTS, fmtDay, fmtScore, fmtStep, num, partialTotal } from "./kpiUtils"
+import { SchemeLabel, SkippedTable, StatusBadge } from "./KpiBits"
+import { fmtDay, fmtScore, fmtStep, missingComponents, partialTotal } from "./kpiUtils"
 import { useEvaluations } from "./useKpi"
 
-export default function FinalizePanel({ fy, info, phase, people, onChanged }) {
+export default function FinalizePanel({ fy, info, phase, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy)
   const [confirm, setConfirm] = useState(false)
   const [running, setRunning] = useState(false)
@@ -128,11 +128,12 @@ export default function FinalizePanel({ fy, info, phase, people, onChanged }) {
                     <SkeletonTableRows rows={5} cols={4} />
                   ) : (
                     queue.map((ev) => {
-                      const missing = COMPONENTS.filter((c) => num(ev[c.key]) == null)
+                      const missing = missingComponents(ev, catalogue)
                       return (
                         <tr key={ev.id ?? ev.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                           <td className="px-4 py-3 align-top">
                             <p className="font-medium text-gray-900 dark:text-gray-100">{nameOf(ev.user_id)}</p>
+                            <SchemeLabel ev={ev} catalogue={catalogue} />
                             <div className="mt-1"><StatusBadge status={ev.status} /></div>
                             {rowErr[ev.user_id] && (
                               <p role="alert" className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{rowErr[ev.user_id]}</p>
@@ -145,7 +146,7 @@ export default function FinalizePanel({ fy, info, phase, people, onChanged }) {
                               <span>ยังขาด: {missing.map((c) => c.label).join(", ")}</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right align-top tabular-nums text-gray-700 dark:text-gray-300">{fmtScore(partialTotal(ev))}</td>
+                          <td className="px-4 py-3 text-right align-top tabular-nums text-gray-700 dark:text-gray-300">{fmtScore(partialTotal(ev, catalogue))}</td>
                           <td className="px-4 py-3 text-right align-top whitespace-nowrap">
                             <button
                               type="button"

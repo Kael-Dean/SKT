@@ -49,6 +49,15 @@ const HRKpiPage = lazy(() => import("./pages/hr/HRKpiPage.jsx"))
 const HRIssueReports = lazy(() => import("./pages/hr/HRIssueReports.jsx"))
 const HRPersonnelDetail = lazy(() => import("./pages/hr/HRPersonnelDetail.jsx"))
 const HRSalaryTier = lazy(() => import("./pages/hr/HRSalaryTier.jsx"))
+/** WP0 scaffold — 3P สวัสดิการ · 3Q วินัย · 3H ปฏิทินการลา (หน้าแยก = แท็บเดียวกับใน /hr/dashboard) */
+const HRWelfare = lazy(() => import("./pages/hr/HRWelfare.jsx"))
+const HRDiscipline = lazy(() => import("./pages/hr/HRDiscipline.jsx"))
+const HRLeaveCalendar = lazy(() => import("./pages/hr/HRLeaveCalendar.jsx"))
+/** WP0 scaffold — self-service: 3P · 3Q · 3L · 3M (13G) */
+const MyWelfare = lazy(() => import("./pages/work/MyWelfare.jsx"))
+const MyDiscipline = lazy(() => import("./pages/work/MyDiscipline.jsx"))
+const MyKpi = lazy(() => import("./pages/work/MyKpi.jsx"))
+const MySalaryCert = lazy(() => import("./pages/work/MySalaryCert.jsx"))
 const MyProfile = lazy(() => import("./pages/work/MyProfile.jsx"))
 const MyPayslips = lazy(() => import("./pages/work/MyPayslips.jsx"))
 const MyFinancial = lazy(() => import("./pages/work/MyFinancial.jsx"))
@@ -143,10 +152,13 @@ function App() {
         <Route path="/hr/relocation" element={guard("hr.relocation.list", <HRRelocation />)} />
         {/* หน้า HR รวมแท็บ — เข้าได้ถ้ามีอย่างน้อยหนึ่งแท็บ (แต่ละแท็บเช็คสิทธิ์ของตัวเอง) */}
         <Route path="/hr/dashboard" element={<RequirePermission anyOf={HR_HUB_PERMS}><HRDashboard /></RequirePermission>} />
-        <Route path="/hr/kpi" element={guard("hr.kpi.evaluations.view", <HRKpiPage />)} />
+        <Route path="/hr/kpi" element={<RequirePermission anyOf={["hr.kpi.evaluations.view", "hr.kpi.monthlyForm", "hr.kpi.score.branchHead", "hr.kpi.branch"]}><HRKpiPage /></RequirePermission>} />
         <Route path="/hr/issues" element={guard("hr.issues.list", <HRIssueReports />)} />
         <Route path="/hr/personnel/:id" element={guard("hr.employees.view", <HRPersonnelDetail />)} />
         <Route path="/hr/salary-tier" element={guard("hr.salaryLadder.view", <HRSalaryTier />)} />
+        <Route path="/hr/welfare" element={guard("hr.welfare.view", <HRWelfare />)} />
+        <Route path="/hr/discipline" element={guard("hr.discipline.cases", <HRDiscipline />)} />
+        <Route path="/hr/leave-calendar" element={guard("hr.leave.calendar", <HRLeaveCalendar />)} />
 
         {/* ✅ Personal routes (ทุกคนที่ล็อกอิน) */}
         <Route path="/my-profile" element={guard("self.profile.view", <MyProfile />)} />
@@ -161,6 +173,10 @@ function App() {
         {/* ปฏิทินวันหยุด (3N) — อ่านอย่างเดียว ทุกคนที่ล็อกอิน; HR จัดการที่ /hr/dashboard → ปฏิทินวันหยุด */}
         <Route path="/holidays" element={guard("hr.holidays.view", <HolidayCalendar />)} />
         <Route path="/loan-request" element={guard("self.loan.apply", <LoanRequest />)} />
+        <Route path="/my-welfare" element={guard("self.welfare.view", <MyWelfare />)} />
+        <Route path="/my-discipline" element={<RequirePermission anyOf={["self.discipline.report", "self.discipline.history"]}><MyDiscipline /></RequirePermission>} />
+        <Route path="/my-kpi" element={guard("self.kpi.result", <MyKpi />)} />
+        <Route path="/my-salary-cert" element={guard("self.salaryCert.request", <MySalaryCert />)} />
 
         {/* รายรับ-รายจ่ายศูนย์เรียนรู้ */}
         <Route path="/facility-report" element={guard("facility.view", <FacilityReport />)} />

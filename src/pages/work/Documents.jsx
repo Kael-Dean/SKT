@@ -10,6 +10,8 @@ import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import { toast } from "../../components/ui"
 import DateInput from "../../components/ThaiDateField"
 import PageTitle from "../../components/PageTitle"
+import SelectDropdown from "../../components/SelectDropdown"
+import { STATUS, STATUS_LABEL } from "../../lib/approval"
 
 /** ---------- Utils ---------- */
 
@@ -79,8 +81,12 @@ const reportErrorMessage = (err) => {
     if (detail && detail.toLowerCase() !== "not found") return detail.slice(0, 200)
     return "รายงานนี้ยังไม่พร้อมใช้งาน"
   }
-  if (status === 403)
+  // 403 รายงาน: backend ส่งเหตุผลมาใน detail (เช่น "ท่านดูรายงานได้เฉพาะสาขาที่ท่านดูแล") — แสดงตามนั้น (PR 41 §4)
+  if (status === 403) {
+    const detail = typeof err?.data?.detail === "string" ? err.data.detail.trim() : raw.trim()
+    if (detail && detail.toLowerCase() !== "forbidden" && !/^HTTP \d+$/.test(detail)) return detail.slice(0, 200)
     return "บัญชีนี้ไม่มีสิทธิ์เปิดรายงานนี้ ติดต่อผู้ดูแลระบบถ้าต้องใช้"
+  }
   if (status === 401)
     return "หมดเวลาใช้งาน เข้าสู่ระบบใหม่แล้วลองอีกครั้ง"
 
@@ -586,12 +592,20 @@ const TRADE_REPORTS = [
 // -----------------------------
 const EXIT_TYPE_OPTIONS = [
   { id: "", label: "— ทุกประเภท —" },
-  { id: "resigned", label: "ลาออก" },
-  { id: "retired", label: "เกษียณ" },
+  // ป้ายเดียวกับ TerminationForm / HRResignedRetiredTab (TerminationReason)
+  { id: "retired", label: "เกษียณอายุ" },
   { id: "deceased", label: "เสียชีวิต" },
-  { id: "dismissed", label: "ถูกให้ออก" },
+  { id: "resigned", label: "ลาออก" },
+  { id: "dismissed", label: "ไล่ออก" },
   { id: "failed_probation", label: "ไม่ผ่านทดลองงาน" },
-  { id: "contract_end", label: "หมดสัญญา" },
+  { id: "contract_end", label: "สิ้นสุดสัญญาจ้าง" },
+]
+// R12 ออกนอกพื้นที่ — status (default approved)
+const OOO_STATUS_OPTIONS = [
+  { value: "approved", label: "อนุมัติแล้ว (ค่าเริ่มต้น)" },
+  { value: "all", label: "ทุกสถานะ" },
+  ...[STATUS.PENDING_BRANCH_HEAD, STATUS.PENDING_ASSISTANT_MANAGER, STATUS.PENDING_MANAGER, STATUS.REJECTED, STATUS.CANCELLED]
+    .map((s) => ({ value: s, label: STATUS_LABEL[s] })),
 ]
 const HR_REPORTS = [
   { key: "hr-payroll-monthly", title: "รายงานสรุปเงินเดือน", endpoint: "/hr/payroll/report/monthly", require: ["month", "yearBE"], perm: "hr.reports.payrollMonthly", xlsx: true },
@@ -613,6 +627,14 @@ const HR_REPORTS = [
   { key: "hr-kpi-branch", title: "รายงาน KPI สาขา", endpoint: "/hr/kpi/report/branch", require: ["fiscalYear"], optional: ["branchId"], perm: "hr.reports.kpiBranch", xlsx: true, allBranchesOption: true },
   { key: "hr-kpi-org", title: "รายงาน KPI รวมองค์กร", endpoint: "/hr/kpi/report/organisation", require: ["fiscalYear"], perm: "hr.reports.kpiOrganisation", xlsx: true },
   { key: "hr-resigned", title: "รายชื่อผู้พ้นสภาพ", endpoint: "/hr/reports/resigned-retired-pdf", require: [], optional: ["exitType", "branchId", "startDate", "endDate"], perm: "hr.reports.resignedRetired", xlsx: true, allBranchesOption: true },
+  // สวัสดิการ (3P) — PDF อย่างเดียว
+  { key: "hr-welfare-claims", title: "สรุปการเบิกสวัสดิการประจำปีงบประมาณ", endpoint: "/hr/reports/welfare/claims", require: ["fiscalYear"], perm: "hr.reports.welfare" },
+  { key: "hr-welfare-dependants", title: "ทะเบียนผู้มีสิทธิ์รับสวัสดิการ", endpoint: "/hr/reports/welfare/dependants", require: [], perm: "hr.reports.welfare" },
+  // R12 (PR 47) — PDF + Excel twin (-pdf → -xlsx)
+  // งดจ่าย: backend รับ year เป็น ค.ศ. — ผู้ใช้กรอก พ.ศ. เหมือนรายงานอื่น แล้วแปลงตอนสร้าง query (yearCE)
+  { key: "hr-unpaid-deductions", title: "สรุปการงดจ่ายเงินเดือน (ลาเกินสิทธิ์ / พักงาน)", endpoint: "/hr/reports/unpaid-deductions-pdf", require: ["month", "yearBE"], optional: ["branchId"], yearCE: true, perm: "hr.reports.payrollMonthly", xlsx: true, allBranchesOption: true },
+  { key: "hr-out-of-office", title: "รายงานการออกนอกพื้นที่", endpoint: "/hr/reports/out-of-office-pdf", require: ["startDate", "endDate"], optional: ["branchId", "oooStatus"], perm: "hr.ooo.list", xlsx: true, allBranchesOption: true },
+  { key: "hr-discipline-history", title: "ประวัติการลงโทษทางวินัย", endpoint: "/hr/reports/discipline-history-pdf", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.discipline.view", xlsx: true, allBranchesOption: true },
   // รายคน/รายสัญญา (PDF อย่างเดียว ไม่มี Excel)
   { key: "hr-profile-pdf", title: "ข้อมูลประวัติพนักงาน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/profile-pdf`, require: ["employeeId"], optional: ["showSensitive"], perm: "hr.reports.profilePdf" },
   { key: "hr-salary-history-pdf", title: "ประวัติการปรับขั้นเงินเดือน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/salary-history-pdf`, require: ["employeeId"], perm: "hr.reports.salaryHistoryPdf" },
@@ -722,6 +744,7 @@ function Documents() {
     employeeId: "",
     loanId: "",
     exitType: "",
+    oooStatus: "approved",
     showSensitive: false,
   })
   const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
@@ -969,7 +992,12 @@ function Documents() {
     if (wants("planId") && effectivePlanId) p.set("plan_id", effectivePlanId)
 
     if (wants("month") && filters.month) p.set("month", String(Number(filters.month)))
-    if (wants("yearBE") && String(filters.yearBE).trim()) p.set("year", String(filters.yearBE).trim())
+    if (wants("yearBE") && String(filters.yearBE).trim()) {
+      const be = String(filters.yearBE).trim()
+      // report.yearCE = backend ต้องการ ค.ศ. (R12 งดจ่าย) — แปลงจาก พ.ศ. ที่ผู้ใช้กรอก
+      p.set("year", report?.yearCE ? String(Number(be) - 543) : be)
+    }
+    if (wants("oooStatus") && filters.oooStatus) p.set("status", filters.oooStatus)
     if (wants("fiscalYear") && String(filters.fiscalYear).trim()) p.set("fiscal_year", String(filters.fiscalYear).trim())
     if (wants("exitType") && filters.exitType) p.set("exit_type", filters.exitType)
     if (wants("showSensitive") && filters.showSensitive) p.set("show_sensitive", "true")
@@ -1164,6 +1192,7 @@ function Documents() {
       employeeId: "",
       loanId: "",
       exitType: "",
+      oooStatus: "approved",
       showSensitive: false,
     })
 
@@ -1573,6 +1602,7 @@ function Documents() {
                 <label className={labelCls}>ปี (พ.ศ.){star("yearBE")}</label>
                 <input inputMode="numeric" maxLength={4} className={cx(baseField, "tabular-nums", errors.yearBE && "border-red-400 ring-2 ring-red-300/70")} value={filters.yearBE} onChange={(e) => setFilter("yearBE", e.target.value.replace(/\D/g, ""))} placeholder="เช่น 2569" />
                 <FieldError name="yearBE" />
+                {report.yearCE && <p className={helpTextCls}>ต้องมีการคำนวณเงินเดือนของเดือนนั้นแล้ว</p>}
               </div>
             )}
             {has("fiscalYear") && (
@@ -1602,6 +1632,12 @@ function Documents() {
               <div>
                 <label className={labelCls}>ประเภทการพ้นสภาพ</label>
                 <ComboBox options={EXIT_TYPE_OPTIONS} value={filters.exitType} onChange={(v) => setFilter("exitType", v)} title="ประเภทการพ้นสภาพ" />
+              </div>
+            )}
+            {has("oooStatus") && (
+              <div>
+                <label htmlFor="doc-ooo-status" className={labelCls}>สถานะคำขอ</label>
+                <SelectDropdown id="doc-ooo-status" options={OOO_STATUS_OPTIONS} value={filters.oooStatus} onChange={(v) => setFilter("oooStatus", v)} />
               </div>
             )}
             {has("employeeId") && (

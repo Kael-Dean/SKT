@@ -34,7 +34,8 @@ const TAB_IDLE =
 const TAB_ACTIVE =
   "bg-white text-indigo-700 shadow-sm dark:bg-raised dark:text-indigo-200 dark:ring-1 dark:ring-inset dark:ring-line-strong"
 
-const SIZE = { md: "h-9", sm: "h-8" }
+// มือถือ: แท็บต้องสูง ≥44px (touch target ตามกฎ mobile) — desktop คงขนาดเดิม
+const SIZE = { md: "h-touch md:h-9", sm: "h-8" }
 
 export default function Tabs({
   items = [],        // [{ value, label, icon?, count?, disabled? }]

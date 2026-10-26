@@ -22,6 +22,9 @@ function pickBase() {
 }
 const API_BASE = pickBase();
 
+/** Full URL for an API path — for callers that need XHR (upload progress, see lib/files.js) */
+export const apiUrl = (path) => joinUrl(API_BASE, path);
+
 /** join base + path ให้ปลอดภัยเรื่อง / ซ้อน */
 function joinUrl(base, path) {
   const b = String(base || "").replace(/\/+$/, "");
@@ -119,6 +122,14 @@ function _expireSession() {
   logout();
   localStorage.setItem("session_expired", "1");
   window.location.hash = "#/login";
+}
+
+/**
+ * 401 จากช่องทางที่ไม่ผ่าน apiAuth/apiDownload (เช่น XHR upload ใน lib/files.js) —
+ * ล้าง session + เด้งไป login แบบเดียวกัน (กันซ้ำเมื่อหลายคำขอ 401 พร้อมกัน)
+ */
+export function expireSession() {
+  if (!_redirecting401) _expireSession();
 }
 
 export async function apiAuth(path, opts = {}) {

@@ -1,96 +1,34 @@
 // src/pages/RiceSpecCreate.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
+import { Link } from "react-router-dom"
 import { apiAuth } from "../../lib/api"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, spinnerCls } from "../../lib/styles"
+import { cx, baseField, fieldDisabled, helpTextCls, submitBtnCls, resetBtnCls, secondaryBtnCls, neutralBtnCls, spinnerCls } from "../../lib/styles"
 import { Card, CardHeader, PageLoader, ErrorState, StickyActionBar, toast } from "../../components/ui"
-import ComboBox from "../../components/ComboBox"
+import SpecComboField from "../../components/SpecComboField"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import PageTitle from "../../components/PageTitle"
-
-/** ---------- Utils ---------- */
-const toInt = (v) => {
-  const n = Number(v)
-  return Number.isFinite(n) ? Math.trunc(n) : NaN
-}
-
-/** ---------- Field wrapper (label + error) ---------- */
-function ComboField({
-  label,
-  required = false,
-  value,
-  onChange,
-  options,
-  placeholder,
-  disabled = false,
-  loading = false,
-  errorText,
-  buttonRef,
-  onEnterNext,
-  searchable = "auto",
-}) {
-  const finalPlaceholder = loading ? "กำลังโหลด..." : placeholder
-
-  return (
-    <div>
-      <label className={labelCls}>
-        {label} {required ? <span className="text-red-500">*</span> : null}
-      </label>
-
-      <ComboBox
-        title={String(label).replace(/\s*\([^)]*\)\s*$/, "")}
-        ariaLabel={label}
-        searchable={searchable}
-        options={options}
-        value={value}
-        onChange={(v) => onChange?.(v)}
-        placeholder={finalPlaceholder}
-        disabled={disabled || loading}
-        error={!!errorText}
-        buttonRef={buttonRef}
-        onEnterNext={onEnterNext}
-      />
-
-      {errorText && <p className={errorTextCls}>{errorText}</p>}
-    </div>
-  )
-}
+import { backState } from "../../lib/drill"
+import {
+  SPEC_API,
+  STATIC_MASTERS,
+  LOAD_LIST_ERROR,
+  SPECIES_LABEL_KEY,
+  VARIANT_LABEL_KEY,
+  emptySpecOptions,
+  fetchOptions,
+  speciesUrl,
+  variantsUrl,
+  specErrorMessage,
+  specPreviewName,
+  toInt,
+} from "../../lib/riceSpec"
 
 /** ---------- หน้าเพิ่ม “รหัสข้าว” (ProductSpec) ---------- */
 function RiceSpecCreate() {
   const isPhone = useIsPhone()
-  /**
-   * ✅ ปรับ endpoint ให้ตรงกับ BE (ชุดเดียวกับหน้า Sales)
-   * - Master data: /order/...
-   * - Create spec:  /spec/
-   */
-  const API = useMemo(
-    () => ({
-      createSpec: "/spec/",
-
-      // Phase 1 products only (ข้าวเปลือก, ข้าวโพด) — backend rejects others with 400
-      products: "/lists/product/search?phase1=true",
-      species: "/order/species/search", // ?product_id=
-      variants: "/order/variant/search", // ?species_id=
-      years: "/order/year/search",
-      conditions: "/order/condition/search",
-      fieldTypes: "/order/field/search",
-      programs: "/order/program/search",
-      businessTypes: "/order/business/search",
-    }),
-    []
-  )
 
   /** --- options --- */
-  const [opts, setOpts] = useState({
-    products: [],
-    species: [],
-    variants: [],
-    years: [],
-    conditions: [],
-    fieldTypes: [],
-    programs: [],
-    businessTypes: [],
-  })
+  const [opts, setOpts] = useState(emptySpecOptions)
 
   const [loading, setLoading] = useState({
     static: false,
@@ -103,42 +41,14 @@ function RiceSpecCreate() {
 
   const [loadErr, setLoadErr] = useState({}) // per list error message
 
-  // labelKey can be a list of fallbacks (e.g. /lists/product/search sends product_type or product_name)
-  const mapIdLabel = (arr, labelKey) => {
-    const safe = Array.isArray(arr) ? arr : []
-    const keys = Array.isArray(labelKey) ? labelKey : [labelKey]
-    return safe
-      .map((x) => ({
-        id: String(x?.id ?? ""),
-        label: String(keys.map((k) => x?.[k]).find((v) => v != null && v !== "") ?? "").trim(),
-      }))
-      .filter((x) => x.id && x.label)
-  }
-
-  // Year labels look like "2568/2569". Newest first so the current crop year is the
-  // first option (ComboBox highlights index 0 on open), and drop typo'd far-future
-  // rows (e.g. 2585/2586) that are easy to pick by accident.
-  const sortYears = (list) => {
-    const startOf = (label) => Number(String(label).match(/\d{4}/)?.[0] ?? NaN)
-    const maxStart = new Date().getFullYear() + 543 + 1
-    return list
-      .filter((y) => !(startOf(y.label) > maxStart))
-      .sort((a, b) => (startOf(b.label) || 0) - (startOf(a.label) || 0))
-  }
-
   const safeFetch = async ({ key, url, labelKey, transform }) => {
     try {
-      const data = await apiAuth(url)
-      const arr = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
-      const mapped = transform ? transform(mapIdLabel(arr, labelKey)) : mapIdLabel(arr, labelKey)
+      const mapped = await fetchOptions(url, labelKey, transform)
       setLoadErr((p) => ({ ...p, [key]: undefined }))
       return mapped
     } catch (e) {
       console.error("load", key, "failed:", e)
-      setLoadErr((p) => ({
-        ...p,
-        [key]: "โหลดรายการไม่สำเร็จ กด “โหลดรายการใหม่” เพื่อลองอีกครั้ง",
-      }))
+      setLoadErr((p) => ({ ...p, [key]: LOAD_LIST_ERROR }))
       return []
     }
   }
@@ -146,24 +56,10 @@ function RiceSpecCreate() {
   const loadStaticMasters = async () => {
     setLoading((p) => ({ ...p, static: true }))
     try {
-      const [products, years, conditions, fieldTypes, programs, businessTypes] =
-        await Promise.all([
-          safeFetch({ key: "products", url: API.products, labelKey: ["product_type", "product_name", "name"] }),
-          safeFetch({ key: "years", url: API.years, labelKey: "year", transform: sortYears }),
-          safeFetch({ key: "conditions", url: API.conditions, labelKey: "condition" }),
-          safeFetch({ key: "fieldTypes", url: API.fieldTypes, labelKey: "field" }),
-          safeFetch({ key: "programs", url: API.programs, labelKey: "program" }),
-          safeFetch({ key: "businessTypes", url: API.businessTypes, labelKey: "business" }),
-        ])
-
+      const lists = await Promise.all(STATIC_MASTERS.map((m) => safeFetch(m)))
       setOpts((p) => ({
         ...p,
-        products,
-        years,
-        conditions,
-        fieldTypes,
-        programs,
-        businessTypes,
+        ...Object.fromEntries(STATIC_MASTERS.map((m, i) => [m.key, lists[i]])),
       }))
     } finally {
       setLoading((p) => ({ ...p, static: false }))
@@ -179,8 +75,7 @@ function RiceSpecCreate() {
 
     setLoading((p) => ({ ...p, species: true }))
     try {
-      const url = `${API.species}?product_id=${encodeURIComponent(String(pid))}`
-      const list = await safeFetch({ key: "species", url, labelKey: "species" })
+      const list = await safeFetch({ key: "species", url: speciesUrl(pid), labelKey: SPECIES_LABEL_KEY })
       setOpts((p) => ({ ...p, species: list }))
     } finally {
       setLoading((p) => ({ ...p, species: false }))
@@ -196,8 +91,7 @@ function RiceSpecCreate() {
 
     setLoading((p) => ({ ...p, variants: true }))
     try {
-      const url = `${API.variants}?species_id=${encodeURIComponent(String(sid))}`
-      const list = await safeFetch({ key: "variants", url, labelKey: "variant" })
+      const list = await safeFetch({ key: "variants", url: variantsUrl(sid), labelKey: VARIANT_LABEL_KEY })
       setOpts((p) => ({ ...p, variants: list }))
     } finally {
       setLoading((p) => ({ ...p, variants: false }))
@@ -249,7 +143,9 @@ function RiceSpecCreate() {
     const next = focusOrder[Math.min(i + 1, focusOrder.length - 1)]
     try {
       next?.current?.focus?.()
-    } catch {}
+    } catch {
+      // element gone (re-render) — focus stays where it is
+    }
   }
 
   /** --- initial load --- */
@@ -352,7 +248,7 @@ function RiceSpecCreate() {
 
     try {
       setSubmitting(true)
-      const res = await apiAuth(API.createSpec, {
+      const res = await apiAuth(SPEC_API.createSpec, {
         method: "POST",
         body: payload,
       })
@@ -361,49 +257,18 @@ function RiceSpecCreate() {
       toast.success("สร้างรหัสข้าวแล้ว", { description: res?.prod_name || undefined })
     } catch (err) {
       console.error(err)
-      const isDup = err?.status === 409
       // 400 = product not Phase 1 / species not under product / variant not under species —
-      // backend `detail` explains which, so always show it as-is
-      const isInvalid = err?.status === 400
-      const msg = (isInvalid && err?.message) || /[฀-๿]/.test(err?.message || "")
-        ? err.message
-        : isDup
-          ? "มีรหัสข้าวสเปคนี้อยู่แล้ว ใช้รหัสเดิมได้เลย"
-          : "ข้อมูลที่เลือกยังอยู่ ลองบันทึกใหม่อีกครั้ง"
-      setSubmitError(msg)
-      toast.error(isDup ? "รายการนี้มีอยู่แล้ว" : isInvalid ? "ข้อมูลที่เลือกไม่ถูกต้อง" : "บันทึกไม่สำเร็จ", { description: msg })
+      // backend `detail` explains which, so specErrorMessage shows it as-is
+      const { title, message } = specErrorMessage(err)
+      setSubmitError(message)
+      toast.error(title, { description: message })
     } finally {
       setSubmitting(false)
     }
   }
 
   // สรุปตัวเลือก (ไว้ตรวจทานเท่านั้น — ไม่ส่งไป backend; prod_name backend สร้างเองตามรูปแบบ AMC)
-  const previewName = useMemo(() => {
-    const findLabel = (arr, v) => arr.find((x) => String(x.id) === String(v))?.label
-
-    const parts = [
-      findLabel(opts.products, form.product_id),
-      findLabel(opts.species, form.species_id),
-      findLabel(opts.variants, form.variant_id),
-    ]
-
-    const yearLabel = findLabel(opts.years, form.product_year)
-    if (yearLabel) parts.push(`ปี ${yearLabel}`)
-
-    const conditionLabel = findLabel(opts.conditions, form.condition_id)
-    if (conditionLabel) parts.push(conditionLabel)
-
-    const fieldLabel = findLabel(opts.fieldTypes, form.field_type)
-    if (fieldLabel) parts.push(fieldLabel)
-
-    const programLabel = findLabel(opts.programs, form.program)
-    if (programLabel) parts.push(programLabel)
-
-    const businessLabel = findLabel(opts.businessTypes, form.business_type)
-    if (businessLabel) parts.push(businessLabel)
-
-    return parts.filter(Boolean).join(" / ")
-  }, [form, opts])
+  const previewName = useMemo(() => specPreviewName(form, opts), [form, opts])
 
   // ผลลัพธ์หลังสร้าง: แปลง id ที่ได้กลับมาเป็นชื่อจากรายการตัวเลือกในหน้า (แปลงไม่ได้ = ไม่แสดงแถวนั้น)
   const resultSpecRows = useMemo(() => {
@@ -443,7 +308,15 @@ function RiceSpecCreate() {
         <PageTitle title="เพิ่มรหัสข้าว" />
 
         <Card className="mb-4 md:mb-6">
-          <CardHeader title="ข้อมูลรหัสข้าว" subtitle="ช่องที่มี * เป็นช่องบังคับ" />
+          <CardHeader
+            title="ข้อมูลรหัสข้าว"
+            subtitle="ช่องที่มี * เป็นช่องบังคับ"
+            action={
+              <Link to="/spec/manage" state={backState("เพิ่มรหัสข้าว")} className={cx(neutralBtnCls, "shrink-0")}>
+                จัดการรหัสข้าว
+              </Link>
+            }
+          />
           {/* hint สิทธิ์ */}
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-500/30 dark:bg-amber-900/20 dark:text-amber-200">
             <div className="font-semibold">หมายเหตุ</div>
@@ -479,7 +352,7 @@ function RiceSpecCreate() {
           <>
           {/* แถวตัวเลือก */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ComboField
+            <SpecComboField
               label="ประเภทสินค้า"
               required
               buttonRef={productRef}
@@ -494,7 +367,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(productRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="ชนิด/สายพันธุ์"
               searchable
               required
@@ -512,7 +385,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(speciesRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="พันธุ์/รูปแบบ"
               searchable
               required
@@ -530,7 +403,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(variantRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="ปีผลผลิต"
               buttonRef={yearRef}
               value={form.product_year}
@@ -545,7 +418,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(yearRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="สภาพ/เงื่อนไข"
               buttonRef={conditionRef}
               value={form.condition_id}
@@ -560,7 +433,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(conditionRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="ประเภทนา"
               buttonRef={fieldTypeRef}
               value={form.field_type}
@@ -575,7 +448,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(fieldTypeRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="โปรแกรม"
               buttonRef={programRef}
               value={form.program}
@@ -590,7 +463,7 @@ function RiceSpecCreate() {
               onEnterNext={() => focusNextFromEl(programRef.current)}
             />
 
-            <ComboField
+            <SpecComboField
               label="ประเภทธุรกิจ"
               buttonRef={businessRef}
               value={form.business_type}
@@ -678,7 +551,14 @@ function RiceSpecCreate() {
         {/* ผลลัพธ์ */}
         {result && (
           <Card className="mt-6">
-            <CardHeader title="สร้างรหัสข้าวสำเร็จ" />
+            <CardHeader
+              title="สร้างรหัสข้าวสำเร็จ"
+              action={
+                <Link to="/spec/manage" state={backState("เพิ่มรหัสข้าว")} className={cx(neutralBtnCls, "shrink-0")}>
+                  ดูในรายการรหัสข้าว
+                </Link>
+              }
+            />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[15px] md:text-base">
               <div className="md:col-span-2">
                 <div className="text-slate-500 dark:text-slate-300">ชื่อรหัสข้าว</div>

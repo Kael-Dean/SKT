@@ -38,6 +38,7 @@ const DebtReport = lazyWithReload(() => import("./pages/organization/debt-report
 
 const OrderCorrection = lazyWithReload(() => import("./pages/work/OrderCorrection.jsx"))
 const RiceSpecCreate = lazyWithReload(() => import("./pages/work/RiceSpecCreate.jsx"))
+const RiceSpecManage = lazyWithReload(() => import("./pages/work/RiceSpecManage.jsx"))
 
 /** ✅ Phase 3B — HR */
 const HRStaffSignup = lazyWithReload(() => import("./pages/hr/HRStaffSignup.jsx"))
@@ -139,6 +140,7 @@ function App() {
 
         <Route path="/order-correction" element={guard("trading.orders.edit", <OrderCorrection />)} />
         <Route path="/spec/create" element={guard("stock.spec.manage", <RiceSpecCreate />)} />
+        <Route path="/spec/manage" element={guard("stock.spec.manage", <RiceSpecManage />)} />
 
         {/* ✅ Section 14 — ติดตามหนี้ (hub: ติดตามผลหนี้ + ตารางหนี้) */}
         <Route path="/debt-hub" element={guard("debt.view", <DebtHub />)} />

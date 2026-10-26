@@ -5,7 +5,8 @@
 //   รอพิจารณา   GET /hr/loans/queue    (hr.loans.queue — หัวหน้าแผนกการเงิน 112, ผู้จัดการ 101, ผช.ผจก. 102/103)
 //   ทั้งหมด     GET /hr/loans          (hr.loans.list — loan.view = 101, 112)
 //   ค้างชำระ    GET /hr/loans/overdue?as_of=  (hr.loans.overdue — 101, 105)
-//   แถบเครื่องมือ: ตั้งค่ากองทุน (hr.loans.settings) · ทะเบียนคุมเงินกองทุน PDF (hr.loans.fundLedger, ปี พ.ศ.)
+//   แถบเครื่องมือ: ตั้งค่ากองทุน (hr.loans.settings) · ทะเบียนคุมเงินกองทุน PDF + Excel (hr.loans.fundLedger, ปี พ.ศ.)
+//               Excel = GET /hr/reports/loans/fund-ledger/xlsx?fiscal_year=
 //
 // ปุ่มพิจารณามาจาก stageActions() ตามสถานะ (lib/loans.js) — แสดงเฉพาะสัญญาที่อยู่ในคิวของผู้ใช้
 // (เปิดจาก "สัญญาทั้งหมด" ก็ได้ถ้าสัญญานั้นอยู่ในคิว) · ข้อความสถานะ = status_label
@@ -25,6 +26,7 @@ import {
 } from "../../../lib/loans"
 import { LoanDecisionSheet, LoanDetailSheet, LoanPdfButton, LoanSettingsSheet } from "./HRLoanSheets"
 import { keepBackState } from "../../../lib/drill"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 
 const ID_BASE = "hr-loans"
 const fieldCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
@@ -332,6 +334,9 @@ export default function HRLoansTab() {
           </div>
           <LoanPdfButton path={`/hr/reports/loans/fund-ledger?fiscal_year=${fiscalYear}`} label="ทะเบียนคุมเงินกองทุน"
             fallbackName={`loan_fund_ledger_${fiscalYear}.pdf`} disabled={!ledgerYearOk} />
+          {/* Excel twin: GET /hr/reports/loans/fund-ledger/xlsx?fiscal_year= (excelUrl ต่อ /xlsx ให้) */}
+          <ExcelDownloadButton getPdfPath={() => (ledgerYearOk ? `/hr/reports/loans/fund-ledger?fiscal_year=${fiscalYear}` : null)}
+            fallbackName={`loan_fund_ledger_${fiscalYear}.xlsx`} disabled={!ledgerYearOk} />
         </div>
       )}
       {canSettings && (

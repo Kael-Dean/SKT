@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import App from './App.jsx'
 import './index.css'
+import { installChunkReloadHandler } from './lib/chunkReload'
+
+// deploy ใหม่แล้วแท็บเก่าโหลด chunk ไม่ได้ (vite:preloadError) → reload 1 ครั้ง (กันวนด้วย sessionStorage)
+installChunkReloadHandler()
 
 // HashRouter fix: fallback สำหรับ token ที่มาใน query string โดยไม่มี hash
 // (กรณีที่ไฟล์ public/reset-password/index.html ไม่ทำงาน)

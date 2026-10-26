@@ -107,6 +107,9 @@ export default function ProductFormPicker({
         ariaDescribedBy={errMsg ? errId : hintId}
         title={label}
         ariaLabel={label}
+        panelMinW={480}
+        panelMaxW={640}
+        wrapLabels
       />
       {errMsg && <p id={errId} className={errorTextCls}>{errMsg}</p>}
       {status === "error" && (

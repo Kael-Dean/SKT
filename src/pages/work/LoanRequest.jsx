@@ -142,18 +142,24 @@ function PreviewPanel({ preview, loading, error, ready }) {
                 <th scope="col" className="py-1.5 pr-3 text-left font-medium">วันชำระ</th>
                 <th scope="col" className="py-1.5 px-3 text-right font-medium">เงินต้น</th>
                 <th scope="col" className="py-1.5 px-3 text-right font-medium">ดอกเบี้ย</th>
-                <th scope="col" className="py-1.5 pl-3 text-right font-medium">ค่างวด</th>
+                <th scope="col" className="py-1.5 px-3 text-right font-medium">ค่างวด</th>
+                <th scope="col" className="py-1.5 pl-3 text-right font-medium">ยอดคงเหลือ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200/70 dark:divide-line">
-              {visible.map((r, i) => (
-                <tr key={r.id ?? i}>
-                  <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">{r.due_date ? thaiDate(r.due_date) : `งวด ${i + 1}`}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.principal)}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.interest)}</td>
-                  <td className="py-1.5 pl-3 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">{money(r.installment_amount)}</td>
-                </tr>
-              ))}
+              {visible.map((r, i) => {
+                // preview rows: { no, installment, balance_after } · saved schedule rows: { instalment_no, installment_amount, remaining_balance }
+                const no = r.no ?? r.instalment_no ?? i + 1
+                return (
+                  <tr key={r.id ?? no}>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">{r.due_date ? thaiDate(r.due_date) : `งวด ${no}`}</td>
+                    <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.principal)}</td>
+                    <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.interest)}</td>
+                    <td className="py-1.5 px-3 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">{money(r.installment ?? r.installment_amount)}</td>
+                    <td className="py-1.5 pl-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{money(r.balance_after ?? r.remaining_balance)}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
           {rows.length > 3 && (
@@ -318,6 +324,8 @@ export default function LoanRequest() {
   }, [previewQuery])
 
   const maxAmount = elig?.max_amount != null ? Number(elig.max_amount) : null
+  // ไม่มีวงเงินให้กู้ (max_amount ≤ 0) → ปิดปุ่มยื่น กันกรอกฟอร์มเสียเปล่า
+  const noLimit = maxAmount != null && Number.isFinite(maxAmount) && maxAmount <= 0
 
   const validate = () => {
     const e = {}
@@ -353,6 +361,7 @@ export default function LoanRequest() {
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     setFormError("")
+    if (noLimit) return
     if (!validate()) return
     setSubmitting(true)
     try {
@@ -552,7 +561,13 @@ export default function LoanRequest() {
                 </div>
               </section>
 
-              <button type="submit" disabled={submitting} className={cx(primaryBtnCls, "w-full !h-12")}>
+              {noLimit && (
+                <p id={`${uid}-submit-reason`} className="text-center text-sm text-gray-600 dark:text-gray-300">
+                  ยื่นคำขอไม่ได้ เพราะตอนนี้ยังไม่มีวงเงินให้กู้
+                </p>
+              )}
+              <button type="submit" disabled={submitting || noLimit} aria-describedby={noLimit ? `${uid}-submit-reason` : undefined}
+                className={cx(primaryBtnCls, "w-full !h-12")}>
                 {submitting ? "กำลังยื่นคำขอ…" : "ยื่นคำขอกู้"}
               </button>
             </form>

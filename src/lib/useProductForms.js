@@ -4,11 +4,13 @@
 // + ตารางชื่อสเปคไว้แปลง id → ชื่อสำหรับชิป (handoff F30).
 //
 //   const { forms, status, findForm, chipsFor } = useProductForms()
+//   useProductForms({ orderType: "buy" | "sell" })  → ส่ง ?order_type= ให้ backend กรองสเปค/พันธุ์
+//     (หอมมะลิ: buy = เฉพาะ "รวม", sell = กข15/ดอกมะลิ105 — handoff mali-pool). ไม่ส่ง = ทุกสเปคเหมือนเดิม
 //   forms   = [{ id: "123", label: prod_name, spec: {product_id, …, business_type} }]
 //   status  = "loading" | "ready" | "error"
 //   chipsFor(spec) = [{ key, name, value }] ตามลำดับชิปของซื้อข้าว (ค่าว่างถูกตัดทิ้ง)
 //
-// โหลดครั้งเดียวต่อแท็บ (cache ระดับโมดูล) — ทุกหน้าใช้ข้อมูลชุดเดียวกัน
+// โหลดครั้งเดียวต่อแท็บต่อ orderType (cache ระดับโมดูล) — ทุกหน้าที่ใช้ type เดียวกันใช้ข้อมูลชุดเดียวกัน
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from "react"
 import { apiAuth } from "./api"
@@ -58,11 +60,17 @@ const toMap = (arr, keys) => {
 }
 const safe = (p) => p.catch(() => [])
 
-let cache = null // Promise<{ forms, names }>
+const ORDER_TYPES = new Set(["buy", "sell"])
+/** "buy" | "sell" | "" (ไม่กรอง) */
+const normType = (t) => (ORDER_TYPES.has(t) ? t : "")
+/** ต่อ order_type ท้าย URL (มี/ไม่มี query เดิม) */
+const withOrderType = (url, t) => (t ? `${url}${url.includes("?") ? "&" : "?"}order_type=${t}` : url)
 
-async function loadAll() {
+const cache = new Map() // orderType → Promise<{ forms, names }>
+
+async function loadAll(orderType) {
   const [rows, products, conditions, fields, years, programs, businesses] = await Promise.all([
-    apiAuth("/order/form/search"),
+    apiAuth(withOrderType("/order/form/search", orderType)),
     safe(apiAuth("/order/product/search")),
     safe(apiAuth("/order/condition/search")),
     safe(apiAuth("/order/field/search")),
@@ -85,7 +93,7 @@ async function loadAll() {
   const speciesIds = [...new Set(forms.map((f) => f.spec.species_id).filter((v) => v != null))]
   const [speciesLists, variantLists] = await Promise.all([
     Promise.all(productIds.map((pid) => safe(apiAuth(`/order/species/search?product_id=${encodeURIComponent(pid)}`)))),
-    Promise.all(speciesIds.map((sid) => safe(apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)))),
+    Promise.all(speciesIds.map((sid) => safe(apiAuth(withOrderType(`/order/variant/search?species_id=${encodeURIComponent(sid)}`, orderType))))),
   ])
 
   const names = {
@@ -101,14 +109,16 @@ async function loadAll() {
   return { forms, names }
 }
 
-export function loadProductForms({ refresh = false } = {}) {
-  if (!cache || refresh) {
-    cache = loadAll().catch((e) => {
-      cache = null // ให้ลองใหม่ได้ครั้งหน้า
+export function loadProductForms({ refresh = false, orderType } = {}) {
+  const t = normType(orderType)
+  if (!cache.has(t) || refresh) {
+    const p = loadAll(t).catch((e) => {
+      if (cache.get(t) === p) cache.delete(t) // ให้ลองใหม่ได้ครั้งหน้า
       throw e
     })
+    cache.set(t, p)
   }
-  return cache
+  return cache.get(t)
 }
 
 export function chipsFromNames(names, spec) {
@@ -121,19 +131,21 @@ export function chipsFromNames(names, spec) {
   }).filter(Boolean)
 }
 
-export default function useProductForms() {
+export default function useProductForms({ orderType } = {}) {
+  const t = normType(orderType)
   const [state, setState] = useState({ forms: [], names: null, status: "loading" })
 
   useEffect(() => {
     let alive = true
-    loadProductForms()
+    setState((p) => (p.status === "loading" ? p : { ...p, status: "loading" }))
+    loadProductForms({ orderType: t })
       .then(({ forms, names }) => alive && setState({ forms, names, status: "ready" }))
       .catch((e) => {
         console.error("load product forms error:", e)
         if (alive) setState({ forms: [], names: null, status: "error" })
       })
     return () => { alive = false }
-  }, [])
+  }, [t])
 
   const findForm = (id) => (id == null || id === "" ? null : state.forms.find((f) => f.id === String(id)) || null)
   /** หาแถวฟอร์มจากชุด id สเปค (ใช้ตอนแก้ไขออเดอร์ที่มีอยู่แล้ว) */

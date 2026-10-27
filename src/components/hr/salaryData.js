@@ -12,7 +12,7 @@
 // apiAuth has no AbortSignal support, hence alive flags instead of AbortController.
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"
-import { errText, tierQuery } from "./positionUtils"
+import { currentPositionLabel, errText, tierQuery } from "./positionUtils"
 
 // ─── Module caches ──────────────────────────────────────────────────────────
 const lookupPromises = new Map() // "tier:level" → Promise<number|null>
@@ -124,6 +124,10 @@ export function useEmployeeSalary(empId, refreshKey = 0, positionsById = {}, lis
   const positionId = detail ? detail.position ?? listRecord?.position ?? null : null
   const position = positionId != null ? positionsById?.[positionId] ?? null : null
   const tierId = position?.position_tier_id ?? null
+  // ป้ายตำแหน่งปัจจุบัน: position_display (รวมชื่อสาขา) → ชื่อจากรายการ → รหัส
+  const positionLabel = positionId != null
+    ? currentPositionLabel(detail, position?.title ?? `ตำแหน่ง #${positionId}`)
+    : null
   const rawLevel = detail?.personnel_info?.salary_level
   const currentLevel = rawLevel == null || rawLevel === "" || Number.isNaN(Number(rawLevel)) ? null : Number(rawLevel)
 
@@ -132,7 +136,7 @@ export function useEmployeeSalary(empId, refreshKey = 0, positionsById = {}, lis
     setAttempt((n) => n + 1)
   }
 
-  return { detail, loading, error, retry, positionId, position, tierId, currentLevel }
+  return { detail, loading, error, retry, positionId, position, positionLabel, tierId, currentLevel }
 }
 
 /**
@@ -244,6 +248,8 @@ function toRosterRow(r, positionsById) {
     branchName: r?.branch_name ?? null,
     positionId,
     position,
+    // ป้ายตำแหน่งปัจจุบันที่แสดงในตาราง (position_display รวมชื่อสาขา) — null = ใช้ position.title ตามเดิม
+    positionLabel: positionId != null ? currentPositionLabel(r, null) : null,
     tierId: r?.position_tier ?? known?.position_tier_id ?? null,
     level: toLevel(r?.salary_level), // 0 is a real level
     detailStatus: "ok",
@@ -257,7 +263,7 @@ function toRosterRow(r, positionsById) {
  * Every active employee with position, tier, level and monthly salary — one
  * GET /hr/salary-roster per load / refresh.
  *
- * row: { id, person, name, branchId, branchName, positionId, position, tierId, level,
+ * row: { id, person, name, branchId, branchName, positionId, position, positionLabel, tierId, level,
  *        detailStatus: "ok", salary, salaryStatus: ok|none, salarySource: ladder|financial|null }
  *
  * `positionsById` (optional) enriches `position` with the full position record;

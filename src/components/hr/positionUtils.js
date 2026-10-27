@@ -58,6 +58,40 @@ export function todayISO() {
 /** ข้อความ error จาก backend — แสดง `detail` ตามที่ backend ส่งมา (apiAuth แปลงไว้ใน err.message แล้ว) */
 export const errText = (err, fallback = "ดำเนินการไม่สำเร็จ") => err?.message || fallback
 
+/**
+ * ข้อความ error ของฟอร์มที่ backend ตอบ 422 ได้ 2 แบบ (FastAPI):
+ *   - `{ detail: "ข้อความไทย" }`        → แสดงตามที่ส่งมาเป๊ะ (ไม่ต่อคำ ไม่ตัด)
+ *   - `{ detail: [{ loc, msg, … }] }`   → validation ของ pydantic (อังกฤษ) → นำหน้าด้วยข้อความไทย
+ * อย่างอื่นใช้ errText ตามเดิม
+ */
+export function detailText(err, fallback = "ดำเนินการไม่สำเร็จ") {
+  const d = err?.data?.detail
+  if (typeof d === "string" && d.trim()) return d
+  if (Array.isArray(d) && d.length) {
+    const msgs = d.map((x) => x?.msg).filter(Boolean).join(" · ")
+    return msgs ? `ข้อมูลไม่ถูกต้อง: ${msgs}` : "ข้อมูลไม่ถูกต้อง"
+  }
+  return errText(err, fallback)
+}
+
+/**
+ * ป้ายตำแหน่ง "ปัจจุบัน" ของคนหนึ่งคน (backend v1.6.1, handoff/api-handoff-position-display.md)
+ * ตำแหน่งไม่มีชื่อสาขาแล้ว — backend ประกอบ `position_display` ให้ ("หัวหน้าสาขา" + "สาขาท่าตูม"
+ * → "หัวหน้าสาขาท่าตูม") และตามคนไปเมื่อย้ายสาขา. ส่งมาที่ GET /hr/employees/{id}, /hr/personnel/{id},
+ * แถวของ /hr/employees/export, /hr/salary-roster และ /personnel/me/position
+ *
+ * ใช้ `fallback` (ชื่อจากรายการตำแหน่งแบบเดิม) เมื่อ field ไม่มี (backend รุ่นเก่า) หรือเป็น null
+ * (ยังไม่มีตำแหน่ง) → พฤติกรรมเดิมไม่เปลี่ยน.
+ * ใช้เฉพาะ "ตำแหน่งปัจจุบันของคน" — ห้ามใช้กับ dropdown เลือกตำแหน่ง / ประวัติตำแหน่ง / ค่าที่ส่ง server
+ *
+ * @param {{ position_display?: string|null } | null | undefined} rec
+ * @param {*} [fallback]
+ */
+export function currentPositionLabel(rec, fallback = null) {
+  const d = rec?.position_display
+  return typeof d === "string" && d.trim() !== "" ? d.trim() : fallback
+}
+
 /** เหตุผลมาตรฐานจาก backend → ข้อความไทย (อย่างอื่นแสดงตามจริง) */
 const REASON_LABEL = {
   promotion_adjustment: "ปรับขั้นตามการเลื่อนตำแหน่ง",
@@ -67,7 +101,11 @@ const REASON_LABEL = {
 }
 export const reasonLabel = (r) => (r ? REASON_LABEL[r] ?? r : "—")
 
-/** ใช้ทั้ง `include_inactive=true` เพื่อให้ได้ตำแหน่งที่ปิดแล้วด้วย (ค่า default ของ BE คือ active เท่านั้น) */
+/**
+ * ใช้ทั้ง `include_inactive=true` เพื่อให้ได้ตำแหน่งที่ปิดแล้วด้วย (ค่า default ของ BE คือ active เท่านั้น)
+ * — จำเป็นสำหรับประวัติตำแหน่ง: แถวเก่าอาจชี้ไปตำแหน่งชื่อสาขาเดิมที่ปิดไปแล้ว (เช่น "หัวหน้าสาขาปราสาท").
+ * dropdown เลือกตำแหน่งต้องกรองเหลือ active เสมอ (usePositions().active)
+ */
 export const POSITIONS_PATH = "/hr/positions?include_inactive=true"
 
 /**

@@ -63,9 +63,10 @@ const COLUMNS = [
   { key: "name", label: "ชื่อ-นามสกุล", type: "text", get: (r) => r.full_name, always: true, sticky: "second" },
   { key: "legacy_user_id", label: "รหัสเดิม", type: "text", get: (r) => r.legacy_user_id, optional: true },
   {
-    key: "position", label: "ตำแหน่ง", type: "enum", get: (r) => r.position_title, minW: "min-w-[11rem]",
+    // position_label = ตำแหน่งปัจจุบันรวมชื่อสาขา (position_display) → ชื่อตำแหน่งตามเดิม
+    key: "position", label: "ตำแหน่ง", type: "enum", get: (r) => r.position_label, minW: "min-w-[11rem]",
     render: (r, ctx) =>
-      r.position_title ?? (r.position != null && ctx.positionsLoading
+      r.position_label ?? (r.position != null && ctx.positionsLoading
         ? <Skeleton rounded="rounded-md" className="inline-block h-3.5 w-24 align-middle" />
         : <Muted />),
   },
@@ -368,7 +369,7 @@ export default function EmployeeTable({
               loading={loading}
               keyOf={(r) => r.id}
               title={(r) => r.full_name || `รหัส ${r.id}`}
-              subtitle={(r) => [`รหัส ${r.id}`, r.position_title].filter(Boolean).join(" · ")}
+              subtitle={(r) => [`รหัส ${r.id}`, r.position_label].filter(Boolean).join(" · ")}
               badge={(r) => COLUMN_BY_KEY.active.render(r, ctx)}
               fields={(r) =>
                 visible

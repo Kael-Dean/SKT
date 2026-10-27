@@ -8,6 +8,7 @@ import { apiAuth } from "../../lib/api"
 import { PageLoader, ErrorState, Badge } from "../../components/ui"
 import BranchAssignmentCard from "./BranchAssignmentCard"
 import EmployeePositionCard from "../../components/hr/EmployeePositionCard"
+import { currentPositionLabel } from "../../components/hr/positionUtils"
 import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
 import { fmtDaysUnit } from "../../lib/leaveDays"
@@ -276,7 +277,7 @@ export default function HRPersonnelDetail() {
         <SectionTitle>ข้อมูลบัญชี</SectionTitle>
         <InfoRow label="Email" value={data.email} />
         <InfoRow label="สาขา" value={data.branch_location} />
-        <InfoRow label="ตำแหน่ง" value={data.position} />
+        <InfoRow label="ตำแหน่ง" value={currentPositionLabel(data, data.position)} />
         <InfoRow label="สถานะบัญชี" value={data.account_status} />
       </div>
 
@@ -285,6 +286,7 @@ export default function HRPersonnelDetail() {
         employeeId={id}
         employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()}
         positionId={data.position}
+        positionDisplay={data.position_display}
         positionEnteredDate={pi.position_entered_date}
         salaryLevel={pi.salary_level}
       />

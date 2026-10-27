@@ -82,7 +82,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
       if (branch && (branch === NONE ? r.branchId != null : String(r.branchId) !== branch)) return false
       if (tier && (tier === NONE ? r.tierId != null : String(r.tierId) !== tier)) return false
       if (!q) return true
-      return `${r.name} ${r.id} ${r.position?.title ?? ""}`.toLowerCase().includes(q)
+      return `${r.name} ${r.id} ${r.positionLabel ?? r.position?.title ?? ""}`.toLowerCase().includes(q)
     })
     return sortRoster(list, sort)
   }, [roster.rows, deferredQuery, branch, tier, sort])
@@ -367,6 +367,7 @@ const Muted = ({ children }) => <span className="text-gray-400 dark:text-gray-50
 
 function PositionText({ row, loading }) {
   if (row.positionId == null) return <Muted>ยังไม่มีตำแหน่ง</Muted>
+  if (row.positionLabel) return row.positionLabel // position_display (รวมชื่อสาขา) จาก /hr/salary-roster
   if (row.position) return row.position.title ?? `ตำแหน่ง ${row.positionId}`
   return loading ? <Skeleton rounded="rounded-md" className="inline-block h-3.5 w-24 align-middle" /> : `ตำแหน่ง ${row.positionId}`
 }

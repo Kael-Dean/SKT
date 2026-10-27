@@ -2,13 +2,14 @@
 // 3D ตำแหน่งงาน — GET /hr/positions · POST /hr/positions · PATCH /hr/positions/{id}
 // · PATCH /hr/positions/{id}/deactivate (409 ถ้าปิดไปแล้ว → แสดง detail ตาม backend)
 // UAT D1: สร้าง / เปลี่ยนชื่อ / ปิดใช้งาน / ปิดซ้ำ = 409
+// PR #55: POST/PATCH ตอบ 422 เมื่อใส่ชื่อสาขาในตำแหน่งหัวหน้าสาขา ("หัวหน้าสาขาท่าตูม") — แสดง detail ไทยตามที่ส่งมา
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../SelectDropdown"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../ui"
 import HrModal, { Notice } from "./HrModal"
 import {
-  TIER_OPTIONS, tierName, errText, POSITIONS_PATH,
+  TIER_OPTIONS, tierName, errText, detailText, POSITIONS_PATH,
   inputCls, labelCls, primaryBtn, secondaryBtn, dangerBtn, linkBtn, cardCls, thCls,
 } from "./positionUtils"
 
@@ -30,6 +31,7 @@ export default function PositionsManager() {
   const [form, setForm] = useState(null) // { mode: "create"|"edit", id?, title, position_tier_id }
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState("")
+  const [titleRejected, setTitleRejected] = useState(false) // 422 จาก server → ช่องชื่อ aria-invalid
 
   const [confirmPos, setConfirmPos] = useState(null)
   const [deactivating, setDeactivating] = useState(false)
@@ -73,10 +75,12 @@ export default function PositionsManager() {
   const openCreate = () => {
     setForm({ mode: "create", title: "", position_tier_id: "" })
     setFormError("")
+    setTitleRejected(false)
   }
   const openEdit = (p) => {
     setForm({ mode: "edit", id: p.id, original: p, title: p.title ?? "", position_tier_id: p.position_tier_id != null ? String(p.position_tier_id) : "" })
     setFormError("")
+    setTitleRejected(false)
   }
 
   const handleSave = async (e) => {
@@ -85,6 +89,7 @@ export default function PositionsManager() {
     if (!title) return setFormError("กรุณากรอกชื่อตำแหน่ง")
     setSaving(true)
     setFormError("")
+    setTitleRejected(false)
     try {
       if (form.mode === "create") {
         const body = { title }
@@ -106,7 +111,9 @@ export default function PositionsManager() {
       setForm(null)
       fetchPositions()
     } catch (err) {
-      setFormError(errText(err, "บันทึกไม่สำเร็จ"))
+      // string detail (เช่น "ไม่ต้องใส่ชื่อสาขาในตำแหน่ง …") แสดงตามจริง; validation array → ข้อความไทยนำหน้า
+      setFormError(detailText(err, "บันทึกไม่สำเร็จ"))
+      if (err?.status === 422 && typeof err?.data?.detail === "string") setTitleRejected(true)
     } finally {
       setSaving(false)
     }
@@ -277,10 +284,11 @@ export default function PositionsManager() {
                 id="pos-title"
                 type="text"
                 required
-                aria-invalid={formError && !form.title.trim() ? "true" : undefined}
+                aria-invalid={(formError && !form.title.trim()) || titleRejected ? "true" : undefined}
+                aria-describedby={formError ? "position-form-error" : undefined}
                 value={form.title}
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                className={inputCls}
+                onChange={(e) => { setTitleRejected(false); setForm((f) => ({ ...f, title: e.target.value })) }}
+                className={inputCls + (titleRejected ? " !border-red-500 dark:!border-red-400" : "")}
                 placeholder="เช่น เจ้าหน้าที่การเงิน"
                 maxLength={120}
               />
@@ -302,7 +310,7 @@ export default function PositionsManager() {
             {editingInactive && (
               <Notice tone="info">ตำแหน่งนี้ปิดใช้งานแล้ว แก้ชื่อหรือระดับได้ แต่จะมอบหมายให้เจ้าหน้าที่ไม่ได้</Notice>
             )}
-            {formError && <Notice tone="error">{formError}</Notice>}
+            {formError && <div id="position-form-error"><Notice tone="error">{formError}</Notice></div>}
           </form>
         </HrModal>
       )}

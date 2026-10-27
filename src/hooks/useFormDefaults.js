@@ -6,7 +6,8 @@
 //       → ชื่อไทยพร้อมคำนำหน้า (ไม่มีไทยใช้อังกฤษ), ตำแหน่ง, สาขา, แผนก/ฝ่าย
 //   ทางสำรอง (ใช้ได้วันนี้) — เมื่อทางหลังตอบ 404/405:
 //       GET /personnel/me           → first_name last_name (อังกฤษไปก่อน)
-//       GET /personnel/me/position  → position_title
+//       GET /personnel/me/position  → position_display (รวมชื่อสาขา เช่น "หัวหน้าสาขาท่าตูม", BE v1.6.1)
+//                                      → position_title (backend รุ่นก่อน / ไม่มีตำแหน่ง)
 //       GET /personnel/me/branches  → home_branch.branch_name
 //       แผนก: ยังไม่มีที่มา → ""
 //
@@ -15,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from "react"
 import { apiAuth } from "../lib/api"
+import { currentPositionLabel } from "../components/hr/positionUtils"
 
 export const FORM_DEFAULTS_PATH = "/personnel/me/form-defaults"
 
@@ -41,7 +43,7 @@ async function fromLegacyCalls() {
   const home = br?.home_branch ?? (Array.isArray(br) ? br[0] : null)
   return {
     name: [s(me?.first_name), s(me?.last_name)].filter(Boolean).join(" "),
-    position: s(p?.position_title ?? p?.title ?? p?.name),
+    position: s(currentPositionLabel(p, p?.position_title ?? p?.title ?? p?.name)),
     branch: s(home?.branch_name ?? home?.name),
     department: "",
   }

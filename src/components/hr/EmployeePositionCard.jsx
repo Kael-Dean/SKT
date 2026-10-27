@@ -2,6 +2,8 @@
 // ตำแหน่งของเจ้าหน้าที่ 1 คน (หน้า HRPersonnelDetail)
 // PATCH /hr/employees/{id}/position {new_position_id, reason, effective_date?}
 // GET   /hr/employees/{id}/position-history
+// ตำแหน่งปัจจุบันแสดง `positionDisplay` (position_display จาก /hr/personnel/{id} — รวมชื่อสาขาแล้ว) ก่อน
+// ประวัติ + dropdown ใช้ usePositions() (include_inactive → ชื่อตำแหน่งสาขาเดิมที่ปิดแล้วยังแสดงได้; dropdown = active)
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { ArrowRight } from "lucide-react"
@@ -11,11 +13,11 @@ import { ErrorState, Skeleton } from "../ui"
 import HrModal, { Notice } from "./HrModal"
 import usePositions from "./usePositions"
 import {
-  tierName, fmtDate, fmtLevel, errText, todayISO, reasonLabel,
+  tierName, fmtDate, fmtLevel, errText, todayISO, reasonLabel, currentPositionLabel,
   inputCls, labelCls, primaryBtn, secondaryBtn, cardCls,
 } from "./positionUtils"
 
-export default function EmployeePositionCard({ employeeId, employeeName, positionId, positionEnteredDate, salaryLevel, onChanged }) {
+export default function EmployeePositionCard({ employeeId, employeeName, positionId, positionDisplay, positionEnteredDate, salaryLevel, onChanged }) {
   const { byId, active, loading: posLoading, error: posError, reload: reloadPositions } = usePositions()
 
   const [history, setHistory] = useState([])
@@ -68,6 +70,9 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
   }, [flash])
 
   const current = curPositionId != null ? byId[curPositionId] : null
+  // position_display ของ parent ใช้ได้จนกว่าจะเปลี่ยนตำแหน่งในการ์ดนี้ (override) — หลังจากนั้นใช้ชื่อจากรายการจนกว่า parent โหลดใหม่
+  const lookupTitle = current?.title ?? (curPositionId != null ? `ตำแหน่ง #${curPositionId}` : null)
+  const currentLabel = override ? lookupTitle : currentPositionLabel({ position_display: positionDisplay }, lookupTitle)
 
   const options = useMemo(
     () => active
@@ -123,7 +128,7 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
         <div className="sm:col-span-2 min-w-0">
           <dt className="text-xs text-gray-500 dark:text-gray-400">ตำแหน่งปัจจุบัน</dt>
           <dd className="mt-0.5 font-semibold text-gray-900 dark:text-gray-100 break-words">
-            {posLoading ? <Skeleton className="h-5 w-40" /> : current?.title ?? (curPositionId != null ? `ตำแหน่ง #${curPositionId}` : "ยังไม่มีตำแหน่ง")}
+            {posLoading && currentLabel === lookupTitle ? <Skeleton className="h-5 w-40" /> : currentLabel ?? "ยังไม่มีตำแหน่ง"}
             {current && current.is_active === false && <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">(ตำแหน่งนี้ปิดใช้งานแล้ว)</span>}
           </dd>
         </div>
@@ -194,7 +199,7 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
         >
           <form id="change-position-form" onSubmit={submit} className="space-y-3" noValidate>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              ปัจจุบัน: <span className="font-semibold text-gray-900 dark:text-gray-100">{current?.title ?? "ยังไม่มีตำแหน่ง"}</span>
+              ปัจจุบัน: <span className="font-semibold text-gray-900 dark:text-gray-100">{currentLabel ?? "ยังไม่มีตำแหน่ง"}</span>
             </p>
             <div>
               <span id="new-pos-label" className={labelCls}>ตำแหน่งใหม่ <span className="text-red-500" aria-hidden="true">*</span></span>

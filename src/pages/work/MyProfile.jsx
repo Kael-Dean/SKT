@@ -23,6 +23,7 @@ import { getTenure, tenureText } from "../../lib/tenure"
 import ActivityList from "../../components/hr/ActivityList"
 import { fetchMyActivities } from "../../lib/activities"
 import { apiDetail } from "../../lib/apiErrors"
+import { currentPositionLabel } from "../../components/hr/positionUtils"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -129,6 +130,7 @@ export default function MyProfile() {
   const [profile, setProfile] = useState(null)
   const [financial, setFinancial] = useState(null)
   const [positions, setPositions] = useState([])
+  const [myPosition, setMyPosition] = useState(null) // GET /personnel/me/position → position_display (รวมชื่อสาขา)
   const [branches, setBranches] = useState([])
   const [myBranches, setMyBranches] = useState(null) // { home_branch, extra_branches }
   const [loading, setLoading] = useState(true)
@@ -164,17 +166,20 @@ export default function MyProfile() {
     Promise.all([
       apiAuth("/personnel/me"),
       apiAuth("/personnel/me/financial").catch(() => null),
-      // GET /hr/positions ต้องมีสิทธิ์ตำแหน่ง/HR (backend PR #13) — พนักงานทั่วไปอ่านตำแหน่งตัวเองจาก /personnel/me/position
-      can("hr.positions.view")
-        ? apiAuth("/hr/positions").catch(() => [])
-        : apiAuth("/personnel/me/position").then((p) => (p && typeof p === "object" && !Array.isArray(p) ? [p] : p)).catch(() => []),
+      // GET /hr/positions ต้องมีสิทธิ์ตำแหน่ง/HR (backend PR #13) — ใช้เป็นตัวแปลงรหัส → ชื่อสำรองเท่านั้น
+      can("hr.positions.view") ? apiAuth("/hr/positions").catch(() => []) : Promise.resolve(null),
       apiAuth("/order/branch/search").catch(() => []),
       apiAuth("/personnel/me/branches").catch(() => null),
+      // ตำแหน่งตัวเอง (ทุกคนอ่านได้) — position_display = ชื่อที่แสดง (เช่น "หัวหน้าสาขาท่าตูม")
+      apiAuth("/personnel/me/position")
+        .then((p) => (Array.isArray(p) ? p[0] ?? null : p && typeof p === "object" ? p : null))
+        .catch(() => null),
     ])
-      .then(([prof, fin, pos, bch, myBch]) => {
+      .then(([prof, fin, pos, bch, myBch, myPos]) => {
         setProfile(prof)
         setFinancial(fin)
-        setPositions(Array.isArray(pos) ? pos : [])
+        setMyPosition(myPos)
+        setPositions(Array.isArray(pos) ? pos : myPos ? [myPos] : [])
         setBranches(Array.isArray(bch) ? bch : [])
         setMyBranches(myBch)
       })
@@ -200,7 +205,8 @@ export default function MyProfile() {
   const fin = financial?.financial ?? {}
   const quota = financial?.leave_quota ?? {}
 
-  const positionName = positions.find((p) => p.id === profile?.position || String(p.id) === String(profile?.position))?.title ?? profile?.position
+  const positionTitle = positions.find((p) => p.id === profile?.position || String(p.id) === String(profile?.position))?.title ?? profile?.position
+  const positionName = currentPositionLabel(myPosition, positionTitle)
   const branchName = branches.find((b) => b.id === profile?.branch_location || String(b.id) === String(profile?.branch_location))?.branch_name ?? profile?.branch_location
 
   const displayName = profile?.first_name && profile?.last_name

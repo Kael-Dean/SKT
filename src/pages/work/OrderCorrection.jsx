@@ -76,7 +76,10 @@ function OrderCorrection() {
   const [branchOptions, setBranchOptions] = useState([]);
   const [klangOptions, setKlangOptions] = useState([]);
   const [specOptions, setSpecOptions] = useState([]);
+  // ไม่กรอง: ใช้แสดงชื่อ/ชิปของออเดอร์เดิม (ออเดอร์เก่าอาจเป็นสเปคที่ตอนนี้ซื้อ/ขายไม่ได้แล้ว)
   const productForms = useProductForms();
+  // ตัวเลือกตอน "เปลี่ยนสเปค" — กรองตามชนิดออเดอร์ (หอมมะลิ: ซื้อ = "รวม", ขาย = กข15/ดอกมะลิ105)
+  const editForms = useProductForms({ orderType: mode === "sell" ? "sell" : "buy" });
   const [specDict, setSpecDict] = useState({});
   const [paymentBuy, setPaymentBuy] = useState([]); // 3,4
   const [paymentSell, setPaymentSell] = useState([]); // 1,2
@@ -406,7 +409,7 @@ function OrderCorrection() {
   };
 
   const buildProductSpecIn = (specId) => {
-    const raw = specDict[String(specId)] || productForms.findForm(specId)?.spec;
+    const raw = specDict[String(specId)] || editForms.findForm(specId)?.spec || productForms.findForm(specId)?.spec;
     if (!raw) return null;
     return {
       product_id: raw.product_id,
@@ -1291,7 +1294,7 @@ function OrderCorrection() {
                         <ProductFormPicker
                           id="order-edit-form"
                           label="ฟอร์มสินค้า (เปลี่ยนสเปค)"
-                          forms={productForms}
+                          forms={editForms}
                           value={draft.spec_id}
                           onChange={(id) => {
                             setD({ spec_id: id || "" });

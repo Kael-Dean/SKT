@@ -125,7 +125,7 @@ const Buy = () => {
       try {
         const list = await Promise.all(
           speciesIds.map(async (sid) => {
-            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}&order_type=buy`)) || []
             return arr.map((x) => ({
               id: String(x.id ?? x.variant_id ?? x.value ?? ""),
               label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
@@ -614,7 +614,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
   useEffect(() => {
     const loadForms = async () => {
       try {
-        const arr = (await apiAuth("/order/form/search")) || []
+        const arr = (await apiAuth("/order/form/search?order_type=buy")) || []
         const mapped = arr 
           .map((x) => ({ 
             id: String(x.id ?? x.value ?? ""), 
@@ -850,7 +850,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
     }
     const loadVariant = async () => {
       try {
-        const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}`)) || []
+        const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}&order_type=buy`)) || []
         const mapped = arr
           .map((x) => ({
             id: String(x.id ?? x.variant_id ?? x.value ?? ""),

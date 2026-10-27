@@ -122,7 +122,7 @@ function Sales() {
       try {
         const list = await Promise.all(
           speciesIds.map(async (sid) => {
-            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}`)) || []
+            const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(sid)}&order_type=sell`)) || []
             return arr.map((x) => ({
               id: String(x.id ?? x.variant_id ?? x.value ?? ""),
               label: String(x.variant ?? x.name ?? x.label ?? "").trim(),
@@ -447,7 +447,7 @@ function Sales() {
     }
     const loadVariant = async () => {
       try {
-        const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}`)) || []
+        const arr = (await apiAuth(`/order/variant/search?species_id=${encodeURIComponent(rid)}&order_type=sell`)) || []
         const mapped = arr.map((x) => ({ id: String(x.id), label: String(x.variant ?? "").trim() }))
         setSubriceOptions(mapped)
       } catch (e) { console.error(e); setSubriceOptions([]) }
@@ -500,7 +500,7 @@ function Sales() {
   useEffect(() => {
     const loadForms = async () => {
       try {
-        const arr = (await apiAuth("/order/form/search")) || []
+        const arr = (await apiAuth("/order/form/search?order_type=sell")) || []
         const mapped = arr
           .map((x) => ({
             id: String(x.id ?? x.value ?? ""),

@@ -24,6 +24,7 @@ import ActivityList from "../../components/hr/ActivityList"
 import { fetchMyActivities } from "../../lib/activities"
 import { apiDetail } from "../../lib/apiErrors"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
+import { useOnboarding } from "../../lib/onboarding"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -124,7 +125,17 @@ function maskCID(c) {
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
+// Year-only rows from onboarding are stored as 1 Jan / 31 Dec — show just the year.
+function fmtSpanDate(iso, edge) {
+  const d = String(iso ?? "").slice(0, 10)
+  if ((edge === "start" && d.endsWith("-01-01")) || (edge === "end" && d.endsWith("-12-31"))) {
+    return `พ.ศ. ${Number(d.slice(0, 4)) + 543}`
+  }
+  return fmtDate(iso)
+}
+
 export default function MyProfile() {
+  const onboarding = useOnboarding()
   const localUser = getUser() || {}
 
   const [profile, setProfile] = useState(null)
@@ -200,8 +211,11 @@ export default function MyProfile() {
   const pi = profile?.personnel_info ?? {}
   const addr = profile?.address ?? {}
   const edu = profile?.education ?? []
-  const workExp = profile?.work_experiences ?? []
-  const crimeRec = profile?.criminal_records ?? []
+  // GET /personnel/me (MyProfileOut) has no work/criminal rows yet — fall back to what the
+  // employee saved in onboarding (/personnel/me/onboarding values).
+  const obValues = onboarding.data?.values
+  const workExp = profile?.work_experiences ?? obValues?.work ?? []
+  const crimeRec = profile?.criminal_records ?? obValues?.criminal ?? []
   const fin = financial?.financial ?? {}
   const quota = financial?.leave_quota ?? {}
 
@@ -422,7 +436,7 @@ export default function MyProfile() {
                 <p className="font-semibold text-gray-800 dark:text-gray-200">{w.company_name ?? "—"}</p>
                 {w.position && <p className="text-gray-600 dark:text-gray-400">ตำแหน่ง: {w.position}</p>}
                 {(w.from_date || w.to_date) && (
-                  <p className="text-xs text-gray-500">{fmtDate(w.from_date)} – {w.to_date ? fmtDate(w.to_date) : "ปัจจุบัน"}</p>
+                  <p className="text-xs text-gray-500">{fmtSpanDate(w.from_date, "start")} – {w.to_date ? fmtSpanDate(w.to_date, "end") : "ปัจจุบัน"}</p>
                 )}
               </div>
             ))}

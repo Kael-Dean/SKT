@@ -809,8 +809,8 @@ const Order = () => {
                 <tr>
                   <th className="px-3 py-2 whitespace-nowrap">วันที่</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบสำคัญ</th>
-                  <th className="min-w-[12rem] px-3 py-2">ลูกค้า</th>
-                  <th className="px-3 py-2 whitespace-nowrap">ชนิดข้าว</th>
+                  <th className="min-w-[10rem] px-3 py-2">ลูกค้า</th>
+                  <th className="min-w-[9rem] px-3 py-2">ชนิดข้าว</th>
                   <th className="px-3 py-2 whitespace-nowrap">สาขา</th>
                   <th className="px-3 py-2 whitespace-nowrap">คลัง</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">นน.ขาเข้า</th>
@@ -826,8 +826,8 @@ const Order = () => {
                   <th className="w-px px-2 py-2 whitespace-nowrap">ประเภท</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่เอกสาร</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบชั่ง</th>
-                  <th className="min-w-[12rem] px-3 py-2">ลูกค้า</th>
-                  <th className="px-3 py-2 whitespace-nowrap">ชนิดข้าว</th>
+                  <th className="min-w-[10rem] px-3 py-2">ลูกค้า</th>
+                  <th className="min-w-[9rem] px-3 py-2">ชนิดข้าว</th>
                   <th className="px-3 py-2 whitespace-nowrap">สาขา</th>
                   <th className="min-w-[6rem] px-3 py-2">คลัง</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">น้ำหนัก (กก.)</th>
@@ -860,8 +860,8 @@ const Order = () => {
                     >
                       <td className="px-3 py-2 whitespace-nowrap">{d.date}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
-                      <td className="min-w-[12rem] px-3 py-2">{d.customer}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{d.species}</td>
+                      <td className="min-w-[10rem] px-3 py-2">{d.customer}</td>
+                      <td className="min-w-[9rem] max-w-[13rem] px-3 py-2">{d.species}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.branch}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.klang}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{d.entry.toLocaleString()}</td>
@@ -892,8 +892,8 @@ const Order = () => {
                         <div className="text-xs text-slate-500 dark:text-slate-400">{d.kind.doc}</div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
-                      <td className="min-w-[12rem] px-3 py-2">{d.customer}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{d.species}</td>
+                      <td className="min-w-[10rem] px-3 py-2">{d.customer}</td>
+                      <td className="min-w-[9rem] max-w-[13rem] px-3 py-2">{d.species}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.branch}</td>
                       <td className="min-w-[6rem] max-w-[9rem] px-3 py-2">{d.klang}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{d.net.toLocaleString()}</td>

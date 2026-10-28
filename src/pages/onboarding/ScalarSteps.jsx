@@ -4,7 +4,7 @@
 // keys) + confirm. Missing fields (data.sections[key].missing, or the confirm 422) get the
 // amber frame until filled.
 import { useMemo, useState } from "react"
-import { CalendarDays, IdCard } from "lucide-react"
+import { CalendarDays, IdCard, Plus, X } from "lucide-react"
 import SelectDropdown from "../../components/SelectDropdown"
 import DateInput from "../../components/ThaiDateField"
 import ThaiAddressFields from "../../components/ThaiAddressFields"
@@ -155,6 +155,107 @@ function ReadOnlyFact({ icon, label, value, onReport }) {
   )
 }
 
+// ─── โรคประจำตัว: several diseases as chips, stored as one comma-separated string ──
+const NONE = "ไม่มี"
+const splitDiseases = (v) =>
+  String(v ?? "")
+    .split(/\s*[,，]\s*/)
+    .map((x) => x.trim())
+    .filter((x) => x && x !== NONE)
+
+function DiseaseField({ id, value, onChange, invalid }) {
+  const [draft, setDraft] = useState("")
+  const items = splitDiseases(value)
+  const isNone = String(value ?? "").trim() === NONE
+  const commit = (list) => onChange(list.join(", "))
+  const add = () => {
+    const parts = splitDiseases(draft)
+    if (!parts.length) return
+    commit([...items, ...parts.filter((p) => !items.includes(p))])
+    setDraft("")
+  }
+  return (
+    <div className="space-y-3">
+      <div className="flex items-stretch gap-2">
+        <input
+          id={id}
+          type="text"
+          className={baseField}
+          value={draft}
+          placeholder={items.length ? "เพิ่มโรคอื่น" : "เช่น ความดันโลหิตสูง"}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+              e.preventDefault()
+              add()
+            }
+          }}
+          onBlur={add}
+          aria-invalid={invalid || undefined}
+          aria-describedby={`${id}-help`}
+        />
+        <button
+          type="button"
+          onClick={add}
+          disabled={!draft.trim()}
+          aria-label="เพิ่มโรคประจำตัว"
+          className={cx(
+            "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-2xl bg-gray-100 px-4 text-[15px] font-semibold text-gray-800 ring-1 ring-inset ring-gray-200 transition-colors duration-150 hover:bg-gray-200",
+            "disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/[.06] dark:text-gray-100 dark:ring-line-strong dark:hover:bg-white/[.1]",
+            focusRingCls,
+          )}
+        >
+          <Plus aria-hidden="true" className="size-4" strokeWidth={2} />
+          <span className="hidden sm:inline">เพิ่ม</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={isNone}
+          onClick={() => {
+            setDraft("")
+            onChange(isNone ? "" : NONE)
+          }}
+          className={cx(
+            "shrink-0 cursor-pointer rounded-2xl px-4 text-[15px] font-semibold transition-colors duration-150 active:scale-[.97]",
+            isNone
+              ? "bg-indigo-600 text-white dark:bg-indigo-500"
+              : "bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-200 hover:bg-gray-200 dark:bg-white/[.06] dark:text-gray-100 dark:ring-line-strong dark:hover:bg-white/[.1]",
+            focusRingCls,
+          )}
+        >
+          ไม่มี
+        </button>
+      </div>
+      {items.length > 0 && (
+        <ul className="flex flex-wrap gap-2" aria-label="โรคประจำตัวที่เพิ่มแล้ว">
+          {items.map((d) => (
+            <li
+              key={d}
+              className="inline-flex items-center gap-1 rounded-full bg-indigo-50 py-1 pl-3.5 pr-1 text-[15px] font-medium text-indigo-800 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-100 dark:ring-indigo-400/30"
+            >
+              {d}
+              <button
+                type="button"
+                onClick={() => commit(items.filter((x) => x !== d))}
+                aria-label={`ลบ ${d}`}
+                className={cx(
+                  "inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-indigo-600 hover:bg-indigo-100 dark:text-indigo-200 dark:hover:bg-white/[.1]",
+                  focusRingCls,
+                )}
+              >
+                <X aria-hidden="true" className="size-4" strokeWidth={2} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p id={`${id}-help`} className={helpTextCls}>
+        มีหลายโรค พิมพ์ทีละโรคแล้วกด “เพิ่ม” หรือ Enter ถ้าไม่มีโรคประจำตัวให้กด “ไม่มี”
+      </p>
+    </div>
+  )
+}
+
 export function PersonalStep({ data, handlers, onBack, onReport }) {
   const { original, form, set, flagged, flow } = useScalarSection("personal", PERSONAL_KEYS, data, handlers)
   const values = data?.values?.personal ?? {}
@@ -263,23 +364,12 @@ export function PersonalStep({ data, handlers, onBack, onReport }) {
           flagged={flagged("underlying_disease")}
           hint="ยังไม่ได้กรอก ถ้าไม่มีให้กด “ไม่มี”"
         >
-          <div className="flex items-stretch gap-2">
-            {text("underlying_disease", { placeholder: "เช่น ความดันโลหิตสูง" })}
-            <button
-              type="button"
-              aria-pressed={form.underlying_disease === "ไม่มี"}
-              onClick={() => set("underlying_disease")("ไม่มี")}
-              className={cx(
-                "shrink-0 cursor-pointer rounded-2xl px-4 text-[15px] font-semibold transition-colors duration-150 active:scale-[.97]",
-                form.underlying_disease === "ไม่มี"
-                  ? "bg-indigo-600 text-white dark:bg-indigo-500"
-                  : "bg-gray-100 text-gray-800 ring-1 ring-inset ring-gray-200 hover:bg-gray-200 dark:bg-white/[.06] dark:text-gray-100 dark:ring-line-strong dark:hover:bg-white/[.1]",
-                focusRingCls,
-              )}
-            >
-              ไม่มี
-            </button>
-          </div>
+          <DiseaseField
+            id="ob-underlying_disease"
+            value={form.underlying_disease ?? ""}
+            onChange={set("underlying_disease")}
+            invalid={flagged("underlying_disease")}
+          />
         </Field>
       </div>
 

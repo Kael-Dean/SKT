@@ -338,7 +338,7 @@ function TourRunner({ index, onFinished }) {
           : cx("top-0 left-0 flex max-h-[calc(100dvh-2rem)] flex-col rounded-2xl p-5", placed ? "ob-tour-card" : "opacity-0"),
       )}
     >
-      <div key={stop.key} className="animate-fade-in -mx-1 min-h-0 flex-1 overflow-y-auto overscroll-contain px-1">
+      <div key={stop.key} className="animate-fade-in -mx-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-1">
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
             {index + 1}/{TOUR_LENGTH}

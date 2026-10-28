@@ -48,9 +48,9 @@ const AppLayout = () => {
   const isHrDashboard = location.pathname === "/hr/dashboard"
   const isHrSubPage = location.pathname.startsWith("/hr/") && !isHrDashboard
 
-  // หน้าตารางหนี้ (แยกสาขา / รวมทุกสาขา) กว้างมาก — ปล่อยเต็มความกว้างจอ
+  // หน้าตารางกว้าง (ตารางหนี้, รายการออเดอร์ซื้อ/ขาย) — ปล่อยเต็มความกว้างจอ
   // (ไม่บีบด้วย max-w-7xl) เพื่อให้ดูตารางได้โดยไม่ต้องเลื่อนแนวนอนบ่อย
-  const isFullWidth = location.pathname === "/debt-form"
+  const isFullWidth = location.pathname === "/debt-form" || location.pathname === "/order"
   // HR dashboard มี rail ซ้าย (w-60) + เนื้อหา — ใช้ container กว้างขึ้นเพื่อให้พอดีที่ 1280–1920
 
   // ปลายทาง + ป้ายของปุ่มย้อนกลับ — ฟังก์ชันซ้อนกลับ parent, HR กลับ dashboard, อื่น ๆ กลับหน้าหลัก

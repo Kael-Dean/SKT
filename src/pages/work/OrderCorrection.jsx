@@ -745,7 +745,7 @@ function OrderCorrection() {
 
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
+      <div className="w-full p-4 md:p-6">
         {/* หัวเรื่อง + สลับโหมด */}
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           <PageTitle title={`แก้ไขออเดอร์ ${mode === "buy" ? "ฝั่งซื้อ" : "ฝั่งขาย"}`} />

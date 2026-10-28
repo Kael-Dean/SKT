@@ -263,7 +263,7 @@ const OperationPlan = () => {
   return (
     <>
       <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl">
-        <div className="mx-auto max-w-[1400px] p-4 md:p-6">
+        <div className="w-full p-4 md:p-6">
           <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <PageTitle title="แผนปฏิบัติงาน" />

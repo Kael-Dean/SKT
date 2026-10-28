@@ -7,7 +7,7 @@ import PageTitle from "../../components/PageTitle"
 
 export default function OutOfOfficeApprovals() {
   return (
-    <div className="max-w-6xl mx-auto space-y-5 pb-12">
+    <div className="w-full space-y-5 pb-12">
       <PageTitle title="อนุมัติคำขอออกนอกสถานที่" />
       <HROutOfOfficeTab />
     </div>

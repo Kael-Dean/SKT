@@ -514,7 +514,7 @@ export default function RiceSpecManage() {
 
   /* ======================================================================== */
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-6 text-[15px] md:text-base text-slate-900 dark:text-slate-100">
+    <div className="w-full p-4 md:p-6 text-[15px] md:text-base text-slate-900 dark:text-slate-100">
       <PageTitle title="จัดการรหัสข้าว" />
 
       {/* ---------- toolbar ---------- */}

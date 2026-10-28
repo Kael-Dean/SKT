@@ -800,7 +800,7 @@ const Order = () => {
           </div>
         ) : (
         <div
-          className="overflow-x-auto md:-mx-4 rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           aria-busy={loading ? "true" : "false"}
         >
           <table className="min-w-full text-left text-sm">

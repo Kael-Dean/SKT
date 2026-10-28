@@ -12,6 +12,22 @@ import { Field } from "./shared"
 const emptyOf = (columns) =>
   Object.fromEntries(columns.map((c) => [c.key, c.type === "checkbox" ? false : ""]))
 
+// Year-only columns store a full ISO date (the backend field is a date):
+// "start" → 1 Jan, "end" → 31 Dec of the picked year.
+const THIS_YEAR = new Date().getFullYear()
+const yearOf = (iso) => (iso ? Number(String(iso).slice(0, 4)) || "" : "")
+const yearToIso = (y, edge) => (y ? `${y}-${edge === "end" ? "12-31" : "01-01"}` : "")
+const yearOptions = (min) => {
+  const out = []
+  for (let y = THIS_YEAR; y >= Math.max(min || 0, THIS_YEAR - 70); y--) out.push({ value: String(y), label: `พ.ศ. ${y + 543}` })
+  return out
+}
+/** Options may be strings or { value, label }; a stored value outside the list is kept so it isn't lost. */
+const toOptions = (options, current) => {
+  const list = options.map((o) => (typeof o === "string" ? { value: o, label: o } : o))
+  return current && !list.some((o) => o.value === current) ? [{ value: current, label: current }, ...list] : list
+}
+
 function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
   const [form, setForm] = useState(() => ({ ...emptyOf(columns), ...(initial ?? {}) }))
   const uid = useId()
@@ -27,6 +43,7 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
       className="grid gap-5 md:grid-cols-2"
     >
       {columns.map((c) => {
+        if (c.showIf && !c.showIf(form)) return null
         const id = `${uid}-${c.key}`
         const flagged = missing.includes(c.key)
         if (c.type === "checkbox") {
@@ -61,12 +78,21 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
             {c.type === "select" ? (
               <SelectDropdown
                 id={id}
-                options={c.options.map((o) => ({ value: o, label: o }))}
+                options={toOptions(c.options, form[c.key])}
                 value={form[c.key] ?? ""}
-                onChange={(v) => set(c.key, v)}
+                onChange={(v) => setForm((p) => ({ ...p, [c.key]: v, ...(c.onChange?.(v) ?? {}) }))}
                 placeholder={c.placeholder ?? "เลือก"}
                 showSwatch={false}
                 required={c.required}
+              />
+            ) : c.type === "year" ? (
+              <SelectDropdown
+                id={id}
+                options={yearOptions(c.minFrom ? yearOf(form[c.minFrom]) : 0)}
+                value={String(yearOf(form[c.key]))}
+                onChange={(v) => set(c.key, yearToIso(v, c.edge))}
+                placeholder="เลือกปี"
+                showSwatch={false}
               />
             ) : c.type === "date" ? (
               <DateInput id={id} value={form[c.key] ?? ""} onChange={(e) => set(c.key, e.target.value)} ariaLabel={c.label} />

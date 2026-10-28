@@ -6,7 +6,7 @@
 // Phone (<md): opens as a bottom <Sheet size="sm"> with 44px day buttons.
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import useAnchoredPanel from "../lib/useAnchoredPanel"
 import { useIsPhone } from "../hooks/useMediaQuery"
 import Sheet from "./ui/Sheet"
@@ -56,7 +56,96 @@ const navBtnCls =
   focusRingCls
 
 /** Month grid — shared by the desktop popover and the phone sheet. */
-function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, onToday }) {
+const YEARS_PER_PAGE = 20
+
+const cellBtnCls = (selected, current) =>
+  cx(
+    "h-11 w-full cursor-pointer rounded-xl text-sm font-medium tabular-nums transition-colors duration-150",
+    focusRingCls,
+    selected
+      ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-600"
+      : current
+        ? "bg-indigo-50 font-bold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-200"
+        : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[.06]",
+  )
+
+const headBtnCls = cx(
+  "inline-flex min-h-touch cursor-pointer items-center gap-1 rounded-lg px-2.5 text-sm font-semibold text-gray-900 transition-colors duration-150",
+  "hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-white/[.08] md:min-h-9",
+  focusRingCls,
+)
+
+/** Year grid (20 per page, Buddhist years) — click the month header to get here. */
+function YearGrid({ value, today, viewYear, pageStart, onPage, onPick }) {
+  const sel = parseCE(value)?.year
+  const cur = parseCE(today)?.year
+  const years = Array.from({ length: YEARS_PER_PAGE }, (_, i) => pageStart + i)
+  return (
+    <div className="select-none">
+      <div className="mb-2 flex items-center justify-between">
+        <button type="button" onClick={() => onPage(-YEARS_PER_PAGE)} aria-label="ช่วงปีก่อนหน้า" className={navBtnCls}>
+          <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
+        </button>
+        <span className="text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100" aria-live="polite">
+          พ.ศ. {pageStart + 543} – {pageStart + YEARS_PER_PAGE - 1 + 543}
+        </span>
+        <button type="button" onClick={() => onPage(YEARS_PER_PAGE)} aria-label="ช่วงปีถัดไป" className={navBtnCls}>
+          <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2} />
+        </button>
+      </div>
+      <div className="grid grid-cols-4 gap-1" role="listbox" aria-label="เลือกปี">
+        {years.map((y) => (
+          <button
+            key={y}
+            type="button"
+            role="option"
+            aria-selected={y === (sel ?? viewYear)}
+            onClick={() => onPick(y)}
+            className={cellBtnCls(y === (sel ?? viewYear), y === cur)}
+          >
+            {y + 543}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Month grid for the chosen year. */
+function MonthGrid({ value, today, viewYear, viewMonth, onYear, onPick }) {
+  const sel = parseCE(value)
+  const cur = parseCE(today)
+  return (
+    <div className="select-none">
+      <div className="mb-2 flex items-center justify-center">
+        <button type="button" onClick={onYear} className={headBtnCls} aria-label={`ปี ${viewYear + 543} เปลี่ยนปี`}>
+          พ.ศ. {viewYear + 543}
+          <ChevronDown aria-hidden="true" className="size-4 text-gray-400" strokeWidth={2} />
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-1" role="listbox" aria-label="เลือกเดือน">
+        {THAI_MONTHS.map((m, i) => {
+          const month = i + 1
+          const selected = sel ? sel.year === viewYear && sel.month === month : month === viewMonth
+          return (
+            <button
+              key={m}
+              type="button"
+              role="option"
+              aria-selected={selected}
+              onClick={() => onPick(month)}
+              className={cellBtnCls(selected, cur?.year === viewYear && cur?.month === month)}
+            >
+              {m}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, onToday, onHeader }) {
   const totalDays = daysInMonth(viewYear, viewMonth)
   const firstDay = firstDayOfMonth(viewYear, viewMonth)
   const cells = [
@@ -71,9 +160,10 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
         <button type="button" onClick={onPrev} aria-label="เดือนก่อนหน้า" className={navBtnCls}>
           <ChevronLeft aria-hidden="true" className="size-5" strokeWidth={2} />
         </button>
-        <span className="text-sm font-semibold text-gray-900 dark:text-gray-100" aria-live="polite">
+        <button type="button" onClick={onHeader} className={headBtnCls} aria-live="polite" aria-label={`${THAI_MONTHS[viewMonth - 1]} ${viewYear + 543} เลือกเดือนและปี`}>
           {THAI_MONTHS[viewMonth - 1]} {viewYear + 543}
-        </span>
+          <ChevronDown aria-hidden="true" className="size-4 text-gray-400" strokeWidth={2} />
+        </button>
         <button type="button" onClick={onNext} aria-label="เดือนถัดไป" className={navBtnCls}>
           <ChevronRight aria-hidden="true" className="size-5" strokeWidth={2} />
         </button>
@@ -150,6 +240,9 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
   const [viewYear, setViewYear] = useState(parsed?.year ?? now.getFullYear())
   const [viewMonth, setViewMonth] = useState(parsed?.month ?? now.getMonth() + 1)
   const [open, setOpen] = useState(false)
+  // "days" → click header → "years" → pick → "months" → pick → "days"
+  const [mode, setMode] = useState("days")
+  const [pageStart, setPageStart] = useState(0)
   const wrapRef = useRef(null)
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
@@ -220,8 +313,37 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
     .filter(c => !c.startsWith("w-") && c !== "block")
     .join(" ")
 
-  const calendar = (
+  // Keep the panel the height of the day grid while drilling into years/months —
+  // otherwise a popover placed above the field jumps and the next click misses.
+  const calRef = useRef(null)
+  const [lockH, setLockH] = useState(0)
+  function openYears() {
+    if (mode === "days") setLockH(calRef.current?.offsetHeight ?? 0)
+    setPageStart(viewYear - (YEARS_PER_PAGE - 5))
+    setMode("years")
+  }
+
+  const view = mode === "years" ? (
+    <YearGrid
+      value={value}
+      today={today}
+      viewYear={viewYear}
+      pageStart={pageStart}
+      onPage={(d) => setPageStart((p) => p + d)}
+      onPick={(y) => { setViewYear(y); setMode("months") }}
+    />
+  ) : mode === "months" ? (
+    <MonthGrid
+      value={value}
+      today={today}
+      viewYear={viewYear}
+      viewMonth={viewMonth}
+      onYear={openYears}
+      onPick={(m) => { setViewMonth(m); setMode("days") }}
+    />
+  ) : (
     <Calendar
+      onHeader={openYears}
       value={value}
       today={today}
       viewYear={viewYear}
@@ -232,6 +354,11 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
       onToday={goToday}
     />
   )
+  const calendar = (
+    <div ref={calRef} style={mode === "days" || !lockH ? undefined : { minHeight: lockH }}>
+      {view}
+    </div>
+  )
 
   return (
     <div ref={wrapRef} className="relative">
@@ -240,7 +367,7 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
         id={id}
         type="button"
         disabled={disabled}
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { setMode("days"); setOpen(o => !o) }}
         onKeyDown={onKeyDown}
         onFocus={onFocus}
         aria-haspopup="dialog"

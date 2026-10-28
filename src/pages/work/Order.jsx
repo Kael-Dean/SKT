@@ -800,7 +800,7 @@ const Order = () => {
           </div>
         ) : (
         <div
-          className="overflow-x-auto rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="overflow-x-auto md:-mx-4 rounded-2xl border border-slate-200 bg-white text-black shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
           aria-busy={loading ? "true" : "false"}
         >
           <table className="min-w-full text-left text-sm">
@@ -809,8 +809,8 @@ const Order = () => {
                 <tr>
                   <th className="px-3 py-2 whitespace-nowrap">วันที่</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบสำคัญ</th>
-                  <th className="px-3 py-2">ลูกค้า</th>
-                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="min-w-[12rem] px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2 whitespace-nowrap">ชนิดข้าว</th>
                   <th className="px-3 py-2 whitespace-nowrap">สาขา</th>
                   <th className="px-3 py-2 whitespace-nowrap">คลัง</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">นน.ขาเข้า</th>
@@ -823,13 +823,13 @@ const Order = () => {
               ) : (
                 <tr>
                   <th className="px-3 py-2 whitespace-nowrap">วันที่</th>
-                  <th className="px-3 py-2 whitespace-nowrap">ประเภทการขาย</th>
+                  <th className="w-px px-2 py-2 whitespace-nowrap">ประเภท</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่เอกสาร</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบชั่ง</th>
-                  <th className="px-3 py-2">ลูกค้า</th>
-                  <th className="px-3 py-2">ชนิดข้าว</th>
+                  <th className="min-w-[12rem] px-3 py-2">ลูกค้า</th>
+                  <th className="px-3 py-2 whitespace-nowrap">ชนิดข้าว</th>
                   <th className="px-3 py-2 whitespace-nowrap">สาขา</th>
-                  <th className="px-3 py-2 whitespace-nowrap">คลัง</th>
+                  <th className="min-w-[6rem] px-3 py-2">คลัง</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">น้ำหนัก (กก.)</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">ราคาต่อกก. (บาท)</th>
                   <th className="px-3 py-2 text-right whitespace-nowrap">เป็นเงิน</th>
@@ -860,8 +860,8 @@ const Order = () => {
                     >
                       <td className="px-3 py-2 whitespace-nowrap">{d.date}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
-                      <td className="px-3 py-2">{d.customer}</td>
-                      <td className="px-3 py-2">{d.species}</td>
+                      <td className="min-w-[12rem] px-3 py-2">{d.customer}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.species}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.branch}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.klang}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{d.entry.toLocaleString()}</td>
@@ -884,7 +884,7 @@ const Order = () => {
                       className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
                       <td className="px-3 py-2 whitespace-nowrap">{d.date}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className="w-px px-2 py-2 whitespace-nowrap">
                         <Badge tone={d.kind.tone}>{d.kind.label}</Badge>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
@@ -892,10 +892,10 @@ const Order = () => {
                         <div className="text-xs text-slate-500 dark:text-slate-400">{d.kind.doc}</div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
-                      <td className="px-3 py-2">{d.customer}</td>
-                      <td className="px-3 py-2">{d.species}</td>
+                      <td className="min-w-[12rem] px-3 py-2">{d.customer}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">{d.species}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.branch}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{d.klang}</td>
+                      <td className="min-w-[6rem] max-w-[9rem] px-3 py-2">{d.klang}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{d.net.toLocaleString()}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{baht(d.pricePerKg)}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{thb(d.price)}</td>

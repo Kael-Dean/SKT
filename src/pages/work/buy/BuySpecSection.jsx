@@ -254,6 +254,9 @@ function DesktopSpecSection({ form }) {
             ariaDescribedBy={templateMsgId}
             title="ฟอร์มสินค้า"
             ariaLabel="ฟอร์มสินค้า"
+            panelMinW={480}
+            panelMaxW={640}
+            wrapLabels
           />
           {specError ? (
             <p id={errId("formTemplate")} className={errorTextCls}>

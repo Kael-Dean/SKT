@@ -62,6 +62,9 @@ export function TemplateCombo({ form, error = false, describedById, title = "ฟ
       placeholder="ค้นหา/เลือกฟอร์มสินค้า"
       title={title}
       ariaLabel={title}
+      panelMinW={480}
+      panelMaxW={640}
+      wrapLabels
     />
   )
 }

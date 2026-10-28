@@ -9,12 +9,14 @@ import { ConfirmDialog, StickyActionBar, toast } from "../../components/ui"
 import { NONE_SECTIONS, readValidation, saveSection, sectionMeta } from "../../lib/onboarding"
 import { cx, focusRingCls } from "../../lib/styles"
 import { AddRowButton, RowEditorSheet, RowItem } from "./RowEditor"
-import { missingKeys, rowBody, thaiDate, thaiMonthYear, useSectionFlow } from "./sectionFlow"
+import { ED_LEVEL_OPTIONS } from "../../lib/education"
+import { missingKeys, rowBody, thaiDate, useSectionFlow } from "./sectionFlow"
 import { Frame, MissingHint, ProblemPanel, SectionCard, StepHeader } from "./shared"
 
+const thaiYear = (iso) => (iso ? `พ.ศ. ${Number(String(iso).slice(0, 4)) + 543}` : "")
 const range = (a, b) => {
-  const from = thaiMonthYear(a)
-  const to = thaiMonthYear(b)
+  const from = thaiYear(a)
+  const to = thaiYear(b)
   if (from && to) return `${from} ถึง ${to}`
   if (from) return `ตั้งแต่ ${from}`
   return to ? `ถึง ${to}` : ""
@@ -24,10 +26,10 @@ const ROW_SECTIONS = {
   education: {
     noun: "วุฒิการศึกษา",
     columns: [
-      { key: "ed_level", label: "ระดับการศึกษา", required: true, placeholder: "เช่น ปริญญาตรี" },
+      { key: "ed_level", label: "ระดับการศึกษา", type: "select", options: ED_LEVEL_OPTIONS, required: true, placeholder: "เลือกระดับการศึกษา" },
       { key: "inst_name", label: "ชื่อสถาบัน", required: true },
-      { key: "from_date", label: "ตั้งแต่", type: "date" },
-      { key: "to_date", label: "ถึง", type: "date" },
+      { key: "from_date", label: "ปีที่เริ่ม", type: "year", edge: "start" },
+      { key: "to_date", label: "ปีที่จบ", type: "year", edge: "end", minFrom: "from_date" },
     ],
     title: (r) => r.ed_level || "ไม่ระบุระดับ",
     lines: (r) => [r.inst_name, range(r.from_date, r.to_date)],
@@ -38,8 +40,8 @@ const ROW_SECTIONS = {
     columns: [
       { key: "company_name", label: "ชื่อที่ทำงาน", required: true, wide: true },
       { key: "position", label: "ตำแหน่ง", wide: true },
-      { key: "from_date", label: "ตั้งแต่", type: "date" },
-      { key: "to_date", label: "ถึง", type: "date" },
+      { key: "from_date", label: "ปีที่เริ่ม", type: "year", edge: "start" },
+      { key: "to_date", label: "ปีที่ออก", type: "year", edge: "end", minFrom: "from_date" },
     ],
     title: (r) => r.company_name || "ไม่ระบุชื่อที่ทำงาน",
     lines: (r) => [r.position, range(r.from_date, r.to_date)],

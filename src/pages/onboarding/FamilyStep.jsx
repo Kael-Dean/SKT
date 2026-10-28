@@ -16,11 +16,12 @@ import { blank, missingKeys, rowBody, thaiDate, useSectionFlow } from "./section
 import { ProblemPanel, SectionCard, StepHeader } from "./shared"
 
 const COLUMNS = [
-  { key: "relationship", label: "ความสัมพันธ์", type: "select", options: RELATIONSHIPS, required: true, placeholder: "เลือกความสัมพันธ์" },
+  // switching away from บุตร clears the twin flag (it only applies to children)
+  { key: "relationship", label: "ความสัมพันธ์", type: "select", options: RELATIONSHIPS, required: true, placeholder: "เลือกความสัมพันธ์", onChange: (v) => (v === "บุตร" ? null : { is_twin: false }) },
   { key: "first_name", label: "ชื่อ", required: true },
   { key: "last_name", label: "นามสกุล" },
   { key: "birthday", label: "วันเกิด", type: "date" },
-  { key: "is_twin", label: "เป็นแฝด", type: "checkbox", help: "เฉพาะบุตร" },
+  { key: "is_twin", label: "เป็นแฝด", type: "checkbox", showIf: (f) => f.relationship === "บุตร" },
 ]
 
 const linkCls = cx(

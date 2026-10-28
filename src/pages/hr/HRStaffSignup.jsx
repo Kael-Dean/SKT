@@ -6,17 +6,8 @@ import SelectDropdown from "../../components/SelectDropdown"
 import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
 import { assignableRoleOptions } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
+import { ED_LEVEL_OPTIONS } from "../../lib/education"
 
-const ED_LEVEL_OPTIONS = [
-  { value: "มัธยมศึกษาตอนต้น", label: "มัธยมศึกษาตอนต้น (ม.3)" },
-  { value: "มัธยมศึกษาตอนปลาย", label: "มัธยมศึกษาตอนปลาย (ม.6)" },
-  { value: "ปวช.", label: "ปวช. (ประกาศนียบัตรวิชาชีพ)" },
-  { value: "ปวส.", label: "ปวส. (ประกาศนียบัตรวิชาชีพชั้นสูง)" },
-  { value: "อนุปริญญา", label: "อนุปริญญา" },
-  { value: "ปริญญาตรี", label: "ปริญญาตรี" },
-  { value: "ปริญญาโท", label: "ปริญญาโท" },
-  { value: "ปริญญาเอก", label: "ปริญญาเอก" },
-]
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },

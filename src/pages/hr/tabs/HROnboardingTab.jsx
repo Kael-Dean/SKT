@@ -142,6 +142,7 @@ function RowActions({ row, busy, onReopen, onExempt, onUnexempt }) {
 
 const TH = "sticky top-0 z-10 whitespace-nowrap border-b border-gray-200 bg-gray-50 px-4 py-2.5 text-left text-xs font-semibold text-gray-600 dark:border-line-strong dark:bg-gray-900 dark:text-gray-300"
 const TD = "px-4 py-3 align-middle"
+const NOT_ENABLED_MSG = "ระบบกรอกข้อมูลเริ่มต้นยังไม่เปิดใช้บนเซิร์ฟเวอร์นี้ รอทีม backend อัปเดต"
 
 export default function HROnboardingTab() {
   const { drillTo } = useDrill()
@@ -200,7 +201,8 @@ export default function HROnboardingTab() {
       .catch((e) => {
         if (req !== reqRef.current || quiet) return
         setRows([])
-        setError(e.status === 403 ? (e.message || "ไม่มีสิทธิ์ดูข้อมูลสาขานี้") : (e.message || "โหลดข้อมูลไม่สำเร็จ"))
+        // 404 = backend without the onboarding routes yet (PR 59 not deployed on this server)
+        setError(e.status === 404 ? NOT_ENABLED_MSG : e.status === 403 ? (e.message || "ไม่มีสิทธิ์ดูข้อมูลสาขานี้") : (e.message || "โหลดข้อมูลไม่สำเร็จ"))
       })
       .finally(() => {
         if (req === reqRef.current && !quiet) setLoading(false)

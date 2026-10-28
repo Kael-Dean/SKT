@@ -24,6 +24,7 @@ const prefersReducedMotion = () =>
 const nf = (n) => Number(n).toLocaleString("th-TH")
 const fullName = (d) => [d.first_name, d.last_name].filter(Boolean).join(" ") || "—"
 const byOldest = (a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""))
+const NOT_ENABLED_MSG = "ระบบตรวจข้อมูลครอบครัวยังไม่เปิดใช้บนเซิร์ฟเวอร์นี้ รอทีม backend อัปเดต"
 
 /**
  * ปุ่ม "ตรวจสอบแล้ว" (มีสิทธิ์ hr.dependants.verify เท่านั้น) — ใช้ร่วมกับการ์ดในหน้าโปรไฟล์พนักงาน
@@ -129,7 +130,8 @@ export default function HRDependantsVerifyTab({ onCountChange }) {
       .catch((e) => {
         if (req !== reqRef.current) return
         setRows([])
-        setError(e.status === 403
+        // 404 = backend without the dependants queue yet (PR 59 not deployed on this server)
+        setError(e.status === 404 ? NOT_ENABLED_MSG : e.status === 403
           ? (e.message && e.message !== "Request failed" ? e.message : "ไม่มีสิทธิ์ดูข้อมูลครอบครัวของสาขานี้")
           : (e.message || "โหลดข้อมูลไม่สำเร็จ"))
       })

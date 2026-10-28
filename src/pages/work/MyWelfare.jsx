@@ -47,7 +47,7 @@ export default function MyWelfare() {
   const pOf = (c) => patientOf(c, deps)
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 pb-10">
+    <div className="mx-auto max-w-4xl space-y-5 pb-10" data-tour="welfare">
       <PageTitle title="สวัสดิการของฉัน" />
 
       <p className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">

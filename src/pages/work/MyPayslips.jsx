@@ -21,7 +21,9 @@ export default function MyPayslips() {
           เงินเดือนและรายการหักที่บันทึกไว้ <ChevronRight aria-hidden="true" className="size-4" />
         </Link>
       </div>
-      <MyPayslipsPanel />
+      <div data-tour="payslips">
+        <MyPayslipsPanel />
+      </div>
     </div>
   )
 }

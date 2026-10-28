@@ -1,5 +1,5 @@
 import { createContext, useContext, useDeferredValue, useEffect, useState } from "react"
-import { Outlet, useLocation } from "react-router-dom"
+import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
@@ -8,6 +8,9 @@ import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions
 import { HR_HUB_PERMS, can, canAny } from "../lib/permissions"
 import { useCurrentPageTitle } from "../lib/pageTitle"
 import { ALL_ITEMS } from "../lib/homeFunctions"
+import { ONBOARDING_REQUIRED_EVENT } from "../lib/api"
+import { ONBOARDING_PROMPTED_KEY, loadOnboarding, useOnboarding } from "../lib/onboarding"
+import TourOverlay from "./onboarding/TourOverlay"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -43,6 +46,37 @@ const AppLayout = () => {
   useEffect(() => {
     loadMyPermissions()
   }, [])
+
+  // First-login onboarding (PR 59): load status; send the user to /onboarding once per session
+  // while it isn't done (job menus stay reachable — "ทำทีหลัง" brings them back here).
+  const navigate = useNavigate()
+  const onboarding = useOnboarding()
+  useEffect(() => {
+    loadOnboarding()
+  }, [])
+  useEffect(() => {
+    if (!onboarding.needsOnboarding) return
+    let prompted = false
+    try {
+      prompted = sessionStorage.getItem(ONBOARDING_PROMPTED_KEY) === "1"
+      sessionStorage.setItem(ONBOARDING_PROMPTED_KEY, "1")
+    } catch {
+      // storage disabled — redirect once per mount instead
+    }
+    if (!prompted) navigate("/onboarding", { replace: true })
+  }, [onboarding.needsOnboarding, navigate])
+  // Gate 403 from any self-service call → refresh status and go fill the data
+  useEffect(() => {
+    let last = 0
+    const onGate = () => {
+      if (Date.now() - last < 3_000) return
+      last = Date.now()
+      loadOnboarding({ force: true })
+      navigate("/onboarding")
+    }
+    window.addEventListener(ONBOARDING_REQUIRED_EVENT, onGate)
+    return () => window.removeEventListener(ONBOARDING_REQUIRED_EVENT, onGate)
+  }, [navigate])
 
   const isHome = location.pathname === "/home"
   const isHrDashboard = location.pathname === "/hr/dashboard"
@@ -125,6 +159,8 @@ const AppLayout = () => {
 
       {/* Global toast host (toast.success/error/… from components/ui/toast.js) */}
       <Toaster />
+      {/* Self-service tour (onboarding) — overlays the real pages, mounts only while a tour runs */}
+      <TourOverlay />
     </div>
   )
 }

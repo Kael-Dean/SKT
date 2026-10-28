@@ -72,6 +72,7 @@ const DevHrHub = import.meta.env.DEV ? lazyWithReload(() => import("./pages/dev/
 const DevMobileKit = import.meta.env.DEV ? lazyWithReload(() => import("./pages/dev/DevMobileKit.jsx")) : null
 const Inbox = lazyWithReload(() => import("./pages/work/Inbox.jsx"))
 const FacilityReport = lazyWithReload(() => import("./pages/work/FacilityReport.jsx"))
+const Onboarding = lazyWithReload(() => import("./pages/onboarding/Onboarding.jsx"))
 const ChangePassword = lazyWithReload(() => import("./pages/work/ChangePassword.jsx"))
 const MyRelocation = lazyWithReload(() => import("./pages/work/MyRelocation.jsx"))
 const HolidayCalendar = lazyWithReload(() => import("./pages/work/HolidayCalendar.jsx"))
@@ -187,6 +188,9 @@ function App() {
         {/* Admin — สิทธิ์ตามบทบาท (read-only) */}
         <Route path="/admin/roles" element={guard("admin.roles.view", <RolePermissions />)} />
       </Route>
+
+      {/* First-login onboarding (PR 59) — focused full-screen flow, outside AppLayout */}
+      <Route path="/onboarding" element={<RequirePasswordChanged><Onboarding /></RequirePasswordChanged>} />
 
       {/* ✅ Phase 3B — ChangePassword อยู่นอก AppLayout */}
       <Route path="/change-password" element={<ChangePassword />} />

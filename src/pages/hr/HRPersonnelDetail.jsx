@@ -19,6 +19,7 @@ import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import Can from "../../components/Can"
 import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
+import PendingFamilyCard from "../../components/hr/PendingFamilyCard"
 // WP0 scaffold — ช่องที่ WP2 (3P) / WP3 (3Q) / WP6 (3C รายวัน) เติมเนื้อหา
 import PersonnelDependantsTab from "./tabs/PersonnelDependantsTab"
 import PersonnelDisciplineTab from "./tabs/PersonnelDisciplineTab"
@@ -409,6 +410,9 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      {/* ข้อมูลครอบครัวที่พนักงานเพิ่มเอง รอ HR ตรวจสอบ (แสดงเฉพาะเมื่อมี) */}
+      <PendingFamilyCard userId={id} />
 
       {/* คู่สมรส */}
       {spouse && (

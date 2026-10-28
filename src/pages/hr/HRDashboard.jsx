@@ -11,6 +11,7 @@ import {
   Archive,
   ArrowRightLeft,
   Award,
+  ClipboardCheck,
   Banknote,
   BookOpen,
   BriefcaseBusiness,
@@ -34,6 +35,7 @@ import {
   SlidersHorizontal,
   Search,
   Target,
+  UserCheck,
   UserMinus,
   Users,
   Wrench,
@@ -65,6 +67,8 @@ import HRResignedRetiredTab from "./tabs/HRResignedRetiredTab"
 import HRHolidayCalendarTab from "./tabs/HRHolidayCalendarTab"
 import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
 import HROutOfOfficeTab from "./tabs/HROutOfOfficeTab"
+import HROnboardingTab from "./tabs/HROnboardingTab"
+import HRDependantsVerifyTab from "./tabs/HRDependantsVerifyTab"
 // WP0 scaffold — stub ที่ WP1/WP2/WP3/WP5 เติมเนื้อหา
 import HRLeaveCalendarTab from "./tabs/HRLeaveCalendarTab"
 import HRWelfareTab from "./tabs/HRWelfareTab"
@@ -100,6 +104,12 @@ const HR_NAV = [
       { key: "employees", perm: "hr.employees.list", label: "เจ้าหน้าที่", icon: Users,
         description: "ข้อมูลเจ้าหน้าที่ทั้งหมด ค้นหา ลงทะเบียน และดูประวัติรายบุคคล",
         keywords: ["พนักงาน", "บุคลากร", "รายชื่อ", "ลงทะเบียน", "employees"] },
+      { key: "onboarding", perm: "hr.onboarding.list", label: "กรอกข้อมูลเริ่มต้น", icon: ClipboardCheck,
+        description: "ความคืบหน้าการกรอกข้อมูลเริ่มต้นของเจ้าหน้าที่ เปิดให้กรอกใหม่ หรือยกเว้น",
+        keywords: ["onboarding", "ข้อมูลเริ่มต้น", "กรอกข้อมูล", "ยกเว้น", "ทัวร์", "ล็อก"] },
+      { key: "dependants", perm: "hr.dependants.list", label: "ตรวจข้อมูลครอบครัว", icon: UserCheck, badgeKey: "pending_dependants",
+        description: "ข้อมูลครอบครัวที่พนักงานเพิ่มหรือแก้เอง รอ HR ตรวจสอบก่อนสวัสดิการนับ",
+        keywords: ["ครอบครัว", "บุตร", "คู่สมรส", "บิดา", "มารดา", "ตรวจสอบ", "สวัสดิการ", "dependants"] },
       { key: "positions", perm: "hr.positions.view", label: "ตำแหน่งงาน", icon: BriefcaseBusiness,
         description: "กำหนดตำแหน่งงานและกระบอกเงินเดือนของแต่ละตำแหน่ง",
         keywords: ["ตำแหน่ง", "กระบอก", "positions"] },
@@ -270,7 +280,7 @@ const badgeText = (n) => (n > 99 ? "99+" : String(n))
 
 // ─── Section body ────────────────────────────────────────────────────────────
 
-function renderSection(key, { onGoToPositions, overview }) {
+function renderSection(key, { onGoToPositions, onDependantsCount, overview }) {
   switch (key) {
     case "overview":           return <DashboardOverview embedded {...overview} />
     case "employees":          return <HREmployeesTab />
@@ -294,6 +304,8 @@ function renderSection(key, { onGoToPositions, overview }) {
     case "holiday-calendar":   return <HRHolidayCalendarTab />
     case "holiday-work":       return <HRHolidayWorkTab />
     case "out-of-office":      return <HROutOfOfficeTab />
+    case "onboarding":         return <HROnboardingTab />
+    case "dependants":         return <HRDependantsVerifyTab onCountChange={onDependantsCount} />
     case "leave-calendar":     return <HRLeaveCalendarTab />
     case "welfare":            return <HRWelfareTab />
     case "welfare-settings":   return <HRWelfareSettingsTab />
@@ -388,6 +400,69 @@ function StatStrip({ stats, loading, error, onRetry, onGo }) {
         )
       })}
     </div>
+  )
+}
+
+// ─── Onboarding breakdown (status_breakdown.onboarding) ──────────────────────
+
+// ลำดับในแถบ: เสร็จ → ยกเว้น → กำลังกรอก → ยังไม่เริ่ม (ส่วนที่ยังค้างอยู่ทางขวา อ่านต่อจาก "เสร็จแล้ว")
+const ONBOARDING_SEGMENTS = [
+  { key: "done", label: "เสร็จแล้ว", bar: "bg-emerald-500 dark:bg-emerald-400" },
+  { key: "exempt", label: "ได้รับยกเว้น", bar: "bg-gray-400 dark:bg-gray-500" },
+  { key: "in_progress", label: "กำลังกรอก", bar: "bg-indigo-500 dark:bg-indigo-400" },
+  { key: "not_started", label: "ยังไม่เริ่ม", bar: "bg-amber-400 dark:bg-amber-400/80" },
+]
+
+function OnboardingBreakdownCard({ breakdown, onGo }) {
+  if (!breakdown || typeof breakdown !== "object") return null
+  const parts = ONBOARDING_SEGMENTS.map((s) => ({ ...s, n: Math.max(0, Number(breakdown[s.key]) || 0) }))
+  const total = parts.reduce((a, p) => a + p.n, 0)
+  if (total === 0) return null
+  const done = parts[0].n
+  const summary = `กรอกข้อมูลเริ่มต้นเสร็จแล้ว ${nf(done)} จาก ${nf(total)} คน`
+
+  const body = (
+    <>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">กรอกข้อมูลเริ่มต้น</p>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          เสร็จแล้ว <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">{nf(done)}</span> จาก{" "}
+          <span className="tabular-nums">{nf(total)}</span> คน
+        </p>
+      </div>
+      <div aria-hidden="true" className="mt-3 flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[.06]">
+        {parts.filter((p) => p.n > 0).map((p) => (
+          <span key={p.key} className={cx("h-full first:rounded-l-full last:rounded-r-full", p.bar)} style={{ flexGrow: p.n, flexBasis: 0, minWidth: 4 }} />
+        ))}
+      </div>
+      <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+        {parts.map((p) => (
+          <li key={p.key} className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className={cx("size-2 rounded-full", p.bar)} />
+            {p.label}
+            <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">{nf(p.n)}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+
+  if (!onGo) {
+    return <section aria-label={summary} className={cx(cardCls, "p-4")}>{body}</section>
+  }
+  return (
+    <button
+      type="button"
+      onClick={onGo}
+      aria-label={`${summary} — ดูรายชื่อ`}
+      className={cx(
+        "block w-full rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200/70 cursor-pointer",
+        "transition-colors duration-150 hover:ring-gray-300 dark:bg-gray-800 dark:ring-gray-700/70 dark:hover:ring-gray-600",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+      )}
+    >
+      {body}
+    </button>
   )
 }
 
@@ -800,8 +875,24 @@ export default function HRDashboard() {
     return [...m.entries()].map(([id, name]) => ({ value: String(id), label: name })).sort((a, b) => a.label.localeCompare(b.label, "th"))
   }, [branchList, stats])
 
+  // จำนวนข้อมูลครอบครัวรอตรวจสอบ (ป้ายเมนู) — มาจาก endpoint แยก, แท็บตรวจสอบอัปเดตกลับมาเมื่อกดตรวจ
+  const canSeeDependants = can("hr.dependants.list")
+  const [pendingDependants, setPendingDependants] = useState(null)
+  useEffect(() => {
+    if (!canSeeDependants) return undefined
+    let alive = true
+    apiAuth("/hr/dependants/unverified")
+      .then((d) => { if (alive && Array.isArray(d)) setPendingDependants(d.length) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [canSeeDependants])
+
   // Badges only when stats loaded cleanly (the strip reports errors itself)
-  const badges = canSeeStats && !loadingStats && !statsError ? stats : null
+  const badges = useMemo(() => {
+    const base = canSeeStats && !loadingStats && !statsError ? stats : null
+    if (pendingDependants == null) return base
+    return { ...(base || {}), pending_dependants: pendingDependants }
+  }, [canSeeStats, loadingStats, statsError, stats, pendingDependants])
 
   const setTab = useCallback((key) => {
     setSearchParams({ tab: key }) // push; drops `sub`
@@ -900,6 +991,13 @@ export default function HRDashboard() {
         />
       )}
 
+      {canSeeStats && !loadingStats && !statsError && (
+        <OnboardingBreakdownCard
+          breakdown={stats?.status_breakdown?.onboarding}
+          onGo={nav.byKey.onboarding ? () => setTab("onboarding") : null}
+        />
+      )}
+
       <div className="lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-start lg:gap-8">
         <HRRail nav={nav} activeKey={activeKey} badges={badges} onNavigate={setTab} onOpenSwitcher={openSwitcher} />
 
@@ -924,6 +1022,7 @@ export default function HRDashboard() {
             <PageSection key={activeKey} title={active.label} icon={active.icon}>
               {renderSection(activeKey, {
                 onGoToPositions: goToPositions,
+                onDependantsCount: setPendingDependants,
                 overview: {
                   stats,
                   loading: loadingStats,

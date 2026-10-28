@@ -286,7 +286,7 @@ export default function MySalaryCert() {
   const pendingCount = items.filter((r) => isSalaryCertPending(r.status)).length
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-12">
+    <div className="w-full space-y-5 pb-12">
       <PageTitle title="ขอหนังสือรับรองเงินเดือน" />
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">

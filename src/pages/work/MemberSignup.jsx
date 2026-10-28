@@ -649,7 +649,7 @@ const MemberSignup = () => {
   /** ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-[15px] md:text-base">
-      <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8">
+      <div className="w-full p-4 md:p-6 lg:p-8">
         <PageTitle title="สมัครสมาชิก" ref={topRef} tabIndex={-1} />
 
         {/* ฟอร์ม — แต่ละส่วนเป็นการ์ดแยก (ไม่ซ้อนการ์ด) */}

@@ -346,7 +346,7 @@ export default function OutOfOffice() {
 
   return (
     <>
-      <div className="max-w-6xl mx-auto space-y-5 pb-12">
+      <div className="w-full space-y-5 pb-12">
         <PageTitle title="ขอออกนอกสถานที่" />
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-start">

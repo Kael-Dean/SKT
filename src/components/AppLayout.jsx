@@ -1,4 +1,4 @@
-import { createContext, useContext, useDeferredValue, useEffect, useState } from "react"
+import { createContext, useContext, useDeferredValue, useEffect, useLayoutEffect, useState } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
@@ -115,7 +115,8 @@ const AppLayout = () => {
   }, [darkMode])
 
   // ทัวร์ onboarding เปิด/ปิด drawer เมนูเองในจุดที่แนะนำเมนูบริการตนเอง
-  useEffect(() => {
+  // useLayoutEffect: ต้องฟังก่อน effect ของ TourOverlay (ลูก) ที่ยิง event ตอน mount
+  useLayoutEffect(() => {
     const on = (e) => setIsSidebarOpen(Boolean(e.detail))
     window.addEventListener(TOUR_SIDEBAR_EVENT, on)
     return () => window.removeEventListener(TOUR_SIDEBAR_EVENT, on)

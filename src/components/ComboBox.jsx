@@ -97,7 +97,7 @@ const ComboBox = forwardRef(function ComboBox(
     className = "",
     panelMinW = 0,      // desktop panel may grow wider than the trigger (long labels)
     panelMaxW = 512,
-    wrapLabels = false, // wrap option labels instead of truncating them
+    wrapLabels = false, // wrap option labels (and the selected trigger text) instead of truncating them
   },
   ref,
 ) {
@@ -487,7 +487,7 @@ const ComboBox = forwardRef(function ComboBox(
         <span className="min-w-0 flex-1">
           {triggerText ? (
             <>
-              <span className="block truncate">{triggerText}</span>
+              <span className={cx("block", wrapLabels ? "break-words" : "truncate")}>{triggerText}</span>
               {selectedSub && !loading && (
                 <span className="mt-0.5 block truncate text-sm text-slate-500 dark:text-slate-400">{selectedSub}</span>
               )}

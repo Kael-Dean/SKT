@@ -22,7 +22,7 @@ import { toast } from "../ui"
 import { apiAuth } from "../../lib/api"
 import { completeOnboarding, sectionMeta, tourComplete, useOnboarding } from "../../lib/onboarding"
 import { TOUR_LENGTH, TOUR_STOPS } from "../../lib/onboardingTour"
-import { pauseTour, resumeTour, setTourIndex, startTour, stopTour, useTourState } from "../../lib/tourState"
+import { TOUR_SIDEBAR_EVENT, pauseTour, resumeTour, setTourIndex, startTour, stopTour, useTourState } from "../../lib/tourState"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { cx, focusRingCls, neutralBtnCls, primaryBtnCls, submitBtnCls } from "../../lib/styles"
 
@@ -123,6 +123,18 @@ function TourRunner({ index, onFinished }) {
     if (stop.route && location.pathname !== stop.route) navigate(stop.route)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- navigate once per stop, not on every route change
   }, [index])
+
+  // 1b · stops that live in the menu drawer open it (AppLayout listens) and close it after;
+  //      the drawer focuses its own close button, so hand focus back to the card
+  useEffect(() => {
+    if (!stop.sidebar) return
+    window.dispatchEvent(new CustomEvent(TOUR_SIDEBAR_EVENT, { detail: true }))
+    const t = setTimeout(() => headingRef.current?.focus({ preventScroll: true }), 120)
+    return () => {
+      clearTimeout(t)
+      window.dispatchEvent(new CustomEvent(TOUR_SIDEBAR_EVENT, { detail: false }))
+    }
+  }, [index, stop.sidebar])
 
   // 2 · find the target, bring it into view, keep measuring
   const measure = useCallback(() => {

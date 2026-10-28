@@ -11,6 +11,7 @@ import { ALL_ITEMS } from "../lib/homeFunctions"
 import { ONBOARDING_REQUIRED_EVENT } from "../lib/api"
 import { ONBOARDING_PROMPTED_KEY, loadOnboarding, useOnboarding } from "../lib/onboarding"
 import TourOverlay from "./onboarding/TourOverlay"
+import { TOUR_SIDEBAR_EVENT } from "../lib/tourState"
 
 export const SidebarContext = createContext(false)
 export const useSidebarOpen = () => useContext(SidebarContext)
@@ -112,6 +113,13 @@ const AppLayout = () => {
     const themeColor = darkMode ? "#0b0b0f" : "#f9fafb"
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", themeColor))
   }, [darkMode])
+
+  // ทัวร์ onboarding เปิด/ปิด drawer เมนูเองในจุดที่แนะนำเมนูบริการตนเอง
+  useEffect(() => {
+    const on = (e) => setIsSidebarOpen(Boolean(e.detail))
+    window.addEventListener(TOUR_SIDEBAR_EVENT, on)
+    return () => window.removeEventListener(TOUR_SIDEBAR_EVENT, on)
+  }, [])
 
   // ปิด sidebar อัตโนมัติเมื่อกว้าง >= md (กันค้างสถานะ)
   useEffect(() => {

@@ -11,6 +11,7 @@
 //   purpose  one line: what this menu is for
 //   policy   short bullets from the co-op regulations
 //   figures  "leave-balance" → the card also shows the person's own quota chips
+//   sidebar  true → the menu drawer (Sidebar) is opened for this stop
 //
 // Copy rules: short Thai sentences, no em dash, one idea per bullet.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,12 +20,13 @@ export const TOUR_STOPS = [
   {
     key: "self-service",
     route: "/home",
-    target: "self-service",
+    target: "self-service-menu",
+    sidebar: true, // opens the menu drawer for this stop
     title: "เมนูบริการตนเอง",
     purpose: "รวมทุกเรื่องของตัวคุณเองไว้ที่เดียว ทั้งการลา สลิปเงินเดือน เงินกู้ และข้อมูลส่วนตัว",
     // TODO(FRD): ร่าง — รอ FRD เขียนจากระเบียบข้อ 10 / 13-14 / 15, Vivid ตรวจก่อนปล่อย
     policy: [
-      "เปิดได้จากหน้าหลัก หรือปุ่มเมนูมุมซ้ายบนทุกหน้า",
+      "เปิดได้จากปุ่มเมนูมุมซ้ายบนทุกหน้า",
       "ทุกคำขอจะส่งให้หัวหน้าหรือ HR อนุมัติตามลำดับ",
     ],
   },

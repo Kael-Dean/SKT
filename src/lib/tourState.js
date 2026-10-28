@@ -70,3 +70,6 @@ function subscribe(fn) {
 export function useTourState() {
   return useSyncExternalStore(subscribe, getTourState, getTourState)
 }
+
+/** Window event: detail true = open the Sidebar drawer, false = close it (AppLayout listens). */
+export const TOUR_SIDEBAR_EVENT = "tour:sidebar"

@@ -1459,7 +1459,7 @@ function Sales() {
   return (
     <div className="text-base text-gray-900 dark:text-gray-100">
       {/* same page frame as Buy (round 2) */}
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
+      <div className="w-full p-4 md:p-6">
       {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
       <div ref={pageTopRef} />
 

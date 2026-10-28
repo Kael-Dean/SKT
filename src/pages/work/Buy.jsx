@@ -1968,7 +1968,7 @@ if (buyerType === "person") {
   if (isPhone) {
     return (
       <div className="min-h-dvh bg-white text-black dark:bg-slate-900 dark:text-white rounded-2xl text-base">
-        <div className="mx-auto max-w-7xl p-4">
+        <div className="w-full p-4">
           <div ref={pageTopRef} />
           <PageTitle title="บันทึกออเดอร์ซื้อข้าวเปลือก" />
           <BuyMobileStepper form={form} />
@@ -1995,7 +1995,7 @@ if (buyerType === "person") {
 
   return (
     <div className="text-base text-gray-900 dark:text-gray-100">
-      <div className="mx-auto max-w-7xl p-4 md:p-6">
+      <div className="w-full p-4 md:p-6">
         {/* จุดยึดสำหรับเลื่อนขึ้นบนสุด */}
         <div ref={pageTopRef} />
 

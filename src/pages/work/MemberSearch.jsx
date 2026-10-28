@@ -550,7 +550,7 @@ const MemberSearch = () => {
 
   return (
     <div className="min-h-screen rounded-2xl bg-white text-black dark:bg-slate-900 dark:text-white">
-      <div className="mx-auto max-w-6xl p-4 md:p-6 text-base md:text-lg">
+      <div className="w-full p-4 md:p-6 text-base md:text-lg">
         <PageTitle title="ค้นหาสมาชิก" />
 
         {/* การ์ดค้นหา */}

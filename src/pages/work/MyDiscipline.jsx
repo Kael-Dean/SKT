@@ -392,7 +392,7 @@ export default function MyDiscipline() {
   ]
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 pb-12">
+    <div className="w-full space-y-4 pb-12">
       <PageTitle title="แจ้งเรื่องและประวัติการตักเตือน" />
       <Tabs items={tabs} value={view} onChange={setView} ariaLabel="แจ้งเรื่องและประวัติการตักเตือน" idBase="my-disc" />
 

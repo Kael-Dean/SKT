@@ -82,11 +82,6 @@ const AppLayout = () => {
   const isHrDashboard = location.pathname === "/hr/dashboard"
   const isHrSubPage = location.pathname.startsWith("/hr/") && !isHrDashboard
 
-  // หน้าตารางกว้าง (ตารางหนี้, รายการออเดอร์ซื้อ/ขาย) — ปล่อยเต็มความกว้างจอ
-  // (ไม่บีบด้วย max-w-7xl) เพื่อให้ดูตารางได้โดยไม่ต้องเลื่อนแนวนอนบ่อย
-  const isFullWidth = location.pathname === "/debt-form" || location.pathname === "/order"
-  // HR dashboard มี rail ซ้าย (w-60) + เนื้อหา — ใช้ container กว้างขึ้นเพื่อให้พอดีที่ 1280–1920
-
   // ปลายทาง + ป้ายของปุ่มย้อนกลับ — ฟังก์ชันซ้อนกลับ parent, HR กลับ dashboard, อื่น ๆ กลับหน้าหลัก
   const parent = PARENT_ROUTES[location.pathname]
   // หน้า HR รวมแท็บ — ไม่มีสิทธิ์แท็บไหนเลยกลับหน้าหลักแทน (ไม่ให้ชน "ไม่มีสิทธิ์")
@@ -151,11 +146,10 @@ const AppLayout = () => {
 
         <main className="min-w-0 flex-1">
           <SidebarContext.Provider value={deferredSidebarOpen}>
+          {/* ทุกหน้าใช้ความกว้างเต็มจอ (ไม่บีบด้วย max-w-*) — ตาราง/ฟอร์มหนาแน่นได้พื้นที่เต็มบน PC */}
           <div
             key={location.pathname}
-            className={`animate-fade-up px-4 py-5 md:px-6 md:py-6 ${
-              isFullWidth ? "w-full" : isHrDashboard ? "mx-auto max-w-[1600px]" : "mx-auto max-w-7xl"
-            }`}
+            className="animate-fade-up w-full px-4 py-5 md:px-6 md:py-6"
           >
             <Outlet />
           </div>

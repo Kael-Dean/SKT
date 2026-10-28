@@ -1687,7 +1687,7 @@ function Documents() {
         .dark .documents-page th { background-color: #1e293b; }
       `}</style>
 
-      <div className="mx-auto max-w-6xl p-5 md:p-6 lg:p-8">
+      <div className="w-full p-5 md:p-6 lg:p-8">
         
         {/* Header - เอาปุ่มเลือก Mode ทั้ง 3 อันด้านบนออกไปแล้ว */}
         <div className="mb-8 flex items-center gap-3">

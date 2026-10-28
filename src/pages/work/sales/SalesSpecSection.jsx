@@ -302,8 +302,9 @@ export default function SalesSpecSection({ form }) {
     <section aria-labelledby="sales-sec-spec" className={cx(cardCls, "p-5")}>
       <h2 id="sales-sec-spec" className="text-lg font-semibold leading-snug text-gray-900 dark:text-gray-100">สินค้าและคลัง</h2>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <div>
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        {/* 2 คอลัมน์ให้เห็นชื่อฟอร์มเต็ม */}
+        <div className="md:col-span-2">
           <label className={labelCls} htmlFor={fieldId("formTemplate")}>ฟอร์มสินค้า</label>
           <TemplateCombo
             form={form}

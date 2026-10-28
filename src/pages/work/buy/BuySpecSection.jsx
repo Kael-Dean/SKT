@@ -234,9 +234,9 @@ function DesktopSpecSection({ form }) {
     <section aria-labelledby="buy-sec-spec" className={cx(cardCls, "p-5")}>
       <h2 id="buy-sec-spec" className={sectionH2Cls}>สินค้าและคลัง</h2>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
-        {/* ฟอร์มสินค้า (ฟอร์มสำเร็จรูป) — กำหนดสเปคทั้ง 8 ค่า */}
-        <div>
+      <div className="mt-4 grid gap-4 md:grid-cols-4">
+        {/* ฟอร์มสินค้า (ฟอร์มสำเร็จรูป) — กำหนดสเปคทั้ง 8 ค่า; 2 คอลัมน์ให้เห็นชื่อฟอร์มเต็ม */}
+        <div className="md:col-span-2">
           <label className={labelCls} htmlFor={fieldId("formTemplate")}>ฟอร์มสินค้า</label>
           <ComboBox
             id={fieldId("formTemplate")}

@@ -12,6 +12,7 @@
 //   current      index of the active step (aria-current="step")
 //   maxReached   highest index the user may jump back/forward to (default = current)
 //   errorSteps   indexes or keys whose dot turns red
+//   doneSteps    optional indexes or keys shown as done (default: every step before current)
 //   onSelect(i)  only fired for i <= maxReached
 //
 // Sticky under the Topbar (`top-(--topbar-h)`), 44px hit area around each
@@ -25,11 +26,15 @@ export default function Stepper({
   current = 0,
   maxReached = current,
   errorSteps = [],
+  doneSteps,
   onSelect,
   className = "",
 }) {
   const n = steps.length
   const cur = steps[current]
+  // doneSteps (indexes or keys) — optional: mark completion independently of position
+  // (onboarding: a confirmed section stays ticked even when you revisit an earlier one)
+  const isDone = (s, i) => (doneSteps ? doneSteps.includes(i) || doneSteps.includes(s?.key) : i < current)
 
   return (
     <nav
@@ -41,7 +46,7 @@ export default function Stepper({
     >
       <ol className="flex items-center">
         {steps.map((s, i) => {
-          const done = i < current
+          const done = isDone(s, i)
           const active = i === current
           const hasError = errorSteps.includes(i) || errorSteps.includes(s.key)
           const reachable = i <= maxReached
@@ -79,7 +84,7 @@ export default function Stepper({
                   aria-hidden="true"
                   className={cx(
                     "mx-1 h-0.5 flex-1 rounded-full transition-colors duration-200",
-                    i < current ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-200 dark:bg-gray-700",
+                    (doneSteps ? isDone(s, i) && isDone(steps[i + 1], i + 1) : i < current) ? "bg-indigo-600 dark:bg-indigo-500" : "bg-gray-200 dark:bg-gray-700",
                   )}
                 />
               )}

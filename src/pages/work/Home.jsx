@@ -10,6 +10,12 @@ import { getRecent } from "../../lib/recentRoutes"
 import { cx, focusRingCls } from "../../lib/styles"
 import { Skeleton, SkeletonStat } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import { Lock } from "lucide-react"
+import { useOnboarding } from "../../lib/onboarding"
+import { goToOnboardingFromLocked } from "../../lib/onboardingGate"
+import OnboardingBanner from "../../components/onboarding/OnboardingBanner"
+
+const SELF_SERVICE_GROUP = "งานบุคคล"
 
 /** Pinned shortcuts, in this order (UI-SPEC §2.1): ซื้อ · ขาย · คลัง · ออเดอร์ */
 const PINNED_PATHS = ["/Buy", "/sales", "/stock", "/order"]
@@ -79,13 +85,31 @@ function ShortcutStrip({ roleId, permVersion, onOpen }) {
 
 /** Phone tile — trading group: 2 columns, icon left, label left-aligned (14px).
  *  Other groups: 3 columns, icon on top, label 12px. */
-function PhoneTile({ item, onClick, wide }) {
+/** Small lock chip for self-service items that open after onboarding (PR 59). */
+function LockChip({ className = "" }) {
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-white/[.08] dark:text-gray-300",
+        className,
+      )}
+    >
+      <Lock aria-hidden="true" className="size-2.5" strokeWidth={2.5} />
+      ล็อก
+    </span>
+  )
+}
+
+function PhoneTile({ item, onClick, wide, locked }) {
   return (
     <button
       type="button"
-      onClick={() => onClick(item.path)}
+      onClick={() => onClick(item)}
+      aria-disabled={locked || undefined}
+      aria-label={locked ? `${item.label} (ล็อกไว้จนกว่าจะกรอกข้อมูลเริ่มต้นครบ)` : undefined}
       className={cx(
-        "flex min-h-touch w-full cursor-pointer rounded-2xl bg-white ring-1 ring-gray-200/70 shadow-sm",
+        "relative flex min-h-touch w-full cursor-pointer rounded-2xl bg-white ring-1 ring-gray-200/70 shadow-sm",
+        locked && "opacity-60",
         "transition-colors duration-150 active:bg-gray-50 dark:bg-gray-800 dark:ring-gray-700/70 dark:active:bg-gray-700/60",
         wide ? "items-center gap-3 p-3 text-left" : "flex-col items-center gap-1.5 px-1.5 py-3 text-center",
         focusRingCls,
@@ -100,6 +124,7 @@ function PhoneTile({ item, onClick, wide }) {
       >
         {item.label}
       </span>
+      {locked && <LockChip className="absolute right-1.5 top-1.5" />}
     </button>
   )
 }
@@ -138,16 +163,23 @@ function GroupIcon({ group, className }) {
 
 // ALL_FUNCTIONS / canAccessItem ย้ายไป src/lib/homeFunctions.js (ใช้ร่วมกับ Sidebar + recentRoutes)
 
-function FunctionCard({ item, onClick }) {
+function FunctionCard({ item, onClick, locked }) {
   return (
     <button
-      onClick={() => onClick(item.path)}
-      className="group flex min-h-[78px] flex-col items-center justify-center gap-2 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200/60 transition-all duration-150 hover:bg-indigo-50 hover:shadow-sm hover:ring-indigo-200 hover:scale-[1.03] active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800/60 dark:ring-gray-700/60 dark:hover:bg-indigo-900/25 dark:hover:ring-indigo-700/60 cursor-pointer"
+      type="button"
+      onClick={() => onClick(item)}
+      aria-disabled={locked || undefined}
+      aria-label={locked ? `${item.label} (ล็อกไว้จนกว่าจะกรอกข้อมูลเริ่มต้นครบ)` : undefined}
+      className={cx(
+        "group relative flex min-h-[78px] flex-col items-center justify-center gap-2 rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200/60 transition-all duration-150 hover:bg-indigo-50 hover:shadow-sm hover:ring-indigo-200 hover:scale-[1.03] active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-gray-800/60 dark:ring-gray-700/60 dark:hover:bg-indigo-900/25 dark:hover:ring-indigo-700/60 cursor-pointer",
+        locked && "opacity-60",
+      )}
     >
       <span className="text-xl leading-none transition-transform duration-150 group-hover:scale-110 group-active:scale-100">{item.icon}</span>
       <span className="text-center text-[11px] font-medium leading-tight text-gray-600 transition-colors duration-150 group-hover:text-indigo-700 dark:text-gray-400 dark:group-hover:text-indigo-300">
         {item.label}
       </span>
+      {locked && <LockChip className="absolute right-1.5 top-1.5" />}
     </button>
   )
 }
@@ -157,6 +189,12 @@ export default function Home() {
   const isPhone = useIsPhone()
   const [apiUser, setApiUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const { locked: onboardingLocked } = useOnboarding()
+  // self-service items stay locked until onboarding is done (PR 59) → go fill the data instead
+  const openItem = (item) => {
+    if (item.gated && onboardingLocked) goToOnboardingFromLocked(navigate, item.label)
+    else navigate(item.path)
+  }
 
   useEffect(() => {
     apiAuth("/personnel/me")
@@ -259,6 +297,9 @@ export default function Home() {
         </div>
       </div>
 
+      {/* First-login onboarding: resume strip (hidden once done) */}
+      <OnboardingBanner />
+
       {/* ทางลัด — phone only */}
       {isPhone && <ShortcutStrip roleId={roleId} permVersion={permVersion} onOpen={navigate} />}
 
@@ -266,6 +307,7 @@ export default function Home() {
       {visibleGroups.map((group, gi) => (
         <div
           key={group.group}
+          data-tour={group.group === SELF_SERVICE_GROUP ? "self-service" : undefined}
           className={`animate-fade-up stagger-${Math.min(gi + 1, 5)} rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-4 sm:p-5`}
         >
           <div className="mb-3.5 flex items-center gap-2.5">
@@ -277,13 +319,19 @@ export default function Home() {
           {isPhone ? (
             <div className={cx("grid gap-2.5", group.group === TRADING_GROUP_NAME ? "grid-cols-2" : "grid-cols-3")}>
               {group.items.map((item) => (
-                <PhoneTile key={item.path} item={item} onClick={navigate} wide={group.group === TRADING_GROUP_NAME} />
+                <PhoneTile
+                  key={item.path}
+                  item={item}
+                  onClick={openItem}
+                  wide={group.group === TRADING_GROUP_NAME}
+                  locked={Boolean(item.gated && onboardingLocked)}
+                />
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {group.items.map((item) => (
-                <FunctionCard key={item.path} item={item} onClick={navigate} />
+                <FunctionCard key={item.path} item={item} onClick={openItem} locked={Boolean(item.gated && onboardingLocked)} />
               ))}
             </div>
           )}

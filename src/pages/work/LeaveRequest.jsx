@@ -493,6 +493,7 @@ export default function LeaveRequest() {
       await apiAuth(`/personnel/me/leaves/${id}/cancel`, { method: "POST", body: {} })
       fetchHistory()
     } catch (err) {
+      if (err?.onboardingRequired) return // gate 403 → AppLayout redirects to /onboarding
       toast.error("ยกเลิกไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
       setCancellingId(null)
@@ -725,7 +726,7 @@ export default function LeaveRequest() {
             </div>
 
             {/* ─ Section 2: Leave type ─ */}
-            <div className={cardCls}>
+            <div className={cardCls} data-tour="leave">
               <SectionTitle>ประเภทการลา</SectionTitle>
               {errors.leaveTypeId && (
                 <p className="text-xs text-red-500 mb-2">{errors.leaveTypeId}</p>

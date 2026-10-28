@@ -1,18 +1,14 @@
 // src/pages/work/MyProfile.jsx
-import { cx, baseField } from "../../lib/styles"
 // ข้อมูลส่วนตัวของผู้ใช้ปัจจุบัน — GET /personnel/me + GET /personnel/me/financial
 import { useEffect, useState } from "react"
-import ReactDOM from "react-dom"
 import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
-import SelectDropdown from "../../components/SelectDropdown"
-import { PageLoader, ErrorState, toast } from "../../components/ui"
-import DateInput from "../../components/ThaiDateField"
+import ReportIssueSheet from "../../components/ReportIssueSheet"
+import { PageLoader, ErrorState } from "../../components/ui"
 import { fmtDays, parseDays } from "../../lib/leaveDays"
 import lineIcon from "../../assets/line-icon.png"
-import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
@@ -46,7 +42,6 @@ const ISSUE_STATUS = {
   denied: { label: "ไม่อนุมัติ", cls: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300" },
   rejected: { label: "ไม่อนุมัติ", cls: "bg-rose-100 text-rose-800 dark:bg-rose-500/15 dark:text-rose-300" },
 }
-const FINANCIAL_OTHER = "financial_other"
 
 function SectionTitle({ children }) {
   return (
@@ -80,8 +75,6 @@ function maskCID(c) {
   return c[0] + "X".repeat(c.length - 4) + c.slice(-3)
 }
 
-const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
-
 export default function MyProfile() {
   const localUser = getUser() || {}
 
@@ -93,13 +86,8 @@ export default function MyProfile() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
-  // Report-issue modal
-  const [reportModal, setReportModal] = useState(false)
-  const [reportForm, setReportForm] = useState({ category: "", field_name: "", current_value: "", correct_value: "", description: "" })
-  const [reportSubmitting, setReportSubmitting] = useState(false)
-  const [reportMsg, setReportMsg] = useState("")
-  // หมวดหมู่ + ข้อมูลที่แก้ได้ จาก backend (ป้ายไทย, เรียงตามที่แสดง) — api-handoff-4 §4
-  const [issueFields, setIssueFields] = useState({ status: "idle", list: [] })
+  // Report-issue sheet (3F) — components/ReportIssueSheet.jsx
+  const [reportOpen, setReportOpen] = useState(false)
   // คำร้องของฉัน + สถานะ
   const [myIssues, setMyIssues] = useState({ status: "loading", list: [] })
   const loadMyIssues = () => {
@@ -109,7 +97,6 @@ export default function MyProfile() {
       .catch(() => setMyIssues({ status: "error", list: [] }))
   }
   useEffect(() => { loadMyIssues() }, [])
-  const { backdropProps: reportBackdrop } = useModalDismiss(() => setReportModal(false), { open: reportModal, disabled: reportSubmitting })
 
   const loadProfile = () => {
     setLoading(true)
@@ -168,61 +155,14 @@ export default function MyProfile() {
         .filter(Boolean).join(" ")
     : null
 
-  const openReportModal = () => {
-    setReportForm({ category: "", field_name: "", current_value: "", correct_value: "", description: "" })
-    setReportMsg("")
-    setReportModal(true)
-    if (issueFields.status !== "ready") {
-      setIssueFields({ status: "loading", list: [] })
-      apiAuth("/personnel/me/report-issue/fields")
-        .then((d) => setIssueFields({ status: "ready", list: Array.isArray(d) ? d : [] }))
-        .catch(() => setIssueFields({ status: "error", list: [] }))
-    }
-  }
-
-  const handleReport = async (e) => {
-    e.preventDefault()
-    const isFinOther = reportForm.field_name === FINANCIAL_OTHER
-    if (!reportForm.category || !reportForm.field_name) {
-      setReportMsg("⚠️ กรุณาเลือกหมวดหมู่และข้อมูลที่ต้องการแก้")
-      return
-    }
-    if (isFinOther ? !reportForm.description.trim() : !String(reportForm.correct_value).trim()) {
-      setReportMsg(isFinOther ? "⚠️ กรุณาระบุรายละเอียด" : "⚠️ กรุณากรอกค่าที่ถูกต้อง")
-      return
-    }
-    setReportSubmitting(true)
-    setReportMsg("")
-    try {
-      // financial_other: ไม่มีค่าที่ถูกต้องเดียว — ส่ง "-" และใช้รายละเอียดแทน
-      const body = { ...reportForm, correct_value: isFinOther ? "-" : String(reportForm.correct_value).trim() }
-      const res = await apiAuth("/personnel/me/report-issue", { method: "POST", body })
-      // applied = บันทึกทันที (ช่วงแก้ไขเองได้) · created = รอ HR
-      if (res?.status === "applied") toast.success("บันทึกแล้ว", { description: "ข้อมูลของคุณถูกแก้ไขเรียบร้อย" })
-      else toast.success("ส่งให้ฝ่าย HR แล้ว", { description: "ติดตามสถานะได้ที่ “คำร้องของฉัน”" })
-      setReportModal(false)
-      loadMyIssues()
-      if (res?.status === "applied") setTimeout(() => window.location.reload(), 800)
-    } catch (err) {
-      if (err.status === 409) setReportMsg("⚠️ มีคำร้องสำหรับข้อมูลนี้รออยู่แล้ว")
-      else setReportMsg(`❌ ${err.message || "ส่งคำร้องไม่สำเร็จ"}`)
-    } finally {
-      setReportSubmitting(false)
-    }
-  }
-
-  const selectedCategory = issueFields.list.find((c) => c.category === reportForm.category)
-  const selectedCategoryFields = selectedCategory?.fields ?? []
-  const selectedField = selectedCategoryFields.find((f) => f.field === reportForm.field_name)
-  const inputType = selectedField?.input_type || "text"
-  const isFinOther = reportForm.field_name === FINANCIAL_OTHER
 
   return (
     <div className="max-w-2xl mx-auto space-y-5 pb-10">
       <div className="flex items-start justify-end gap-3 flex-wrap">
         <PageTitle title="ข้อมูลส่วนตัว" />
         <button
-          onClick={openReportModal}
+          onClick={() => setReportOpen(true)}
+          data-tour="report-issue"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-all duration-200 shadow-sm hover:shadow-md active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
@@ -495,91 +435,14 @@ export default function MyProfile() {
         หากข้อมูลไม่ถูกต้อง กรุณาใช้ปุ่ม "แจ้งแก้ไขข้อมูล" ด้านบน
       </p>
 
-      {/* Report Issue Modal */}
-      {reportModal && ReactDOM.createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" {...reportBackdrop}>
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-800 shadow-2xl p-6">
-            <h3 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5 text-amber-500">
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z" />
-              </svg>
-              แจ้งแก้ไขข้อมูล
-            </h3>
-            <form onSubmit={handleReport} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">หมวดหมู่ <span className="text-red-500">*</span></label>
-                <SelectDropdown
-                  value={reportForm.category}
-                  onChange={(val) => setReportForm((p) => ({ ...p, category: val, field_name: "" }))}
-                  placeholder="— เลือกหมวดหมู่ —"
-                  options={issueFields.list.filter((c) => (c.fields || []).length > 0).map((c) => ({ value: c.category, label: c.category_label || c.category }))}
-                />
-                {issueFields.status === "loading" && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">กำลังโหลดรายการ…</p>}
-                {issueFields.status === "error" && <p className="mt-1 text-xs text-red-600 dark:text-red-400">โหลดรายการไม่สำเร็จ ปิดแล้วเปิดใหม่อีกครั้ง</p>}
-              </div>
-              {reportForm.category && (
-                <div>
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ข้อมูลที่ต้องการแก้ <span className="text-red-500">*</span></label>
-                  <SelectDropdown
-                    value={reportForm.field_name}
-                    onChange={(val) => setReportForm((p) => ({ ...p, field_name: val, correct_value: "" }))}
-                    placeholder="— เลือกข้อมูล —"
-                    options={selectedCategoryFields.map((f) => ({ value: f.field, label: f.label || f.field }))}
-                  />
-                </div>
-              )}
-              {!isFinOther && (
-                <>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าปัจจุบัน (ที่ผิด)</label>
-                    <input type="text" value={reportForm.current_value} onChange={(e) => setReportForm((p) => ({ ...p, current_value: e.target.value }))} className={inputCls} placeholder="ค่าที่แสดงอยู่ตอนนี้" />
-                  </div>
-                  <div>
-                    <label htmlFor="report-correct" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ค่าที่ถูกต้อง <span className="text-red-500">*</span></label>
-                    {inputType === "date" ? (
-                      <DateInput id="report-correct" ariaLabel="ค่าที่ถูกต้อง" value={reportForm.correct_value} onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))} />
-                    ) : inputType === "textarea" ? (
-                      <textarea id="report-correct" rows={3} value={reportForm.correct_value} onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))} className={inputCls + " resize-none"} placeholder="ค่าที่ควรจะเป็น" />
-                    ) : (
-                      <input
-                        id="report-correct"
-                        type={inputType === "int" ? "number" : "text"}
-                        inputMode={inputType === "int" ? "numeric" : undefined}
-                        step={inputType === "int" ? 1 : undefined}
-                        value={reportForm.correct_value}
-                        onChange={(e) => setReportForm((p) => ({ ...p, correct_value: e.target.value }))}
-                        className={inputCls}
-                        placeholder="ค่าที่ควรจะเป็น"
-                      />
-                    )}
-                  </div>
-                </>
-              )}
-              <div>
-                <label htmlFor="report-desc" className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
-                  รายละเอียด{isFinOther ? <span className="text-red-500"> *</span> : " เพิ่มเติม"}
-                </label>
-                <textarea id="report-desc" value={reportForm.description} onChange={(e) => setReportForm((p) => ({ ...p, description: e.target.value }))} className={inputCls + " resize-none"} rows={isFinOther ? 4 : 2} placeholder={isFinOther ? "อธิบายว่าข้อมูลการเงินส่วนไหนไม่ถูกต้อง และควรเป็นอย่างไร" : "อธิบายเพิ่มเติม (ถ้ามี)"} />
-              </div>
-              {reportMsg && (
-                <p className={`text-sm text-center ${reportMsg.startsWith("✅") ? "text-emerald-600" : "text-amber-600 dark:text-amber-400"}`}>{reportMsg}</p>
-              )}
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setReportModal(false)} className="flex-1 h-10 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">ยกเลิก</button>
-                <button type="submit" disabled={reportSubmitting} className="flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 text-white text-sm font-semibold transition-all duration-200 active:scale-[0.97] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2">
-                  {reportSubmitting ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      กำลังส่ง…
-                    </>
-                  ) : "ส่งคำร้อง"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ReportIssueSheet
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onSent={(res) => {
+          loadMyIssues()
+          if (res?.status === "applied") setTimeout(() => window.location.reload(), 800)
+        }}
+      />
     </div>
   )
 }

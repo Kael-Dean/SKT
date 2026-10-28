@@ -4,6 +4,18 @@ import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows } from "../../../components/ui"
 
+// ชื่อไทยของ action ใน audit log — ไม่รู้จัก = แสดงรหัสเดิม
+const ACTION_LABELS = {
+  ONBOARDING_EDIT: "แก้ข้อมูลเริ่มต้น",
+  ONBOARDING_COMPLETE: "กรอกข้อมูลเริ่มต้นเสร็จ",
+  ONBOARDING_REOPEN: "เปิดให้กรอกข้อมูลเริ่มต้นใหม่",
+  ONBOARDING_EXEMPT: "ยกเว้นการกรอกข้อมูลเริ่มต้น",
+  ONBOARDING_UNEXEMPT: "ยกเลิกการยกเว้นข้อมูลเริ่มต้น",
+  VERIFY_DEPENDANT: "ตรวจสอบข้อมูลครอบครัว",
+}
+
+const actionLabel = (a) => (a ? ACTION_LABELS[a] ?? a : "—")
+
 function fmtDateTime(d) {
   if (!d) return "—"
   try {
@@ -86,8 +98,11 @@ export default function HRAuditTab() {
                   <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtDateTime(log.timestamp ?? log.created_at)}</td>
                   <td className="px-4 py-3 text-gray-700 dark:text-gray-300 tabular-nums">{log.user_id ?? log.username ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className="rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 text-xs font-semibold">
-                      {log.action ?? "—"}
+                    <span
+                      title={ACTION_LABELS[log.action] ? log.action : undefined}
+                      className="rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-0.5 text-xs font-semibold"
+                    >
+                      {actionLabel(log.action)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate">

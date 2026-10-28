@@ -114,6 +114,22 @@ function _notifyForbidden(path, err) {
   window.dispatchEvent(new CustomEvent(API_FORBIDDEN_EVENT, { detail: { path, message: err?.message } }));
 }
 
+// 403 { detail: { code: "ONBOARDING_REQUIRED" } } = self-service gate (onboarding PR 59) — not a
+// permission problem: AppLayout listens and sends the user to /onboarding. detail is an object only here.
+export const ONBOARDING_REQUIRED_EVENT = "api:onboarding-required";
+const isOnboardingGate = (data) => data?.detail?.code === "ONBOARDING_REQUIRED";
+
+function _handleForbidden(path, err) {
+  if (isOnboardingGate(err.data)) {
+    err.onboardingRequired = true;
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(ONBOARDING_REQUIRED_EVENT, { detail: { path } }));
+    }
+    return;
+  }
+  _notifyForbidden(path, err);
+}
+
 function _expireSession() {
   _redirecting401 = true;
   logout();
@@ -148,7 +164,7 @@ export async function apiAuth(path, opts = {}) {
     if (err.status === 401 && redirectOn401 && !_redirecting401) {
       _expireSession();
     }
-    if (err.status === 403) _notifyForbidden(path, err);
+    if (err.status === 403) _handleForbidden(path, err);
     throw err;
   }
 }
@@ -178,7 +194,7 @@ export async function apiDownload(path, opts = {}) {
     err.status = res.status;
     err.data = data;
     if (res.status === 401 && token && !_redirecting401) _expireSession();
-    if (res.status === 403) _notifyForbidden(path, err);
+    if (res.status === 403) _handleForbidden(path, err);
     throw err;
   }
   const blob = await res.blob();

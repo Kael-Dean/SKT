@@ -18,6 +18,7 @@ import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import Can from "../../components/Can"
 import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
+import PendingFamilyCard from "../../components/hr/PendingFamilyCard"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -400,6 +401,9 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      {/* ข้อมูลครอบครัวที่พนักงานเพิ่มเอง รอ HR ตรวจสอบ (แสดงเฉพาะเมื่อมี) */}
+      <PendingFamilyCard userId={id} />
 
       {/* คู่สมรส */}
       {spouse && (

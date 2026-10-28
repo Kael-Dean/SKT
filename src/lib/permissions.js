@@ -96,6 +96,11 @@ export const PERMISSIONS = Object.freeze({
   "hr.dashboard.view": { no: 20, module: "HR: Employee records", label: "ดูแดชบอร์ด HR", en: "View HR dashboard", roles: [1, 3] },
   "hr.employees.list": { no: 21, module: "HR: Employee records", label: "ค้นหา / ดูรายชื่อพนักงาน", en: "Search / list employees", roles: [1, 3] },
   "hr.employees.view": { no: 22, module: "HR: Employee records", label: "ดูโปรไฟล์พนักงานทั้งหมด (รายคน)", en: "View full employee profile", roles: [1, 3] },
+  // First-login onboarding (backend PR 59) — ยังไม่มีเลขฟังก์ชันใน matrix; code ตาม guard ของ backend
+  "hr.onboarding.list": { code: "hr.employee.view", no: null, module: "HR: Employee records", label: "ดูความคืบหน้ากรอกข้อมูลเริ่มต้น", en: "View onboarding progress", roles: [1, 3] },
+  "hr.onboarding.manage": { code: "hr.employee.edit_personal", no: null, module: "HR: Employee records", label: "เปิดให้กรอกใหม่ / ยกเว้นการกรอกข้อมูลเริ่มต้น", en: "Reopen / exempt onboarding", roles: [1, 3] },
+  "hr.dependants.list": { code: ["hr.employee.view", "welfare.view"], no: null, module: "HR: Employee records", label: "ดูข้อมูลครอบครัวที่รอตรวจสอบ", en: "View unverified family rows", roles: [1, 3] },
+  "hr.dependants.verify": { code: "hr.employee.edit_personal", no: null, module: "HR: Employee records", label: "ยืนยันข้อมูลครอบครัว (ตรวจสอบแล้ว)", en: "Verify family rows", roles: [1, 3] },
   "hr.employees.export": { no: 23, module: "HR: Employee records", label: "ส่งออกรายชื่อพนักงาน", en: "Export employee list", roles: [1, 3] },
   "hr.employees.create": { no: 24, module: "HR: Employee records", label: "เพิ่มพนักงานใหม่ / สร้างบัญชีผู้ใช้", en: "Register new employee / create user", roles: [1, 3] },
   "hr.employees.editPersonal": { no: 25, module: "HR: Employee records", label: "แก้ไขข้อมูลส่วนตัว / ติดต่อ / ที่อยู่", en: "Edit personal / contact / address", roles: [1, 3] },
@@ -531,7 +536,7 @@ export const HR_KPI_PERMS = Object.freeze(Object.keys(PERMISSIONS).filter((k) =>
  */
 export const HR_HUB_PERMS = Object.freeze([
   "hr.dashboard.view",
-  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", ...HR_KPI_PERMS]),
+  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", "hr.onboarding.list", "hr.dependants.list", ...HR_KPI_PERMS]),
 ])
 
 /** คีย์ Phase 1 report ทั้ง 19 ตัว (P01–P19) */

@@ -423,7 +423,9 @@ export default function LoanRequest() {
       <div role="tabpanel" id={panelId(ID_BASE, tab)} aria-labelledby={tabId(ID_BASE, tab)} tabIndex={0} className="space-y-5 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40">
         {tab === "form" && (
           <>
-            <EligibilityCard data={elig} loading={eligLoading} error={eligErr} onRetry={loadElig} />
+            <div data-tour="loan">
+              <EligibilityCard data={elig} loading={eligLoading} error={eligErr} onRetry={loadElig} />
+            </div>
 
             {formError && <ErrorState message={formError} />}
 

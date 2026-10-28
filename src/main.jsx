@@ -15,6 +15,12 @@ import './index.css'
   }
 })()
 
+// DEV ONLY: fake onboarding backend (?mockOnboarding=1) — tree-shaken out of production builds
+if (import.meta.env.DEV) {
+  const { installOnboardingMock } = await import('./dev/onboardingMock.js')
+  installOnboardingMock()
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <HashRouter>

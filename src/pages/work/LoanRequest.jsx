@@ -459,7 +459,9 @@ export default function LoanRequest() {
         )}
         {tab === "form" && !loanUnavailable && (
           <>
-            <EligibilityCard data={elig} loading={eligLoading} error={eligErr} onRetry={loadElig} />
+            <div data-tour="loan">
+              <EligibilityCard data={elig} loading={eligLoading} error={eligErr} onRetry={loadElig} />
+            </div>
 
             {formError && <ErrorState message={formError} />}
 

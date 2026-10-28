@@ -351,7 +351,7 @@ export default function OutOfOffice() {
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-start">
           {/* ══════════ FORM ══════════ */}
-          <form onSubmit={handleSubmit} noValidate className={`${cardCls} space-y-4`} aria-labelledby="ooo-form-title">
+          <form onSubmit={handleSubmit} noValidate className={`${cardCls} space-y-4`} aria-labelledby="ooo-form-title" data-tour="out-of-office">
             <h2 id="ooo-form-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">
               ยื่นคำขอใหม่
             </h2>

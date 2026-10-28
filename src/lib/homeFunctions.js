@@ -4,7 +4,8 @@
 // Sidebar's phone-only "ธุรกิจรวบรวมผลผลิต" section, the Home shortcut strip
 // and recentRoutes.js read the same list).
 //
-//   ALL_FUNCTIONS   [{ group, icon, color, items: [{ label, path, icon, perm | anyOf, allow? }] }]
+//   ALL_FUNCTIONS   [{ group, icon, color, items: [{ label, path, icon, perm | anyOf, allow?, gated? }] }]
+//                   gated = self-service item locked until onboarding is done (PR 59)
 //   TRADING_GROUP   the trading subset shown in the Sidebar on phones
 //   TRADING_PATHS   Set of every path in the trading module (groups 1–3) —
 //                   recentRoutes only remembers these
@@ -117,10 +118,10 @@ export const ALL_FUNCTIONS = [
       { label: "อนุมัติใบลา",       path: "/hr/leaves",        icon: "📅", perm: "hr.leave.list" },
       { label: "ข้อมูลการเงิน",     path: "/hr/finance",       icon: "💰", perm: "hr.employees.editFinancial" },
       { label: "ย้ายสาขา",          path: "/hr/relocation",    icon: "🏢", perm: "hr.relocation.list" },
-      { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", perm: "self.loan.apply" },
-      { label: "สลิปเงินเดือนของฉัน", path: "/my-payslips",      icon: "🧾", perm: "self.payroll.view" },
+      { label: "ขอสินเชื่อ",         path: "/loan-request",     icon: "💳", perm: "self.loan.apply", gated: true },
+      { label: "สลิปเงินเดือนของฉัน", path: "/my-payslips",      icon: "🧾", perm: "self.payroll.view", gated: true },
       { label: "ปฏิทินวันหยุด",      path: "/holidays",         icon: "🗓️", perm: "hr.holidays.view" },
-      { label: "ข้อมูลการเงินของฉัน", path: "/my-financial",     icon: "💵", perm: "self.payroll.view" },
+      { label: "ข้อมูลการเงินของฉัน", path: "/my-financial",     icon: "💵", perm: "self.payroll.view", gated: true },
     ],
   },
 ]

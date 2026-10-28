@@ -11,6 +11,7 @@ import {
   HeartHandshake,
   House,
   Inbox,
+  Lock,
   LogOut,
   MapPin,
   MapPinCheck,
@@ -27,6 +28,8 @@ import {
 import { logout as authLogout, getRoleId } from "../lib/auth"
 import { HR_HUB_PERMS, useCan } from "../lib/permissions"
 import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
+import { useOnboarding } from "../lib/onboarding"
+import { goToOnboardingFromLocked } from "../lib/onboardingGate"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -45,19 +48,20 @@ const TONES = {
 // เพิ่ม/ลบที่นี่ที่เดียว เมนูตามตำแหน่งจะได้ไม่ตกหล่นรายการใดรายการหนึ่ง
 //   perm      = ต้องมีสิทธิ์นี้
 //   unlessAny = ซ่อนถ้ามีสิทธิ์ใดสิทธิ์หนึ่งในนี้ (เช่น KPI: คนที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้นแทน)
+//   gated     = ล็อกไว้จนกว่าจะกรอกข้อมูลเริ่มต้นครบ (onboarding PR 59 — backend ตอบ 403 ONBOARDING_REQUIRED)
 const SELF_SERVICE_MENUS = [
   { label: "ข้อมูลส่วนตัว",       icon: UserRound,      tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
-  { label: "ข้อมูลการเงินของฉัน",  icon: PiggyBank,      tone: "teal",    path: "/my-financial",  perm: "self.payroll.view" },
-  { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view" },
+  { label: "ข้อมูลการเงินของฉัน",  icon: PiggyBank,      tone: "teal",    path: "/my-financial",  perm: "self.payroll.view", gated: true },
+  { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view", gated: true },
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox" },
-  { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request" },
-  { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request" },
-  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request" },
-  { label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply" },
-  { label: "ขอหนังสือรับรองเงินเดือน", icon: FileBadge,  tone: "teal",    path: "/my-salary-cert", perm: "self.salaryCert.request" },
-  { label: "สวัสดิการของฉัน",      icon: HeartHandshake, tone: "rose",    path: "/my-welfare",    perm: "self.welfare.view" },
-  { label: "ผลการประเมินของฉัน",   icon: ClipboardCheck, tone: "indigo",  path: "/my-kpi",        perm: "self.kpi.result" },
-  { label: "แจ้งเรื่อง / ประวัติการตักเตือน", icon: ShieldAlert, tone: "amber", path: "/my-discipline", anyOf: ["self.discipline.report", "self.discipline.history"] },
+  { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request", gated: true },
+  { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request", gated: true },
+  { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request", gated: true },
+  { label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply", gated: true },
+  { label: "ขอหนังสือรับรองเงินเดือน", icon: FileBadge,  tone: "teal",    path: "/my-salary-cert", perm: "self.salaryCert.request", gated: true },
+  { label: "สวัสดิการของฉัน",      icon: HeartHandshake, tone: "rose",    path: "/my-welfare",    perm: "self.welfare.view", gated: true },
+  { label: "ผลการประเมินของฉัน",   icon: ClipboardCheck, tone: "indigo",  path: "/my-kpi",        perm: "self.kpi.result", gated: true },
+  { label: "แจ้งเรื่อง / ประวัติการตักเตือน", icon: ShieldAlert, tone: "amber", path: "/my-discipline", anyOf: ["self.discipline.report", "self.discipline.history"], gated: true },
   // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
   { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target,     tone: "indigo",  path: "/hr/kpi",       perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
 ]
@@ -92,6 +96,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
   const perms = useCan()
   const { can } = perms
   const closeBtnRef = useRef(null)
+  const { locked: onboardingLocked } = useOnboarding()
 
   const visibleMenus = useMemo(
     () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, perms)),
@@ -178,21 +183,25 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
           </div>
 
           {/* Nav items */}
-          <nav aria-label="เมนูส่วนตัว" className="flex-1 overflow-y-auto px-3 py-3">
+          <nav aria-label="เมนูส่วนตัว" data-tour="self-service-menu" className="flex-1 overflow-y-auto px-3 py-3">
             <ul className="space-y-1">
               {visibleMenus.map((item) => {
                 const active = isActive(item.path)
                 const tone = TONES[item.tone] ?? TONES.indigo
                 const Icon = item.icon
+                const isLocked = item.gated && onboardingLocked
                 return (
                   <li key={item.path}>
                     <button
                       type="button"
                       onClick={() => {
                         setIsOpen(false)
-                        navigate(item.path)
+                        if (isLocked) goToOnboardingFromLocked(navigate, item.label)
+                        else navigate(item.path)
                       }}
                       aria-current={active ? "page" : undefined}
+                      aria-disabled={isLocked || undefined}
+                      aria-describedby={isLocked ? "sidebar-locked-hint" : undefined}
                       className={`relative flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 ${
                         active
                           ? "bg-indigo-50 font-semibold text-indigo-700 dark:bg-indigo-500/[.12] dark:text-indigo-200"
@@ -202,17 +211,28 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                       <span
                         aria-hidden="true"
                         className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors duration-150 ${
-                          active ? tone.solid : tone.chip
+                          isLocked ? "bg-gray-100 text-gray-400 dark:bg-white/[.05] dark:text-gray-500" : active ? tone.solid : tone.chip
                         }`}
                       >
                         <Icon strokeWidth={1.75} className="size-[18px]" />
                       </span>
-                      <span className="min-w-0 truncate">{item.label}</span>
+                      <span className={`min-w-0 flex-1 truncate ${isLocked ? "text-gray-500 dark:text-gray-400" : ""}`}>{item.label}</span>
+                      {isLocked && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
+                          <Lock aria-hidden="true" className="size-3" strokeWidth={2.25} />
+                          ล็อก
+                        </span>
+                      )}
                     </button>
                   </li>
                 )
               })}
             </ul>
+            {onboardingLocked && visibleMenus.some((i) => i.gated) && (
+              <p id="sidebar-locked-hint" className="mt-2 px-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                เมนูที่ล็อกจะเปิดเมื่อกรอกข้อมูลเริ่มต้นครบ
+              </p>
+            )}
 
             {tradingMenus.length > 0 && (
               <div className="mt-3 border-t border-gray-200/70 pt-3 md:hidden dark:border-line">

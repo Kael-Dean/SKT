@@ -65,8 +65,16 @@ const AUTH_STORAGE_KEYS = [
   'account_status', 'account_status_user',
 ];
 
+// sessionStorage flags of the onboarding flow (src/lib/onboarding.js) — per user, so drop on logout
+const AUTH_SESSION_KEYS = ['onboarding_prompted', 'onboarding_tour'];
+
 export function logout() {
   for (const k of AUTH_STORAGE_KEYS) localStorage.removeItem(k);
+  try {
+    for (const k of AUTH_SESSION_KEYS) sessionStorage.removeItem(k);
+  } catch {
+    // storage disabled — nothing to clear
+  }
 }
 
 // ─── Role reader (แหล่งเดียวของ role id ฝั่งหน้าเว็บ) ─────────────────────────

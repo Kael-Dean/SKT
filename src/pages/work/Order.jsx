@@ -57,6 +57,12 @@ const deriveBuy = (r) => {
     klang: r.klang_name || r.klangName || "—",
   }
 }
+// Sell payment_id → document type (1 = ขายสด/ใบรับเงิน, 2 = ขายเชื่อ/ใบกำกับ — same ids as OrderCorrection)
+const SELL_KIND = {
+  1: { label: "ขายสด", doc: "ใบรับเงินขายสินค้า", shortDoc: "ใบรับเงิน", tone: "success" },
+  2: { label: "ขายเชื่อ", doc: "ใบกำกับสินค้า", shortDoc: "ใบกำกับ", tone: "pending" },
+}
+const UNKNOWN_SELL_KIND = { label: "ไม่ระบุ", doc: "เอกสารอ้างอิง", shortDoc: "เอกสาร", tone: "neutral" }
 const deriveSell = (r) => {
   const net = toNumber(r.weight ?? 0)
   const price = toNumber(r.price ?? 0)
@@ -66,6 +72,7 @@ const deriveSell = (r) => {
     net, price, pricePerKg,
     date: fmtDate(r.date),
     saleId: r.sale_id || "—",
+    kind: SELL_KIND[Number(r.payment_id)] || UNKNOWN_SELL_KIND,
     serial: r.order_serial || "—",
     customer: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—",
     species: r.species || "—",
@@ -411,7 +418,7 @@ const Order = () => {
   const startIndex = (page - 1) * PAGE_SIZE + 1
   const endIndex = Math.min(rows.length, page * PAGE_SIZE)
   // จำนวนคอลัมน์จริงต่อโหมด — ใช้กับ skeleton/empty ให้ตรง layout
-  const colCount = mode === "buy" ? 12 : 11
+  const colCount = 12
   const dateError = !filters.allTime && (!!errors.startDate || !!errors.endDate)
   const setAllTime = (v) => setFilters((p) => ({ ...p, allTime: v }))
 
@@ -520,7 +527,7 @@ const Order = () => {
         <label className={labelCls} htmlFor="order-q">
           {mode === "buy"
             ? "ค้นหา (ชื่อ / ปชช. / เลขที่ใบสำคัญ)"
-            : "ค้นหา (ชื่อ / ปชช. / ใบรับเงินขายสินค้า / เลขที่ใบชั่ง)"}
+            : "ค้นหา (ชื่อ / ปชช. / เลขที่ใบรับเงิน-ใบกำกับ / เลขที่ใบชั่ง)"}
         </label>
         <input
           id="order-q"
@@ -576,12 +583,13 @@ const Order = () => {
       title={(r) => deriveSell(r).customer}
       subtitle={(r) => {
         const d = deriveSell(r)
-        return <span className="line-clamp-2">{`${d.date} · ใบรับเงิน ${d.saleId} · ใบชั่ง ${d.serial}`}</span>
+        return <span className="line-clamp-2">{`${d.date} · ${d.kind.shortDoc} ${d.saleId} · ใบชั่ง ${d.serial}`}</span>
       }}
       badge={(r) => {
         const d = deriveSell(r)
         return (
           <span className="flex flex-col items-end gap-1">
+            <Badge tone={d.kind.tone}>{d.kind.label}</Badge>
             <Badge tone="neutral">{d.branch}</Badge>
             {toNumber(d.sub) > 1 && <Badge tone="info">พ่วง {d.sub}</Badge>}
           </span>
@@ -815,7 +823,8 @@ const Order = () => {
               ) : (
                 <tr>
                   <th className="px-3 py-2 whitespace-nowrap">วันที่</th>
-                  <th className="px-3 py-2 whitespace-nowrap">ใบรับเงินขายสินค้า</th>
+                  <th className="px-3 py-2 whitespace-nowrap">ประเภทการขาย</th>
+                  <th className="px-3 py-2 whitespace-nowrap">เลขที่เอกสาร</th>
                   <th className="px-3 py-2 whitespace-nowrap">เลขที่ใบชั่ง</th>
                   <th className="px-3 py-2">ลูกค้า</th>
                   <th className="px-3 py-2">ชนิดข้าว</th>
@@ -875,7 +884,13 @@ const Order = () => {
                       className="odd:bg-white even:bg-slate-50/70 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700/40 dark:hover:bg-slate-700/70 transition-colors duration-150"
                     >
                       <td className="px-3 py-2 whitespace-nowrap">{d.date}</td>
-                      <td className="px-3 py-2 whitespace-nowrap">{d.saleId}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <Badge tone={d.kind.tone}>{d.kind.label}</Badge>
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <div>{d.saleId}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">{d.kind.doc}</div>
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">{d.serial}</td>
                       <td className="px-3 py-2">{d.customer}</td>
                       <td className="px-3 py-2">{d.species}</td>

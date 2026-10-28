@@ -19,6 +19,8 @@ import { cx, baseField, labelCls, submitBtnCls, neutralBtnCls, errorTextCls, hel
 import SelectDropdown from "./SelectDropdown"
 import DateInput from "./ThaiDateField"
 import { Sheet, toast } from "./ui"
+import FileUploader from "./FileUploader"
+import useFileUploads from "../hooks/useFileUploads"
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const EMPTY = { category: "", field_name: "", current_value: "", correct_value: "", description: "" }
@@ -27,16 +29,24 @@ const isManualField = (f) => typeof f === "string" && f.endsWith("_other")
 // fields list rarely changes — share one fetch across opens
 let fieldsCache = null
 
-export default function ReportIssueSheet({ open, onClose, initialCategory = "", initialField = "", currentValue = "", onSent }) {
+export default function ReportIssueSheet({ open, onClose: closeProp, initialCategory = "", initialField = "", currentValue = "", onSent }) {
   const [form, setForm] = useState(EMPTY)
   const [fields, setFields] = useState({ status: fieldsCache ? "ready" : "idle", list: fieldsCache ?? [] })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState("")
+  // attachments (3F) — uploaded on pick, ids sent with the request; cancel = delete them
+  const uploads = useFileUploads()
+  const onClose = () => {
+    if (busy) return
+    uploads.discard()
+    closeProp?.()
+  }
 
   useEffect(() => {
     if (!open) return
     setForm({ ...EMPTY, category: initialCategory, field_name: initialField, current_value: currentValue ?? "" })
     setMsg("")
+    uploads.reset()
     if (!fieldsCache) {
       setFields({ status: "loading", list: [] })
       apiAuth("/personnel/me/report-issue/fields")
@@ -46,7 +56,7 @@ export default function ReportIssueSheet({ open, onClose, initialCategory = "", 
         })
         .catch(() => setFields({ status: "error", list: [] }))
     }
-  }, [open, initialCategory, initialField, currentValue])
+  }, [open, initialCategory, initialField, currentValue]) // eslint-disable-line react-hooks/exhaustive-deps -- uploads.reset is stable per open
 
   const set = (k) => (v) => setForm((p) => ({ ...p, [k]: v }))
   const category = fields.list.find((c) => c.category === form.category)
@@ -61,17 +71,20 @@ export default function ReportIssueSheet({ open, onClose, initialCategory = "", 
     if (manual ? !form.description.trim() : !String(form.correct_value).trim()) {
       return setMsg(manual ? "ระบุรายละเอียดว่าต้องแก้อะไร" : "กรอกค่าที่ถูกต้อง")
     }
+    if (uploads.busy) return setMsg("รอให้อัปโหลดไฟล์เสร็จก่อนส่งคำร้อง")
+    if (uploads.hasErrors) return setMsg("มีไฟล์ที่อัปโหลดไม่สำเร็จ นำออกหรือลองใหม่ก่อนส่งคำร้อง")
     setBusy(true)
     setMsg("")
     try {
-      const body = { ...form, correct_value: manual ? "-" : String(form.correct_value).trim() }
+      const body = { ...form, correct_value: manual ? "-" : String(form.correct_value).trim(), attachment_ids: uploads.ids }
       const res = await apiAuth("/personnel/me/report-issue", { method: "POST", body })
       if (res?.status === "applied") toast.success("บันทึกแล้ว", { description: "ข้อมูลของคุณถูกแก้ไขเรียบร้อย" })
-      else toast.success("ส่งให้ฝ่าย HR แล้ว", { description: "ติดตามสถานะได้ที่ “คำร้องของฉัน” ในหน้าข้อมูลส่วนตัว" })
-      onClose?.()
+      else toast.success("ส่งคำร้องแล้ว", { description: "ติดตามสถานะได้ที่ “คำร้องของฉัน” ในหน้าข้อมูลส่วนตัว" })
+      uploads.reset() // files now belong to the request — never delete
+      closeProp?.()
       onSent?.(res)
     } catch (err) {
-      setMsg(err.status === 409 ? "มีคำร้องสำหรับข้อมูลนี้รออยู่แล้ว" : err.message || "ส่งคำร้องไม่สำเร็จ")
+      setMsg(err.status === 409 ? "มีคำร้องสำหรับข้อมูลนี้รอพิจารณาอยู่แล้ว" : err.message || "ส่งคำร้องไม่สำเร็จ")
     } finally {
       setBusy(false)
     }
@@ -84,12 +97,12 @@ export default function ReportIssueSheet({ open, onClose, initialCategory = "", 
       busy={busy}
       size="sm"
       title="แจ้งแก้ไขข้อมูล"
-      subtitle="ฝ่ายบุคคลจะตรวจสอบและแก้ให้"
+      subtitle="ผู้จัดการจะพิจารณาและแจ้งผลทางการแจ้งเตือน"
       footer={
         <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
           <button type="button" onClick={onClose} disabled={busy} className={neutralBtnCls}>ยกเลิก</button>
-          <button type="submit" form="report-issue-form" disabled={busy} className={submitBtnCls}>
-            {busy ? "กำลังส่ง…" : "ส่งคำร้อง"}
+          <button type="submit" form="report-issue-form" disabled={busy || uploads.busy} className={submitBtnCls}>
+            {busy ? "กำลังส่ง…" : uploads.busy ? "รออัปโหลดไฟล์…" : "ส่งคำร้อง"}
           </button>
         </div>
       }
@@ -164,6 +177,7 @@ export default function ReportIssueSheet({ open, onClose, initialCategory = "", 
           />
           {manual && <p className={helpTextCls}>HR จะอ่านรายละเอียดนี้แล้วแก้ให้ในระบบ</p>}
         </div>
+        <FileUploader uploads={uploads} disabled={busy} hint="เช่น รูปถ่ายบัตรประชาชน สมุดบัญชี หรือเอกสารที่ยืนยันค่าที่ถูกต้อง" />
         {msg && <p role="alert" className={errorTextCls}>{msg}</p>}
       </form>
     </Sheet>

@@ -4,12 +4,50 @@
 import { useId } from "react"
 import { Badge } from "../../ui"
 import { cx } from "../../../lib/styles"
-import { PENDING, STATUS, fmtStep, num } from "./kpiUtils"
+import { GRADE_TONE, PENDING, STATUS, componentsOf, fmtScore, fmtStep, num } from "./kpiUtils"
 import { inputCls, labelCls, thCls } from "../positionUtils"
 
 export function StatusBadge({ status }) {
   const s = STATUS[status]
   return <Badge tone={s?.tone ?? "neutral"}>{s?.label ?? status ?? "—"}</Badge>
+}
+
+/** grade_label pill (null until finalize → dash) */
+export function GradeBadge({ grade, label, className = "" }) {
+  if (!grade && !label) return <span className="text-gray-400 dark:text-gray-500">—</span>
+  return <Badge tone={GRADE_TONE[grade] ?? "neutral"} className={className}>{label ?? grade}</Badge>
+}
+
+/**
+ * Per-scheme score breakdown: "หส. 31.5/42 · สาขา 25/28 · …". Columns can't be
+ * fixed any more (each row may use a different scheme), so this is one cell.
+ */
+export function ComponentBreakdown({ ev, catalogue, className = "" }) {
+  const comps = componentsOf(ev, catalogue)
+  if (!comps.length) return <span className="text-xs text-gray-500 dark:text-gray-400">ยังไม่ทราบเกณฑ์ตำแหน่ง</span>
+  return (
+    <dl className={cx("flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular-nums", className)}>
+      {comps.map((c) => {
+        const v = num(ev?.[c.key])
+        return (
+          <div key={c.id} className="inline-flex items-baseline gap-1 whitespace-nowrap">
+            <dt className="text-gray-500 dark:text-gray-400">{c.short}</dt>
+            <dd className={v == null ? "text-gray-400 dark:text-gray-500" : "font-medium text-gray-800 dark:text-gray-200"}>
+              {fmtScore(v)}
+              <span className="font-normal text-gray-500 dark:text-gray-400">/{fmtScore(c.max)}</span>
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
+
+/** scheme label under the employee name */
+export function SchemeLabel({ ev, catalogue }) {
+  const label = ev?.scheme_label ?? (ev?.scheme && catalogue?.schemes?.[ev.scheme]?.label)
+  if (!label) return null
+  return <p className="text-xs text-gray-500 dark:text-gray-400">เกณฑ์: {label}</p>
 }
 
 export function PendingBadge({ status }) {

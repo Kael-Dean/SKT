@@ -45,29 +45,36 @@ export function positionPrefs(r) {
     .filter((p) => p.id != null && p.id !== "")
 }
 
+/** Active + retired positions. Retired ones (e.g. the old branch-named "หัวหน้าสาขาปราสาท") are needed to
+ * resolve ids on existing requests; the dropdown only offers active ones. */
+const POSITIONS_ALL_PATH = "/hr/positions?include_inactive=true"
+
 /**
  * Position list for dropdowns / id → title lookup. GET /hr/positions needs `position.view`
  * (checked through the permission registry); without it the list stays empty and callers fall
  * back to the raw id.
+ *   positions     → active only (pick lists)
+ *   positionName  → resolves any id, retired ones included (request history / approval screens)
  */
 export function usePositionLookup() {
   const allowed = can("hr.positions.view")
-  const [positions, setPositions] = useState([])
+  const [all, setAll] = useState([])
   const [loading, setLoading] = useState(allowed)
 
   useEffect(() => {
     if (!allowed) return
     let alive = true
-    apiAuth("/hr/positions")
-      .then((d) => { if (alive) setPositions(Array.isArray(d) ? d.filter((p) => p?.is_active !== false) : []) })
-      .catch(() => { if (alive) setPositions([]) })
+    apiAuth(POSITIONS_ALL_PATH)
+      .then((d) => { if (alive) setAll(Array.isArray(d) ? d.filter(Boolean) : []) })
+      .catch(() => { if (alive) setAll([]) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [allowed])
 
+  const positions = useMemo(() => all.filter((p) => p.is_active !== false), [all])
   const byId = useMemo(
-    () => new Map(positions.map((p) => [String(p.id), p.title ?? p.name ?? p.position_title ?? `ตำแหน่ง #${p.id}`])),
-    [positions],
+    () => new Map(all.map((p) => [String(p.id), p.title ?? p.name ?? p.position_title ?? `ตำแหน่ง #${p.id}`])),
+    [all],
   )
   const positionName = useCallback(
     (id, fallback) => (id == null || id === "" ? "—" : fallback || byId.get(String(id)) || `ตำแหน่ง #${id}`),

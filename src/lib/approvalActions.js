@@ -31,10 +31,70 @@ export const KIND_LABEL = {
   out_of_office: "ขอออกนอกสถานที่",
 }
 
+/**
+ * ป้ายประเภทของการแจ้งเตือน (ref_type) — รวม KIND_LABEL + ประเภทใหม่จาก 3F / 3Q / 3L
+ * (แยกจาก KIND_LABEL เพราะ Inbox ใช้ KIND_LABEL เป็นรายการแท็บของตัวเอง)
+ */
+export const NOTIFICATION_REF_LABEL = {
+  ...KIND_LABEL,
+  issue_report: "แจ้งแก้ไขข้อมูล",
+  discipline_case: "เรื่องร้องเรียน/ตักเตือน",
+  discipline_action: "การลงโทษทางวินัย",
+  kpi_fiscal_year: "ประเมิน KPI",
+  kpi_evaluation: "ผลประเมิน KPI",
+  salary_cert: "หนังสือรับรองเงินเดือน",
+}
+
 /** Deep link used by notifications → Inbox detail. */
 export function inboxLink(refType, refId) {
   if (refType !== KIND.LEAVE && refType !== KIND.OOO) return "/inbox"
   return `/inbox?type=${refType}&id=${encodeURIComponent(refId)}`
+}
+
+const hrTab = (tab, refId) =>
+  `/hr/dashboard?tab=${tab}${refId != null && refId !== "" ? `&id=${encodeURIComponent(refId)}` : ""}`
+
+/**
+ * ปลายทางเมื่อกดการแจ้งเตือน — ใช้ ref_type + kind ("action" = ต้องดำเนินการ → หน้าผู้พิจารณา,
+ * "info" = แจ้งผล → หน้าของฉัน). แท็บ/หน้าปลายทางอ่าน `id` จาก query เพื่อเปิดรายการนั้น (ถ้ารองรับ)
+ *   issue_report       action → HR แท็บ issues            · info → /my-profile (ประวัติคำร้อง)
+ *   discipline_case    action → HR แท็บ discipline         · info (ผู้แจ้ง) → /my-discipline?view=reports
+ *   discipline_action  action (HR ขั้น 7/8) → HR แท็บ discipline · info (ผู้ถูกลงโทษ) → /my-discipline?view=history
+ *   kpi_fiscal_year    → HR แท็บ kpi
+ *   kpi_evaluation     action (reopen) → HR แท็บ kpi       · info (ผลอนุมัติ) → /my-kpi
+ *   salary_cert        info (ผลอนุมัติ) → /my-salary-cert · can(hr.salaryCert.decide) → HR แท็บ salary-cert
+ *                      · action อื่น (หัวหน้าให้ความเห็น) → /inbox
+ */
+export function notificationLink(n) {
+  const refType = n?.ref_type
+  const refId = n?.ref_id
+  const isAction = n?.kind === "action"
+  switch (refType) {
+    case KIND.LEAVE:
+    case KIND.OOO:
+      return inboxLink(refType, refId)
+    case "issue_report":
+      return isAction ? hrTab("issues", refId) : "/my-profile"
+    case "discipline_case":
+      return isAction ? hrTab("discipline", refId) : "/my-discipline?view=reports"
+    case "discipline_action":
+      // ref_id = action id (ไม่ใช่ case id) → ส่งเป็น &action= ให้ HRDisciplineTab หาเรื่องที่ตรงกัน
+      return isAction
+        ? `/hr/dashboard?tab=discipline${refId != null && refId !== "" ? `&action=${encodeURIComponent(refId)}` : ""}`
+        : `/my-discipline?view=history&id=${encodeURIComponent(refId ?? "")}`
+    case "kpi_fiscal_year":
+      return hrTab("kpi")
+    case "kpi_evaluation":
+      return isAction ? hrTab("kpi", refId) : "/my-kpi"
+    case "salary_cert":
+      // ผู้จัดการ/HR → แท็บพิจารณา · แจ้งผล (info) → ผู้ยื่น · ต้องให้ความเห็น (หัวหน้า) → กล่องงาน
+      // (แจ้งผลอนุมัติ/ไม่อนุมัติส่งถึงผู้ยื่นเท่านั้น → info ไปหน้าของฉันก่อน แม้ผู้ยื่นจะเป็น HR)
+      if (n?.kind === "info") return "/my-salary-cert"
+      if (can("hr.salaryCert.decide")) return hrTab("salary-cert", refId)
+      return "/inbox"
+    default:
+      return "/inbox"
+  }
 }
 
 /**

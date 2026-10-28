@@ -17,14 +17,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3, SlidersHorizontal, Users, X } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronsUpDown, Columns3, FileSpreadsheet, Loader2, SlidersHorizontal, Users, X } from "lucide-react"
 import { badgeCls, cardCls, cx, focusRingCls, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
 import { sortRows, thaiCollator } from "../../lib/tableSort"
 import useAnchoredPanel from "../../lib/useAnchoredPanel"
 import useFocusTrap from "../../lib/useFocusTrap"
 import { roleBadgeTone } from "../../lib/roles"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import { Badge, DataList, EmptyState, Sheet, Skeleton, SkeletonTableRows } from "../ui"
+import { Badge, DataList, EmptyState, Sheet, Skeleton, SkeletonTableRows, toast } from "../ui"
+import { apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
+import { useCan } from "../../lib/permissions"
 import SelectDropdown from "../SelectDropdown"
 import ColumnHeaderMenu, { ColumnFilterControl } from "./ColumnHeaderMenu"
 import { enumOptions, filterSummary, isFilterActive, matchFilter, sortLabels } from "./columnFilters"
@@ -60,9 +63,10 @@ const COLUMNS = [
   { key: "name", label: "ชื่อ-นามสกุล", type: "text", get: (r) => r.full_name, always: true, sticky: "second" },
   { key: "legacy_user_id", label: "รหัสเดิม", type: "text", get: (r) => r.legacy_user_id, optional: true },
   {
-    key: "position", label: "ตำแหน่ง", type: "enum", get: (r) => r.position_title, minW: "min-w-[11rem]",
+    // position_label = ตำแหน่งปัจจุบันรวมชื่อสาขา (position_display) → ชื่อตำแหน่งตามเดิม
+    key: "position", label: "ตำแหน่ง", type: "enum", get: (r) => r.position_label, minW: "min-w-[11rem]",
     render: (r, ctx) =>
-      r.position_title ?? (r.position != null && ctx.positionsLoading
+      r.position_label ?? (r.position != null && ctx.positionsLoading
         ? <Skeleton rounded="rounded-md" className="inline-block h-3.5 w-24 align-middle" />
         : <Muted />),
   },
@@ -165,6 +169,49 @@ for (const c of COLUMNS) {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
+// ทำเนียบพนักงาน (3H) — GET /hr/employees/export?format=xlsx (active staff, sheet "ทำเนียบพนักงาน")
+// ไม่แตะ JSON call ของ useEmployeeRows (ไม่ส่ง format = JSON เหมือนเดิม)
+function rosterFallbackName() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, "0")
+  return `employee_roster_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.xlsx`
+}
+
+function RosterExportButton({ block = false }) {
+  const { can } = useCan()
+  const [busy, setBusy] = useState(false)
+  if (!can("hr.employees.export")) return null
+  const onClick = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const { blob, filename } = await apiDownload("/hr/employees/export?format=xlsx")
+      saveBlob(blob, filename && filename !== "download" ? filename : rosterFallbackName())
+      toast.success("ส่งออกทำเนียบพนักงานแล้ว")
+    } catch (e) {
+      toast.error("ส่งออกทำเนียบไม่สำเร็จ", { description: e?.message || "ลองใหม่อีกครั้ง" })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      aria-busy={busy}
+      className={cx(neutralBtnCls, block ? "w-full !h-11" : "!h-9", "disabled:cursor-wait disabled:opacity-70")}
+    >
+      {busy ? (
+        <Loader2 aria-hidden="true" className="size-4 animate-spin" strokeWidth={1.75} />
+      ) : (
+        <FileSpreadsheet aria-hidden="true" className="size-4" strokeWidth={1.75} />
+      )}
+      {busy ? "กำลังส่งออก…" : "ส่งออกทำเนียบ (Excel)"}
+    </button>
+  )
+}
+
 export default function EmployeeTable({
   rows: rawRows,
   branches,
@@ -265,14 +312,18 @@ export default function EmployeeTable({
             onOpenFilters={() => setSheetOpen(true)}
           />
         ) : (
-          <ColumnsMenu
-            available={available}
-            unavailable={unavailable}
-            hiddenSet={hiddenSet}
-            onToggle={(key) => setHidden(hiddenSet.has(key) ? hidden.filter((k) => k !== key) : [...hidden, key])}
-            onReset={resetHidden}
-          />
+          <div className="flex items-center gap-2">
+            <RosterExportButton />
+            <ColumnsMenu
+              available={available}
+              unavailable={unavailable}
+              hiddenSet={hiddenSet}
+              onToggle={(key) => setHidden(hiddenSet.has(key) ? hidden.filter((k) => k !== key) : [...hidden, key])}
+              onReset={resetHidden}
+            />
+          </div>
         )}
+        {isPhone && <RosterExportButton block />}
       </div>
 
       {/* Active filter chips */}
@@ -318,7 +369,7 @@ export default function EmployeeTable({
               loading={loading}
               keyOf={(r) => r.id}
               title={(r) => r.full_name || `รหัส ${r.id}`}
-              subtitle={(r) => [`รหัส ${r.id}`, r.position_title].filter(Boolean).join(" · ")}
+              subtitle={(r) => [`รหัส ${r.id}`, r.position_label].filter(Boolean).join(" · ")}
               badge={(r) => COLUMN_BY_KEY.active.render(r, ctx)}
               fields={(r) =>
                 visible

@@ -6,6 +6,8 @@
 // Deep link (?type=leave|out_of_office&id=N) from NotificationBell opens the
 // detail after re-checking the request's *current* status (notifications can
 // be stale). One source failing (e.g. 403 for the role) never hides the other.
+// + 3M หนังสือรับรองเงินเดือน: คิวความเห็นผู้บังคับบัญชา (SalaryCertSupervisorQueue) — ทุก role
+//   (หัวหน้าตามสายบังคับบัญชา ไม่ผูกกับ role) จึงวางนอกเงื่อนไข approver
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import Portal from "../../components/Portal"
@@ -40,6 +42,7 @@ import {
 } from "../../lib/approvalActions"
 import useModalDismiss from "../../lib/useModalDismiss"
 import PageTitle from "../../components/PageTitle"
+import SalaryCertSupervisorQueue from "../../components/hr/SalaryCertSupervisorQueue"
 import { keepBackState, useDrill } from "../../lib/drill"
 
 const cardCls =
@@ -385,7 +388,8 @@ const TABS = [
 ]
 
 // ─── สินเชื่อกองทุนฯ (3K) — คิวพิจารณาอยู่ที่ /hr/dashboard?tab=loans ─────────
-// หัวหน้าที่ไม่มีเมนู HR อื่นก็เห็นทางเข้าจากกล่องงานนี้ (GET /hr/loans/queue)
+// หัวหน้าแผนกการเงิน / ผู้จัดการ / ผช.ผจก. เห็นทางเข้าจากกล่องงานนี้ (GET /hr/loans/queue — finance-first, PR #50)
+// หัวหน้าสาขา/แผนกอื่นไม่มีขั้นพิจารณาแล้ว: ไม่ผ่าน hr.loans.queue และคิวว่างก็ไม่แสดง
 function LoanQueueNotice() {
   const { drillTo } = useDrill()
   const [count, setCount] = useState(null)
@@ -428,6 +432,7 @@ export default function Inbox() {
   const [loading, setLoading] = useState(approver)
   const [tab, setTab] = useState("all")
   const [banner, setBanner] = useState(null) // {tone, text}
+  const [certQueueCount, setCertQueueCount] = useState(0) // คิวความเห็นหนังสือรับรองเงินเดือน
   const [detail, setDetail] = useState(null) // {kind, id, loading, item?, error?, fromLink}
   const [decision, setDecision] = useState(null) // {item, mode}
 
@@ -574,6 +579,9 @@ export default function Inbox() {
 
       {can("hr.loans.queue", roleId) && <LoanQueueNotice />}
 
+      {/* หนังสือรับรองเงินเดือน — หัวหน้าให้ความเห็น (ทุกคนเรียกได้; ไม่ใช่หัวหน้า = คิวว่าง ไม่แสดง) */}
+      <SalaryCertSupervisorQueue onCount={setCertQueueCount} />
+
       {banner && (
         <Notice tone={banner.tone} onDismiss={() => setBanner(null)}>
           {banner.text}
@@ -581,7 +589,7 @@ export default function Inbox() {
       )}
 
       {!approver ? (
-        <div className={cardCls}>
+        certQueueCount > 0 ? null : <div className={cardCls}>
           <EmptyState
             icon={<IconInbox className="size-12" />}
             title="ไม่มีงานที่ต้องอนุมัติ"

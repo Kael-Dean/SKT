@@ -35,7 +35,7 @@ export default function SalarySummaryCard({
   onGoToPositions,
   highlight = "off",  // "just updated" cue: "on" | "fading" (bg eases back over 1.2s) | "off"
 }) {
-  const { detail, loading, error, retry, positionId, position, tierId, currentLevel } = info
+  const { detail, loading, error, retry, positionId, position, positionLabel, tierId, currentLevel } = info
   const salary = useSalaryLookup(tierId, currentLevel)
 
   // transition only while fading, so theme switches and loads stay instant
@@ -78,7 +78,10 @@ export default function SalarySummaryCard({
   const person = detail?.first_name || detail?.last_name ? detail : emp
   const name = employeeName(person) || employeeName(emp)
   const id = emp?.id ?? detail?.id
+  // ชื่อตำแหน่งในรายการ (ไม่มีชื่อสาขา) — ใช้กับข้อความเรื่องกระบอก ซึ่งตั้งค่าที่ตัวตำแหน่ง
   const positionTitle = position?.title ?? (positionId != null ? `ตำแหน่ง #${positionId}` : null)
+  // ตำแหน่งปัจจุบันของคน (position_display รวมชื่อสาขา) — ใช้ในหัวการ์ด
+  const currentLabel = positionLabel ?? positionTitle
 
   return (
     <section className={surface} aria-labelledby="salary-summary-name">
@@ -94,7 +97,7 @@ export default function SalarySummaryCard({
             {name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-            <span className="tabular-nums">รหัส {id}</span> · {positionTitle ?? "ยังไม่มีตำแหน่ง"}
+            <span className="tabular-nums">รหัส {id}</span> · {currentLabel ?? "ยังไม่มีตำแหน่ง"}
           </p>
         </div>
       </div>

@@ -5,10 +5,11 @@
 //   LoanDetailSheet    รายละเอียดสัญญา + ตารางผ่อน (GET /hr/loans/{id}/schedule)
 //                      + ปุ่มตามขั้น + PDF หนังสือกู้/ค้ำ (active/closed) + schedule-pdf
 //                      + คำนวณ/บันทึกปิดบัญชี (GET/POST /hr/loans/{id}/payoff — 101/105)
-//   LoanDecisionSheet  การพิจารณาตามขั้น:
-//                        pending             → POST supervisor-endorse · supervisor-reject {reason}
-//                        supervisor_endorsed → PATCH hr-approve (ไม่มี body) · hr-reject {reason}
-//                        manager_forwarded   → PATCH finance-confirm {มติคณะทำงานฯ} · finance-reject {reason, …}
+//   LoanDecisionSheet  การพิจารณาตามขั้น (backend PR #50 finance-first — ปุ่มแสดงเมื่อสัญญาอยู่ในคิวของผู้ใช้):
+//                        pending           → POST finance-check {note?} · finance-check-reject {reason}
+//                                            + สิทธิ์กู้ของผู้กู้ (GET /hr/loans/eligibility?user_id=)
+//                        finance_checked   → PATCH hr-approve {} · hr-reject {reason}
+//                        manager_forwarded → PATCH finance-confirm {มติคณะทำงานฯ + disbursed_on} · finance-reject {reason, …}
 //   LoanSettingsSheet  GET/PATCH /hr/loans/settings (101/105) — ส่งเฉพาะช่องที่แก้
 //
 // error ทุกตัวแสดง `detail` ของ backend ตามที่ส่งมา (403 = ไม่ใช่ผู้พิจารณาขั้นนี้)
@@ -18,6 +19,7 @@ import { FileText } from "lucide-react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
 import { saveBlob } from "../../../lib/reportFormat"
+import { fmtDateTimeTh } from "../../../lib/approvalActions"
 import {
   cx, baseField, labelCls, helpTextCls, errorTextCls, primaryBtnCls, dangerBtnCls, neutralBtnCls,
 } from "../../../lib/styles"
@@ -25,7 +27,7 @@ import { Badge, ConfirmDialog, ErrorState, Sheet, Skeleton, toast } from "../../
 import ThaiDateField from "../../../components/ThaiDateField"
 import { can } from "../../../lib/permissions"
 import {
-  LOAN_PURPOSE_LABEL, PAYOFF_REASONS, asList, borrowerName, guarantorText, hasContract,
+  LOAN_PURPOSE_LABEL, PAYOFF_REASONS, asList, borrowerName, financeCheckerName, guarantorText, hasContract,
   loanStatusLabel, loanStatusTone, money, stageActions, thaiDate, todayIso, warningList,
 } from "../../../lib/loans"
 
@@ -43,18 +45,19 @@ const numOrNull = (v) => {
   return Number.isFinite(n) ? n : NaN
 }
 
+// note: ช่องหมายเหตุไม่บังคับ (ส่งเป็น note) · reason: เหตุผลบังคับ · eligibility: แสดงสิทธิ์กู้ของผู้กู้ประกอบการตรวจ
 const DECISIONS = {
-  endorse: {
-    title: "เห็นชอบคำขอกู้", method: "POST", ep: "supervisor-endorse", confirm: "เห็นชอบ ส่งผู้จัดการ",
-    note: "คำขอจะไปรอผู้จัดการพิจารณาส่งเข้าคณะทำงานกองทุนฯ", done: "เห็นชอบแล้ว ส่งต่อผู้จัดการ",
+  "finance-check": {
+    title: "ตรวจสอบคำขอกู้", method: "POST", ep: "finance-check", note: true, eligibility: true,
+    confirm: "ตรวจสอบแล้ว ส่งผู้จัดการ", done: "ตรวจสอบแล้ว ส่งต่อผู้จัดการ",
   },
-  "supervisor-reject": {
-    title: "ไม่เห็นชอบคำขอกู้", method: "POST", ep: "supervisor-reject", reason: true, danger: true,
-    confirm: "ไม่เห็นชอบ", done: "บันทึกไม่เห็นชอบแล้ว",
+  "finance-check-reject": {
+    title: "ไม่ผ่านการตรวจสอบ", method: "POST", ep: "finance-check-reject", reason: true, eligibility: true, danger: true,
+    confirm: "ไม่ผ่านการตรวจสอบ", done: "บันทึกไม่ผ่านการตรวจสอบแล้ว",
   },
   forward: {
-    title: "ส่งเรื่องเข้าคณะทำงานกองทุนฯ", method: "PATCH", ep: "hr-approve", confirm: "ส่งคณะทำงานฯ",
-    note: "คณะทำงานกองทุนฯ จะพิจารณา แล้วผู้จัดการหรือหัวหน้าฝ่ายตรวจสอบบันทึกมติในระบบ", done: "ส่งเรื่องเข้าคณะทำงานกองทุนฯ แล้ว",
+    title: "เสนอคณะทำงานกองทุนฯ", method: "PATCH", ep: "hr-approve", emptyBody: true, confirm: "เสนอคณะทำงานกองทุนฯ",
+    description: "คณะทำงานกองทุนฯ จะพิจารณาในการประชุม แล้วผู้จัดการบันทึกมติและวันที่จ่ายเงินในระบบ", done: "เสนอคณะทำงานกองทุนฯ แล้ว",
   },
   "hr-reject": {
     title: "ไม่อนุมัติคำขอกู้", method: "PATCH", ep: "hr-reject", reason: true, danger: true,
@@ -86,11 +89,97 @@ function LoanSummaryLine({ loan }) {
   )
 }
 
-/** การพิจารณาตามขั้น — endorse / forward ไม่มี body ใช้ ConfirmDialog, ที่เหลือเป็นฟอร์มใน Sheet */
+/** รหัสผู้กู้ของสัญญา (ใช้ดึงสิทธิ์กู้) */
+const borrowerId = (loan) => loan?.user_id ?? loan?.borrower_id ?? loan?.borrower?.id ?? null
+
+/** อายุงาน: service_months (แบบเดียวกับหน้าพนักงาน) หรือรูปแบบอื่นที่ backend อาจส่ง */
+function tenureText(d) {
+  const m = d?.service_months ?? d?.tenure_months
+  if (m != null && m !== "") {
+    const n = Number(m)
+    if (!Number.isFinite(n)) return String(m)
+    const y = Math.floor(n / 12)
+    const r = n % 12
+    return y > 0 ? `${y} ปี${r ? ` ${r} เดือน` : ""} (${n} เดือน)` : `${n} เดือน`
+  }
+  if (d?.service_years != null) return `${d.service_years} ปี`
+  return d?.tenure_label || d?.tenure || "—"
+}
+
+/**
+ * สิทธิ์กู้ของผู้กู้ — GET /hr/loans/eligibility?user_id= (ข้อมูลที่หัวหน้าแผนกการเงินใช้ตรวจ)
+ * key แบบเดียวกับ /personnel/me/loans/eligibility (+ ชื่อสำรองเผื่อ backend ตั้งต่าง)
+ */
+export function LoanEligibilityPanel({ userId }) {
+  const uid = useId()
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(userId != null)
+  const [error, setError] = useState("")
+
+  const load = useCallback(async () => {
+    if (userId == null) return
+    setLoading(true)
+    setError("")
+    try {
+      setData(await apiAuth(`/hr/loans/eligibility?user_id=${encodeURIComponent(userId)}`))
+    } catch (err) {
+      setData(null)
+      setError(errText(err, "โหลดสิทธิ์กู้ไม่สำเร็จ"))
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+  useEffect(() => { load() }, [load])
+
+  if (userId == null) return null
+  const warnings = warningList(data)
+  const incomeCap = data?.income_cap ?? data?.salary_cap
+  const salary = data?.salary ?? data?.base_salary
+  return (
+    <section aria-labelledby={`${uid}-h`} aria-busy={loading || undefined} className="space-y-3 rounded-xl bg-gray-50 p-4 dark:bg-white/[.03]">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 id={`${uid}-h`} className="text-sm font-semibold text-gray-900 dark:text-gray-100">สิทธิ์กู้ของผู้กู้</h3>
+        {data && (
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            วงเงินสูงสุด <strong className="text-base tabular-nums text-indigo-700 dark:text-indigo-300">{money(data.max_amount)}</strong> บาท
+          </p>
+        )}
+      </div>
+      {loading ? (
+        <Skeleton className="h-20" rounded="rounded-xl" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : data ? (
+        <>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+            <Info label="อายุงาน">{tenureText(data)}</Info>
+            <Info label="เพดานตามอายุงาน"><span className="tabular-nums">{money(data.service_cap)}</span></Info>
+            <Info label="เพดานตามเงินเดือน">
+              <span className="tabular-nums">{money(incomeCap)}</span>
+              {data.multiple != null && salary != null && (
+                <span className="block text-xs font-normal text-gray-500 dark:text-gray-400 tabular-nums">{money(salary)} × {data.multiple}</span>
+              )}
+            </Info>
+            <Info label="เงินได้สุทธิล่าสุด"><span className="tabular-nums">{money(data.latest_net_pay)}</span></Info>
+            <Info label="วันเกษียณ">{thaiDate(data.retirement_date, { long: true })}</Info>
+          </dl>
+          {warnings.length > 0 && (
+            <ul className="space-y-1 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+              {warnings.map((w) => <li key={w}>{w}</li>)}
+            </ul>
+          )}
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+/** การพิจารณาตามขั้น — forward ไม่มีช่องกรอกใช้ ConfirmDialog, ที่เหลือเป็นฟอร์มใน Sheet */
 export function LoanDecisionSheet({ loan, mode, committeeChair, onClose, onDone }) {
   const cfg = DECISIONS[mode]
   const uid = useId()
   const [reason, setReason] = useState("")
+  const [note, setNote] = useState("")
   const [committee, setCommittee] = useState({
     committee_set_no: "", committee_meeting_no: "", committee_meeting_date: "",
     committee_chair: "", disbursed_on: todayIso(), monthly_principal: "",
@@ -109,6 +198,7 @@ export function LoanDecisionSheet({ loan, mode, committeeChair, onClose, onDone 
       if (!reason.trim()) e.reason = "ระบุเหตุผล"
       body.reason = reason.trim()
     }
+    if (cfg.note && note.trim()) body.note = note.trim()
     if (cfg.committee) {
       const meetingNo = numOrNull(committee.committee_meeting_no)
       if (cfg.committee === "required") {
@@ -135,14 +225,17 @@ export function LoanDecisionSheet({ loan, mode, committeeChair, onClose, onDone 
       }
     }
     setErrors(e)
-    if (Object.keys(e).length) return
+    if (Object.keys(e).length) {
+      if (e.reason) document.getElementById(`${uid}-reason`)?.focus()
+      return
+    }
 
     setBusy(true)
     setServerError("")
     try {
       const res = await apiAuth(`/hr/loans/${loan.id}/${cfg.ep}`, {
         method: cfg.method,
-        ...(cfg.reason || cfg.committee ? { body } : {}),
+        ...(cfg.reason || cfg.committee || cfg.note || cfg.emptyBody ? { body } : {}),
       })
       const extra = res?.first_due_date ? `งวดแรก ${thaiDate(res.first_due_date, { long: true })} · งวดสุดท้าย ${thaiDate(res.last_due_date, { long: true })}` : undefined
       toast.success(`${borrowerName(loan)}: ${cfg.done}`, { description: extra })
@@ -154,12 +247,12 @@ export function LoanDecisionSheet({ loan, mode, committeeChair, onClose, onDone 
     }
   }
 
-  if (!cfg.reason && !cfg.committee) {
+  if (!cfg.reason && !cfg.committee && !cfg.note) {
     return (
       <ConfirmDialog
         open
         title={cfg.title}
-        description={cfg.note}
+        description={cfg.description}
         confirmLabel={cfg.confirm}
         tone="primary"
         loading={busy}
@@ -208,6 +301,14 @@ export function LoanDecisionSheet({ loan, mode, committeeChair, onClose, onDone 
     >
       <div className="space-y-4">
         <LoanSummaryLine loan={loan} />
+        {cfg.eligibility && <LoanEligibilityPanel userId={borrowerId(loan)} />}
+        {cfg.note && (
+          <div>
+            <label htmlFor={`${uid}-note`} className={labelCls}>หมายเหตุ / เอกสารที่ได้รับ</label>
+            <textarea id={`${uid}-note`} rows={3} value={note} onChange={(e) => setNote(e.target.value)}
+              className={cx(fieldCls, "resize-none")} placeholder="ไม่บังคับ" />
+          </div>
+        )}
         {cfg.committee && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {cfg.committee === "required" && field("committee_set_no", "คณะทำงานชุดที่")}
@@ -215,7 +316,7 @@ export function LoanDecisionSheet({ loan, mode, committeeChair, onClose, onDone 
             {field("committee_meeting_date", "วันที่ประชุม", { required: cfg.committee === "required", type: "date" })}
             {cfg.committee === "required" && (
               <>
-                {field("disbursed_on", "วันที่จ่ายเงินกู้", { type: "date", hint: "เว้นว่าง = วันนี้" })}
+                {field("disbursed_on", "วันที่จ่ายเงิน (เงินสด)", { type: "date", hint: "ไม่บังคับ · ค่าเริ่มต้นเป็นวันนี้" })}
                 <div className="sm:col-span-2">
                   {field("committee_chair", "ประธานคณะทำงาน", { type: "text", placeholder: committeeChair || "ตามที่ตั้งค่าไว้", hint: "เว้นว่าง = ชื่อในการตั้งค่ากองทุน" })}
                 </div>
@@ -438,9 +539,13 @@ function PayoffPanel({ loan, onRecorded }) {
 
 /** รายละเอียดสัญญา — loan = แถวจากรายการ (ข้อมูลตารางผ่อนโหลดเพิ่ม) */
 export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged }) {
-  const canSchedule = can("hr.loans.detail")
+  // หนังสือกู้ PDF = hr.loans.detail · ตารางผ่อน (GET /schedule, schedule-pdf) ต้อง loan.view (hr.loans.schedule)
+  // — code อื่นใน hr.loans.detail (loan.queue, report.hr.loan_schedule ฯลฯ) ได้ 403 จึงไม่ดึง/ไม่แสดงเลย
+  const canDocs = can("hr.loans.detail")
+  const canSchedule = can("hr.loans.schedule")
   const [schedule, setSchedule] = useState(null)
   const [schedErr, setSchedErr] = useState("")
+  const [schedForbidden, setSchedForbidden] = useState(false)
   const [loadingSched, setLoadingSched] = useState(canSchedule)
 
   const loadSchedule = useCallback(async () => {
@@ -450,7 +555,9 @@ export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged 
     try {
       setSchedule(await apiAuth(`/hr/loans/${loan.id}/schedule`))
     } catch (err) {
-      setSchedErr(errText(err, "โหลดตารางผ่อนไม่สำเร็จ"))
+      // สิทธิ์ใน token ไม่ตรงกับ backend → ซ่อนส่วนตารางผ่อนเงียบ ๆ ไม่ขึ้น error
+      if (err?.status === 403) setSchedForbidden(true)
+      else setSchedErr(errText(err, "โหลดตารางผ่อนไม่สำเร็จ"))
     } finally {
       setLoadingSched(false)
     }
@@ -464,6 +571,7 @@ export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged 
   const actions = stageActions(loan, { fromQueue })
   const warnings = warningList(info)
   const reasonText = info.rejected_reason || info.reject_reason || info.rejection_reason
+  const checker = financeCheckerName(info)
 
   return (
     <Sheet
@@ -505,9 +613,16 @@ export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged 
           <Info label="ดอกเบี้ยรวม (ประมาณ)"><span className="tabular-nums">{money(info.total_interest ?? info.total_interest_estimate)}</span></Info>
           <Info label="ผ่อนนอกกองทุน/เดือน"><span className="tabular-nums">{money(info.external_deductions)}</span></Info>
           <Info label="วันที่ยื่น">{thaiDate(info.created_at)}</Info>
-          <Info label="วันที่จ่ายเงินกู้">{thaiDate(info.disbursed_on)}</Info>
+          <Info label="วันที่จ่ายเงิน (เงินสด)">{thaiDate(info.disbursed_on)}</Info>
           <Info label="งวดแรก / งวดสุดท้าย">{info.first_due_date ? `${thaiDate(info.first_due_date)} – ${thaiDate(info.last_due_date)}` : "—"}</Info>
           <Info label="ผู้ค้ำประกัน" className="col-span-2 sm:col-span-3">{guarantorText(info)}</Info>
+          {(checker || info.finance_checked_at) && (
+            <Info label="ตรวจสอบโดยการเงิน" className="col-span-2 sm:col-span-3">
+              {checker || "—"}
+              {info.finance_checked_at && <span className="font-normal text-gray-600 dark:text-gray-300"> · <span className="tabular-nums">{fmtDateTimeTh(info.finance_checked_at)}</span></span>}
+              {info.finance_note && <span className="mt-0.5 block font-normal text-gray-700 dark:text-gray-300">{info.finance_note}</span>}
+            </Info>
+          )}
           {info.committee_meeting_no != null && (
             <Info label="มติคณะทำงานกองทุนฯ" className="col-span-2 sm:col-span-3">
               {info.committee_set_no != null && `ชุดที่ ${info.committee_set_no} `}ครั้งที่ {info.committee_meeting_no}
@@ -518,18 +633,20 @@ export function LoanDetailSheet({ loan, fromQueue, onClose, onAction, onChanged 
           {info.purpose && <Info label="รายละเอียดการกู้" className="col-span-2 sm:col-span-3"><span className="font-normal">{info.purpose}</span></Info>}
         </dl>
 
-        {canSchedule && (
+        {loan.status === "pending" && fromQueue && <LoanEligibilityPanel userId={borrowerId(loan)} />}
+
+        {((canDocs && hasContract(loan)) || (canSchedule && !schedForbidden && rows.length > 0)) && (
           <div className="flex flex-wrap gap-2">
-            {hasContract(loan) && (
+            {canDocs && hasContract(loan) && (
               <LoanPdfButton path={`/hr/loans/${loan.id}/contract-pdf`} label="หนังสือกู้ + ค้ำประกัน" fallbackName={`loan_contract_${loan.id}.pdf`} />
             )}
-            {rows.length > 0 && (
+            {canSchedule && !schedForbidden && rows.length > 0 && (
               <LoanPdfButton path={`/hr/loans/${loan.id}/schedule-pdf`} label="ตารางผ่อน PDF" fallbackName={`loan_schedule_${loan.id}.pdf`} />
             )}
           </div>
         )}
 
-        {canSchedule && (
+        {canSchedule && !schedForbidden && (
           <section aria-label="ตารางผ่อนชำระ" className="space-y-2">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">ตารางผ่อนชำระ</h3>
             {loadingSched ? (

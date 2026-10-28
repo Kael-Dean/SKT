@@ -19,10 +19,12 @@ import {
 } from "../../lib/styles"
 import { Badge, EmptyState, ErrorState, Skeleton, Tabs, panelId, tabId } from "../../components/ui"
 import {
-  LOAN_PURPOSE_LABEL, LOAN_PURPOSE_OPTIONS, asList, guarantorText, loanStatusLabel, loanStatusTone,
+  LOAN_PAPERS_HINT, LOAN_PURPOSE_LABEL, LOAN_PURPOSE_OPTIONS, asList, guarantorText, loanStatusLabel, loanStatusTone,
   money, thaiDate, warningList,
 } from "../../lib/loans"
 import PageTitle from "../../components/PageTitle"
+import FormApplicantHeader from "../../components/FormApplicantHeader"
+import SelectDropdown from "../../components/SelectDropdown"
 
 const MAX_MONTHS = 180
 const PREVIEW_DELAY = 450
@@ -54,6 +56,15 @@ function Warnings({ items, className }) {
     <ul role="status" className={cx("space-y-1 rounded-xl bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900 dark:bg-amber-500/10 dark:text-amber-200", className)}>
       {items.map((w) => <li key={w}>{w}</li>)}
     </ul>
+  )
+}
+
+/** คำขอที่รอหัวหน้าแผนกการเงินตรวจสอบ — บอกผู้กู้ให้นำเอกสารมาส่ง (3K finance-first) */
+function PapersHint({ className }) {
+  return (
+    <p role="status" className={cx("rounded-xl bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-900 ring-1 ring-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:ring-sky-500/30", className)}>
+      {LOAN_PAPERS_HINT}
+    </p>
   )
 }
 
@@ -131,18 +142,24 @@ function PreviewPanel({ preview, loading, error, ready }) {
                 <th scope="col" className="py-1.5 pr-3 text-left font-medium">วันชำระ</th>
                 <th scope="col" className="py-1.5 px-3 text-right font-medium">เงินต้น</th>
                 <th scope="col" className="py-1.5 px-3 text-right font-medium">ดอกเบี้ย</th>
-                <th scope="col" className="py-1.5 pl-3 text-right font-medium">ค่างวด</th>
+                <th scope="col" className="py-1.5 px-3 text-right font-medium">ค่างวด</th>
+                <th scope="col" className="py-1.5 pl-3 text-right font-medium">ยอดคงเหลือ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200/70 dark:divide-line">
-              {visible.map((r, i) => (
-                <tr key={r.id ?? i}>
-                  <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">{r.due_date ? thaiDate(r.due_date) : `งวด ${i + 1}`}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.principal)}</td>
-                  <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.interest)}</td>
-                  <td className="py-1.5 pl-3 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">{money(r.installment_amount)}</td>
-                </tr>
-              ))}
+              {visible.map((r, i) => {
+                // preview rows: { no, installment, balance_after } · saved schedule rows: { instalment_no, installment_amount, remaining_balance }
+                const no = r.no ?? r.instalment_no ?? i + 1
+                return (
+                  <tr key={r.id ?? no}>
+                    <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">{r.due_date ? thaiDate(r.due_date) : `งวด ${no}`}</td>
+                    <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.principal)}</td>
+                    <td className="py-1.5 px-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(r.interest)}</td>
+                    <td className="py-1.5 px-3 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">{money(r.installment ?? r.installment_amount)}</td>
+                    <td className="py-1.5 pl-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{money(r.balance_after ?? r.remaining_balance)}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
           {rows.length > 3 && (
@@ -180,6 +197,7 @@ function HistoryCard({ loan }) {
         <Stat label={loan.disbursed_on ? "วันที่ได้รับเงิน" : "วันที่ยื่น"}>{thaiDate(loan.disbursed_on || loan.created_at)}</Stat>
       </dl>
       <p className="text-xs text-gray-500 dark:text-gray-400">ผู้ค้ำประกัน: {guarantorText(loan)}</p>
+      {loan.status === "pending" && <PapersHint />}
       {loan.status === "rejected" && reason && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-500/10 dark:text-red-200">เหตุผล: {reason}</p>
       )}
@@ -230,6 +248,7 @@ export default function LoanRequest() {
   const [elig, setElig] = useState(null)
   const [eligLoading, setEligLoading] = useState(true)
   const [eligErr, setEligErr] = useState("")
+  const [loanUnavailable, setLoanUnavailable] = useState(false)
   const [myId, setMyId] = useState(null)
 
   const [form, setForm] = useState(EMPTY_FORM)
@@ -249,9 +268,14 @@ export default function LoanRequest() {
   const loadElig = useCallback(() => {
     setEligLoading(true)
     setEligErr("")
+    setLoanUnavailable(false)
     apiAuth("/personnel/me/loans/eligibility")
       .then(setElig)
-      .catch((e) => setEligErr(apiDetail(e) || "ลองใหม่อีกครั้ง"))
+      .catch((e) => {
+        // 404 = backend ที่ต่ออยู่ยังไม่มีระบบสินเชื่อ 3K (เช่น production ยังไม่ deploy) — ไม่ให้ยื่นเข้า flow รุ่นเก่า
+        if (e?.status === 404) setLoanUnavailable(true)
+        else setEligErr(apiDetail(e) || "ลองใหม่อีกครั้ง")
+      })
       .finally(() => setEligLoading(false))
   }, [])
 
@@ -300,6 +324,8 @@ export default function LoanRequest() {
   }, [previewQuery])
 
   const maxAmount = elig?.max_amount != null ? Number(elig.max_amount) : null
+  // ไม่มีวงเงินให้กู้ (max_amount ≤ 0) → ปิดปุ่มยื่น กันกรอกฟอร์มเสียเปล่า
+  const noLimit = maxAmount != null && Number.isFinite(maxAmount) && maxAmount <= 0
 
   const validate = () => {
     const e = {}
@@ -335,6 +361,7 @@ export default function LoanRequest() {
   const handleSubmit = async (ev) => {
     ev.preventDefault()
     setFormError("")
+    if (noLimit) return
     if (!validate()) return
     setSubmitting(true)
     try {
@@ -402,6 +429,7 @@ export default function LoanRequest() {
             <Stat label="งวดสุดท้าย (ประมาณ)">{thaiDate(result.last_due_date, { long: true })}</Stat>
             <Stat label="ดอกเบี้ยรวมโดยประมาณ">{money(result.total_interest_estimate)}</Stat>
           </dl>
+          <PapersHint />
           <Warnings items={warns} />
           <div className="grid grid-cols-2 gap-3">
             <button type="button" onClick={resetForm} className={neutralBtnCls}>ยื่นคำขอใหม่</button>
@@ -421,7 +449,15 @@ export default function LoanRequest() {
       <Tabs items={tabs} value={tab} onChange={setTab} ariaLabel="ขอกู้เงิน" idBase={ID_BASE} />
 
       <div role="tabpanel" id={panelId(ID_BASE, tab)} aria-labelledby={tabId(ID_BASE, tab)} tabIndex={0} className="space-y-5 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40">
-        {tab === "form" && (
+        {tab === "form" && loanUnavailable && (
+          <div className={cardCls}>
+            <EmptyState
+              title="ยังยื่นคำขอกู้ผ่านระบบไม่ได้"
+              description="ระบบสินเชื่อกองทุนสงเคราะห์ยังไม่เปิดใช้งาน กรุณาติดต่อฝ่ายบุคคลหรือหัวหน้าแผนกการเงิน"
+            />
+          </div>
+        )}
+        {tab === "form" && !loanUnavailable && (
           <>
             <div data-tour="loan">
               <EligibilityCard data={elig} loading={eligLoading} error={eligErr} onRetry={loadElig} />
@@ -430,15 +466,24 @@ export default function LoanRequest() {
             {formError && <ErrorState message={formError} />}
 
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {/* หัวฟอร์ม (วันที่ / ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจาก form-defaults — แสดงอย่างเดียว ไม่ส่งไป backend */}
+              <FormApplicantHeader />
+
               <section aria-labelledby={`${uid}-purpose-h`} className={cx(cardCls, "space-y-3 p-5")}>
                 <h2 id={`${uid}-purpose-h`} className="text-base font-semibold text-gray-900 dark:text-gray-100">วัตถุประสงค์</h2>
                 <div>
                   <label htmlFor={`${uid}-purpose_code`} className={labelCls}>ประเภทการกู้{req}</label>
-                  <select {...fieldProps("purpose_code")} value={form.purpose_code} onChange={(e) => setField("purpose_code", e.target.value)}
-                    className={cx(fieldCls, errors.purpose_code && errBorder)}>
-                    <option value="">เลือกวัตถุประสงค์</option>
-                    {LOAN_PURPOSE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  <SelectDropdown
+                    id={`${uid}-purpose_code`}
+                    size="sm"
+                    required
+                    value={form.purpose_code}
+                    onChange={(v) => setField("purpose_code", v)}
+                    placeholder="เลือกวัตถุประสงค์"
+                    options={LOAN_PURPOSE_OPTIONS}
+                    error={!!errors.purpose_code}
+                    ariaDescribedby={errors.purpose_code ? `${uid}-purpose_code-err` : undefined}
+                  />
                   {errMsg("purpose_code")}
                 </div>
                 <div>
@@ -518,7 +563,13 @@ export default function LoanRequest() {
                 </div>
               </section>
 
-              <button type="submit" disabled={submitting} className={cx(primaryBtnCls, "w-full !h-12")}>
+              {noLimit && (
+                <p id={`${uid}-submit-reason`} className="text-center text-sm text-gray-600 dark:text-gray-300">
+                  ยื่นคำขอไม่ได้ เพราะตอนนี้ยังไม่มีวงเงินให้กู้
+                </p>
+              )}
+              <button type="submit" disabled={submitting || noLimit} aria-describedby={noLimit ? `${uid}-submit-reason` : undefined}
+                className={cx(primaryBtnCls, "w-full !h-12")}>
                 {submitting ? "กำลังยื่นคำขอ…" : "ยื่นคำขอกู้"}
               </button>
             </form>

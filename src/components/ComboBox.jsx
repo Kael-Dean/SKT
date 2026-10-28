@@ -95,6 +95,9 @@ const ComboBox = forwardRef(function ComboBox(
     ariaDescribedBy, // id(s) of the field's error/help text → aria-describedby on the trigger
     title,
     className = "",
+    panelMinW = 0,      // desktop panel may grow wider than the trigger (long labels)
+    panelMaxW = 512,
+    wrapLabels = false, // wrap option labels instead of truncating them
   },
   ref,
 ) {
@@ -117,7 +120,7 @@ const ComboBox = forwardRef(function ComboBox(
   const next = onEnterNext ?? onMoveNext
   const hasSearch = searchable === true || (searchable === "auto" && options.length >= AUTO_SEARCH_MIN)
 
-  const { style: panelStyle } = useAnchoredPanel(triggerRef, { open: open && !isPhone, minW: 0, maxH: 288 })
+  const { style: panelStyle } = useAnchoredPanel(triggerRef, { open: open && !isPhone, minW: panelMinW, maxW: panelMaxW, maxH: 288 })
 
   // Merge the internal trigger ref with the caller's `buttonRef` (Enter chains).
   const setTrigger = useCallback(
@@ -380,7 +383,7 @@ const ComboBox = forwardRef(function ComboBox(
         )}
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate">{label}</span>
+          <span className={cx("block", wrapLabels ? "break-words" : "truncate")}>{label}</span>
           {sub && <span className="mt-0.5 block truncate text-sm font-normal text-slate-500 dark:text-slate-400">{sub}</span>}
         </span>
         {isChosen && <Check aria-hidden="true" className="size-5 shrink-0 text-indigo-600 dark:text-indigo-400" strokeWidth={2} />}

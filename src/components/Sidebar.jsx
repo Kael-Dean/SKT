@@ -4,8 +4,11 @@ import { useNavigate, useLocation } from "react-router-dom"
 import { useEffect, useMemo, useRef } from "react"
 import {
   ArrowRightLeft,
+  ClipboardCheck,
   CreditCard,
+  FileBadge,
   FileText,
+  HeartHandshake,
   House,
   Inbox,
   Lock,
@@ -15,6 +18,7 @@ import {
   PiggyBank,
   ReceiptText,
   Moon,
+  ShieldAlert,
   ShieldCheck,
   Sun,
   Target,
@@ -54,6 +58,10 @@ const SELF_SERVICE_MENUS = [
   { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request", gated: true },
   { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request", gated: true },
   { label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply", gated: true },
+  { label: "ขอหนังสือรับรองเงินเดือน", icon: FileBadge,  tone: "teal",    path: "/my-salary-cert", perm: "self.salaryCert.request", gated: true },
+  { label: "สวัสดิการของฉัน",      icon: HeartHandshake, tone: "rose",    path: "/my-welfare",    perm: "self.welfare.view", gated: true },
+  { label: "ผลการประเมินของฉัน",   icon: ClipboardCheck, tone: "indigo",  path: "/my-kpi",        perm: "self.kpi.result", gated: true },
+  { label: "แจ้งเรื่อง / ประวัติการตักเตือน", icon: ShieldAlert, tone: "amber", path: "/my-discipline", anyOf: ["self.discipline.report", "self.discipline.history"], gated: true },
   // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
   { label: "ประเมิน KPI / เลื่อนขั้น", icon: Target,     tone: "indigo",  path: "/hr/kpi",       perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },
 ]

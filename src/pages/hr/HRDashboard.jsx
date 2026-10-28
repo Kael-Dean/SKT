@@ -1,8 +1,8 @@
 // src/pages/hr/HRDashboard.jsx
-// HR Dashboard (งานบุคคล) — stat strip + grouped left rail (20 sections, 6 groups)
+// HR Dashboard (งานบุคคล) — stat strip + grouped left rail (26 sections, 7 groups)
 // + Ctrl/⌘K quick switcher. Everything (rail, <lg menu, switcher, section header,
 // document.title) reads from the single HR_NAV config below.
-// URL contract: ?tab=<key> (push on navigation, invalid → replace to employees);
+// URL contract: ?tab=<key> (push on navigation, invalid → replace to the first allowed tab);
 // sub-tabs inside sections write &sub=<value> with replace (see lib/useSubTab).
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
@@ -17,15 +17,21 @@ import {
   BriefcaseBusiness,
   CalendarClock,
   CalendarDays,
+  CalendarRange,
+  ChartColumn,
   ClipboardList,
   Coins,
   FileText,
+  Gavel,
   HandCoins,
+  HeartHandshake,
   History,
+  LayoutDashboard,
   ListChecks,
   MapPin,
   RotateCw,
   ScrollText,
+  Scale,
   SlidersHorizontal,
   Search,
   Target,
@@ -63,8 +69,17 @@ import HRHolidayWorkTab from "./tabs/HRHolidayWorkTab"
 import HROutOfOfficeTab from "./tabs/HROutOfOfficeTab"
 import HROnboardingTab from "./tabs/HROnboardingTab"
 import HRDependantsVerifyTab from "./tabs/HRDependantsVerifyTab"
+// WP0 scaffold — stub ที่ WP1/WP2/WP3/WP5 เติมเนื้อหา
+import HRLeaveCalendarTab from "./tabs/HRLeaveCalendarTab"
+import HRWelfareTab from "./tabs/HRWelfareTab"
+import HRWelfareSettingsTab from "./tabs/HRWelfareSettingsTab"
+import HRDisciplineTab from "./tabs/HRDisciplineTab"
+import HRDisciplineSettingsTab from "./tabs/HRDisciplineSettingsTab"
+import HRIssueStatsTab from "./tabs/HRIssueStatsTab"
 import useModalDismiss from "../../lib/useModalDismiss"
-import { HR_KPI_PERMS, can, checkAccess } from "../../lib/permissions"
+import { HR_KPI_PERMS, can, canPickAnyBranch, checkAccess } from "../../lib/permissions"
+import DashboardOverview, { ALL_BRANCHES } from "../../components/hr/DashboardOverview"
+import { fetchMyBranches } from "../../lib/leaveCalendar"
 import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ForbiddenState } from "../../components/RequirePermission"
 import PageTitle from "../../components/PageTitle"
@@ -74,6 +89,15 @@ import { backState, keepBackState } from "../../lib/drill"
 
 // perm / anyOf = permission key ของแต่ละแท็บ (src/lib/permissions.js) — ผู้ใช้เห็นเฉพาะแท็บที่มีสิทธิ์
 const HR_NAV = [
+  {
+    group: "ภาพรวม",
+    items: [
+      // กราฟ/สถานะอยู่ในแท็บของตัวเอง — เดิมแสดงเหนือทุกแท็บ บนมือถือต้องเลื่อนผ่าน ~2.6 จอทุกครั้ง
+      { key: "overview", anyOf: ["hr.dashboard.view", "hr.payroll.list"], label: "ภาพรวม", icon: LayoutDashboard,
+        description: "สถานะพนักงาน พนักงานต่อสาขา และแนวโน้มเงินเดือน 12 เดือน",
+        keywords: ["ภาพรวม", "dashboard", "สถิติ", "กราฟ", "แนวโน้ม", "พนักงานต่อสาขา", "overview"] },
+    ],
+  },
   {
     group: "บุคลากร",
     items: [
@@ -115,6 +139,9 @@ const HR_NAV = [
       { key: "holiday-work", perm: "hr.holidayWork.view", label: "ทำงานวันหยุด", icon: CalendarClock,
         description: "บันทึกการทำงานในวันหยุดของเจ้าหน้าที่",
         keywords: ["วันหยุด", "โอที", "ot"] },
+      { key: "leave-calendar", perm: "hr.leave.calendar", label: "ปฏิทินการลา", icon: CalendarRange,
+        description: "ดูว่าใครลาวันไหน แยกตามสาขา ในมุมมองปฏิทินรายเดือน",
+        keywords: ["ปฏิทิน", "ลา", "ขาดงาน", "calendar"] },
     ],
   },
   {
@@ -143,9 +170,20 @@ const HR_NAV = [
       { key: "salary-cert", perm: "hr.salaryCert.list", label: "หนังสือรับรองเงินเดือน", icon: ScrollText,
         description: "คำขอและการออกหนังสือรับรองเงินเดือน",
         keywords: ["หนังสือรับรอง", "รับรองเงินเดือน", "certificate"] },
+      { key: "welfare", anyOf: ["hr.welfare.view", "hr.welfare.submit"], label: "สวัสดิการ", icon: HeartHandshake,
+        description: "บันทึกและอนุมัติการเบิกค่ารักษาพยาบาล ตรวจสุขภาพ และค่าการศึกษาบุตร",
+        keywords: ["สวัสดิการ", "เบิก", "ค่ารักษา", "ตรวจสุขภาพ", "ค่าเล่าเรียน", "welfare"] },
       { key: "kpi", anyOf: HR_KPI_PERMS, label: "KPI", icon: Target,
         description: "ประเมิน KPI ประจำปี สรุปผล ตรวจสอบ อนุมัติเลื่อนขั้น และบันทึกผลประกอบการ",
         keywords: ["ประเมิน", "ตัวชี้วัด", "คะแนน", "kpi", "เลื่อนขั้นประจำปี", "อนุมัติ", "ผลประกอบการ"] },
+    ],
+  },
+  {
+    group: "วินัย",
+    items: [
+      { key: "discipline", perm: "hr.discipline.cases", label: "เรื่องร้องเรียน/ตักเตือน", icon: Gavel,
+        description: "เรื่องที่แจ้งเข้ามา การพิจารณาตามลำดับขั้น และการลงโทษทางวินัย",
+        keywords: ["วินัย", "ตักเตือน", "ร้องเรียน", "พักงาน", "ลงโทษ", "discipline"] },
     ],
   },
   {
@@ -160,6 +198,12 @@ const HR_NAV = [
       { key: "holiday-calendar", perm: "hr.holidays.manage", label: "ปฏิทินวันหยุด", icon: CalendarDays,
         description: "กำหนดวันหยุดประจำปีขององค์กร",
         keywords: ["วันหยุด", "ปฏิทิน", "holiday"] },
+      { key: "welfare-settings", anyOf: ["hr.welfare.settings", "hr.welfare.view"], label: "ตั้งค่าสวัสดิการ", icon: HeartHandshake,
+        description: "วงเงินสวัสดิการ ช่องทางการจ่าย และอัตราค่าการศึกษาบุตร",
+        keywords: ["สวัสดิการ", "วงเงิน", "ค่าการศึกษา", "settings"] },
+      { key: "discipline-settings", anyOf: ["hr.discipline.topics", "hr.discipline.view"], label: "ตั้งค่าวินัย", icon: Scale,
+        description: "หัวข้อระเบียบ เกณฑ์การนับโทษ และจำนวนวันพักงาน",
+        keywords: ["วินัย", "หัวข้อ", "ระเบียบ", "settings"] },
     ],
   },
   {
@@ -168,6 +212,9 @@ const HR_NAV = [
       { key: "issues", perm: "hr.issues.list", label: "รายงานปัญหา", icon: Wrench, badgeKey: "pending_issue_reports",
         description: "รายงานปัญหาการใช้งานระบบและสถานะการแก้ไข",
         keywords: ["ปัญหา", "แจ้งปัญหา", "บั๊ก", "issue"] },
+      { key: "issue-stats", perm: "hr.issues.stats", label: "สถิติคำร้อง", icon: ChartColumn,
+        description: "จำนวนคำร้องแก้ไขข้อมูลรายเดือน แยกตามหัวข้อและสาขา",
+        keywords: ["สถิติ", "คำร้อง", "แก้ไขข้อมูล", "stats"] },
       { key: "audit", perm: "hr.audit.view", label: "ประวัติการใช้งาน", icon: ClipboardList,
         description: "ประวัติการใช้งานและการแก้ไขข้อมูลในระบบ HR",
         keywords: ["ประวัติระบบ", "log", "audit"] },
@@ -233,8 +280,9 @@ const badgeText = (n) => (n > 99 ? "99+" : String(n))
 
 // ─── Section body ────────────────────────────────────────────────────────────
 
-function renderSection(key, { onGoToPositions, onDependantsCount }) {
+function renderSection(key, { onGoToPositions, onDependantsCount, overview }) {
   switch (key) {
+    case "overview":           return <DashboardOverview embedded {...overview} />
     case "employees":          return <HREmployeesTab />
     case "leave":              return <HRLeaveTab />
     case "relocation":         return <HRRelocationTab />
@@ -258,6 +306,12 @@ function renderSection(key, { onGoToPositions, onDependantsCount }) {
     case "out-of-office":      return <HROutOfOfficeTab />
     case "onboarding":         return <HROnboardingTab />
     case "dependants":         return <HRDependantsVerifyTab onCountChange={onDependantsCount} />
+    case "leave-calendar":     return <HRLeaveCalendarTab />
+    case "welfare":            return <HRWelfareTab />
+    case "welfare-settings":   return <HRWelfareSettingsTab />
+    case "discipline":         return <HRDisciplineTab />
+    case "discipline-settings": return <HRDisciplineSettingsTab />
+    case "issue-stats":        return <HRIssueStatsTab />
     default:                   return <HREmployeesTab />
   }
 }
@@ -304,7 +358,9 @@ function StatStrip({ stats, loading, error, onRetry, onGo }) {
     return (
       <div role="alert" className={cx(cardCls, "flex flex-wrap items-center gap-3 p-4")}>
         <AlertCircle aria-hidden="true" className="size-5 shrink-0 text-red-500" strokeWidth={1.75} />
-        <p className="min-w-0 flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">โหลดตัวเลขสรุปไม่สำเร็จ</p>
+        <p className="min-w-0 flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+          โหลดตัวเลขสรุปไม่สำเร็จ{typeof error === "string" && error ? <span className="font-normal text-gray-500 dark:text-gray-400"> — {error}</span> : null}
+        </p>
         <button type="button" onClick={onRetry} className={cx(neutralBtnCls, "h-9")}>
           <RotateCw aria-hidden="true" className="size-4" strokeWidth={1.75} />
           ลองใหม่
@@ -752,10 +808,33 @@ export default function HRDashboard() {
   const focusSectionRef = useRef(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
 
+  // กราฟแนวโน้มเงินเดือน: hr.dashboard หรือ payroll.view (hr.payroll.list = matrix #64)
+  const canSeeTrend = canSeeStats || can("hr.payroll.list")
+
   const [stats, setStats] = useState(null)
   const [loadingStats, setLoadingStats] = useState(true)
-  const [statsError, setStatsError] = useState(false)
+  const [statsError, setStatsError] = useState("") // "" = ok · ข้อความจาก server (เช่น 403 นอกสาขาที่ดูแล)
   const [statsReq, setStatsReq] = useState(0)
+
+  // ตัวกรองสาขาของภาพรวม — ส่ง branch_id ให้ /hr/dashboard และ /hr/dashboard/payroll-trend
+  const [branch, setBranch] = useState(ALL_BRANCHES)
+  const scopedBranches = !canPickAnyBranch()
+  const [branchList, setBranchList] = useState([])
+  const [branchesLoading, setBranchesLoading] = useState(false)
+  useEffect(() => {
+    if (!canSeeTrend) return undefined
+    let alive = true
+    setBranchesLoading(true)
+    // scope own_branch → เฉพาะสาขาที่ดูแล (/auth/my-branches) · scope all → ทุกสาขา
+    const load = scopedBranches
+      ? fetchMyBranches()
+      : apiAuth("/order/branch/search").then((d) => (Array.isArray(d) ? d : []).map((b) => ({ id: Number(b.id), name: b.branch_name || `สาขา ${b.id}` })))
+    load
+      .then((list) => { if (alive) setBranchList(list.filter((b) => Number.isFinite(b.id))) })
+      .catch(() => { if (alive) setBranchList([]) })
+      .finally(() => { if (alive) setBranchesLoading(false) })
+    return () => { alive = false }
+  }, [canSeeTrend, scopedBranches])
 
   // Invalid / missing tab → rewrite to the default (replace, no history entry)
   useEffect(() => {
@@ -776,13 +855,25 @@ export default function HRDashboard() {
     }
     let alive = true
     setLoadingStats(true)
-    setStatsError(false)
-    apiAuth("/hr/dashboard")
+    setStatsError("")
+    const q = branch === ALL_BRANCHES ? "" : `?branch_id=${encodeURIComponent(branch)}`
+    apiAuth(`/hr/dashboard${q}`)
       .then((d) => { if (alive) setStats(d) })
-      .catch(() => { if (alive) { setStats(null); setStatsError(true) } })
+      .catch((e) => { if (alive) { setStats(null); setStatsError(e?.message || "โหลดข้อมูลแดชบอร์ดไม่สำเร็จ") } })
       .finally(() => { if (alive) setLoadingStats(false) })
     return () => { alive = false }
-  }, [statsReq, canSeeStats])
+  }, [statsReq, canSeeStats, branch])
+
+  // ตัวเลือกสาขา = รายชื่อสาขา ∪ สาขาที่ server ส่งมาใน employees_per_branch (อยู่ในขอบเขตแล้ว)
+  const branchOptions = useMemo(() => {
+    const m = new Map()
+    branchList.forEach((b) => m.set(b.id, b.name))
+    ;(Array.isArray(stats?.employees_per_branch) ? stats.employees_per_branch : []).forEach((b) => {
+      const id = Number(b.branch_id)
+      if (Number.isFinite(id) && !m.has(id)) m.set(id, b.branch_name || `สาขา ${id}`)
+    })
+    return [...m.entries()].map(([id, name]) => ({ value: String(id), label: name })).sort((a, b) => a.label.localeCompare(b.label, "th"))
+  }, [branchList, stats])
 
   // จำนวนข้อมูลครอบครัวรอตรวจสอบ (ป้ายเมนู) — มาจาก endpoint แยก, แท็บตรวจสอบอัปเดตกลับมาเมื่อกดตรวจ
   const canSeeDependants = can("hr.dependants.list")
@@ -929,7 +1020,23 @@ export default function HRDashboard() {
 
           <div ref={contentRef} className={cx(cardCls, "min-w-0 p-4 lg:p-5 xl:p-6")}>
             <PageSection key={activeKey} title={active.label} icon={active.icon}>
-              {renderSection(activeKey, { onGoToPositions: goToPositions, onDependantsCount: setPendingDependants })}
+              {renderSection(activeKey, {
+                onGoToPositions: goToPositions,
+                onDependantsCount: setPendingDependants,
+                overview: {
+                  stats,
+                  loading: loadingStats,
+                  error: statsError,
+                  onRetry: () => setStatsReq((n) => n + 1),
+                  branch,
+                  branchOptions,
+                  branchesLoading,
+                  scoped: scopedBranches,
+                  onBranchChange: setBranch,
+                  showStatus: canSeeStats,
+                  showTrend: canSeeTrend,
+                },
+              })}
             </PageSection>
           </div>
         </div>

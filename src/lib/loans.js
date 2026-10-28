@@ -1,9 +1,10 @@
 // src/lib/loans.js
 // ─────────────────────────────────────────────────────────────────────────────
-// 3K เงินกองทุนสงเคราะห์เจ้าหน้าที่ (backend PR #30 — ระเบียบ 15) — ค่าร่วมของหน้าพนักงาน
-// (pages/work/LoanRequest.jsx) และหน้าผู้อนุมัติ (pages/hr/tabs/HRLoansTab.jsx)
+// 3K เงินกองทุนสงเคราะห์เจ้าหน้าที่ (backend PR #30 — ระเบียบ 15; เส้นทางอนุมัติตาม PR #50 finance-first)
+// — ค่าร่วมของหน้าพนักงาน (pages/work/LoanRequest.jsx) และหน้าผู้อนุมัติ (pages/hr/tabs/HRLoansTab.jsx)
 //
-// สถานะ: pending → supervisor_endorsed → manager_forwarded → active → closed  (หรือ rejected)
+// สถานะ: pending (รอหัวหน้าแผนกการเงินตรวจสอบ) → finance_checked (รอผู้จัดการ)
+//        → manager_forwarded (รอผลคณะทำงานกองทุนฯ) → active → closed  (หรือ rejected)
 // ข้อความสถานะใช้ `status_label` จาก backend เสมอ — ตารางนี้มีไว้แค่เลือกสีของ badge
 // และเป็นข้อความสำรองเมื่อ backend รุ่นเก่ายังไม่ส่ง status_label
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +13,7 @@ import { can } from "./permissions"
 /** status → tone ของ <Badge> (neutral | pending | success | danger | info) */
 export const LOAN_STATUS_TONE = Object.freeze({
   pending: "pending",
-  supervisor_endorsed: "pending",
+  finance_checked: "pending",
   manager_forwarded: "info",
   active: "success",
   closed: "neutral",
@@ -20,13 +21,21 @@ export const LOAN_STATUS_TONE = Object.freeze({
 })
 
 const FALLBACK_STATUS_LABEL = Object.freeze({
-  pending: "รอผู้บังคับบัญชา",
-  supervisor_endorsed: "รอผู้จัดการ",
-  manager_forwarded: "รอคณะทำงานกองทุนฯ",
+  pending: "รอหัวหน้าแผนกการเงินตรวจสอบ",
+  finance_checked: "รอผู้จัดการ",
+  manager_forwarded: "รอผลคณะทำงานกองทุนฯ",
   active: "กำลังผ่อนชำระ",
   closed: "ปิดบัญชี",
   rejected: "ไม่อนุมัติ",
 })
+
+/** ตัวเลือกกรองสถานะ (ข้อความเดียวกับ fallback ของ status_label) */
+export const LOAN_STATUS_OPTIONS = Object.freeze(
+  Object.entries(FALLBACK_STATUS_LABEL).map(([value, label]) => ({ value, label })),
+)
+
+/** ข้อความแนะนำผู้กู้เมื่อคำขอรอหัวหน้าแผนกการเงินตรวจสอบ (pending) */
+export const LOAN_PAPERS_HINT = "กรุณานำเอกสารประกอบการกู้มาส่งที่สำนักงาน — หัวหน้าแผนกการเงินจะติดต่อกลับ"
 
 export const loanStatusLabel = (loan) =>
   loan?.status_label || FALLBACK_STATUS_LABEL[loan?.status] || loan?.status || "—"
@@ -59,26 +68,37 @@ export const PAYOFF_REASONS = Object.freeze([
 // ─── ปุ่มตามขั้นของสถานะ ────────────────────────────────────────────────────
 
 /**
- * การกระทำที่ API รองรับสำหรับสถานะปัจจุบันของสัญญา และผู้ใช้มีสิทธิ์
- * pending: แสดงเฉพาะรายการที่มาจากคิวของผู้ใช้ (backend ตรวจว่าเป็นผู้บังคับบัญชาของผู้กู้)
+ * การกระทำที่ API รองรับสำหรับสถานะปัจจุบันของสัญญา — แสดงเฉพาะสัญญาที่อยู่ใน GET /hr/loans/queue ของผู้ใช้
+ * (backend เลือกผู้พิจารณาแต่ละขั้นเอง: หัวหน้าแผนกการเงิน / ผู้จัดการ / ผช.ผจก. เมื่อผู้จัดการเป็นผู้กู้ ฯลฯ
+ *  หน้าเว็บจึงไม่เดาจากตำแหน่ง)
  */
 export function stageActions(loan, { fromQueue = false } = {}) {
+  if (!fromQueue || !can("hr.loans.queue")) return []
   switch (loan?.status) {
     case "pending":
-      return fromQueue && can("hr.loans.queue")
-        ? [{ mode: "endorse", label: "เห็นชอบ" }, { mode: "supervisor-reject", label: "ไม่เห็นชอบ", danger: true }]
-        : []
-    case "supervisor_endorsed":
-      return can("hr.loans.approve.hr")
-        ? [{ mode: "forward", label: "ส่งคณะทำงานฯ" }, { mode: "hr-reject", label: "ไม่อนุมัติ", danger: true }]
-        : []
+      return [{ mode: "finance-check", label: "ตรวจสอบแล้ว ส่งผู้จัดการ" }, { mode: "finance-check-reject", label: "ไม่ผ่านการตรวจสอบ", danger: true }]
+    case "finance_checked":
+      return [{ mode: "forward", label: "เสนอคณะทำงานกองทุนฯ" }, { mode: "hr-reject", label: "ไม่อนุมัติ", danger: true }]
     case "manager_forwarded":
-      return can("hr.loans.approve.finance")
-        ? [{ mode: "finance-confirm", label: "บันทึกมติอนุมัติ" }, { mode: "finance-reject", label: "บันทึกมติไม่อนุมัติ", danger: true }]
-        : []
+      return [{ mode: "finance-confirm", label: "บันทึกมติอนุมัติ" }, { mode: "finance-reject", label: "บันทึกมติไม่อนุมัติ", danger: true }]
     default:
       return []
   }
+}
+
+/**
+ * ผู้ตรวจสอบฝ่ายการเงิน (finance_checked_by) — ใช้ชื่อที่ backend แนบมาถ้ามี ไม่มีก็แสดงรหัส
+ * รองรับทั้ง id ตรง ๆ และ object { id, name | display_name | first_name/last_name }
+ */
+export function financeCheckerName(loan) {
+  if (!loan) return null
+  const by = loan.finance_checked_by
+  const obj = by && typeof by === "object" ? by : null
+  const name = loan.finance_checked_by_name || loan.finance_checker_name || loan.finance_checked_by_display_name
+    || obj?.display_name || obj?.name || [obj?.first_name, obj?.last_name].filter(Boolean).join(" ")
+  if (name) return name
+  const id = obj ? obj.id ?? obj.user_id : by
+  return id != null && id !== "" ? `รหัส ${id}` : null
 }
 
 // ─── format ──────────────────────────────────────────────────────────────────
@@ -109,7 +129,7 @@ export function todayIso() {
 /** ชื่อผู้กู้จาก loan object (รองรับหลายรูปแบบที่ backend เคยส่ง) */
 export function borrowerName(loan) {
   if (!loan) return "—"
-  const full = loan.user_display_name || loan.borrower_name || [loan.user_first_name, loan.user_last_name].filter(Boolean).join(" ")
+  const full = loan.employee_name || loan.user_display_name || loan.borrower_name || [loan.user_first_name, loan.user_last_name].filter(Boolean).join(" ")
   return full || (loan.user_id != null ? `รหัส ${loan.user_id}` : "—")
 }
 

@@ -2,12 +2,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // สินเชื่อเงินกองทุนสงเคราะห์เจ้าหน้าที่ (3K, backend PR #30) — แท็บ "สินเชื่อ" ใน /hr/dashboard
 //
-//   รอพิจารณา   GET /hr/loans/queue    (hr.loans.queue — หัวหน้า 110–124, ผช.ผจก., 101, 105)
-//   ทั้งหมด     GET /hr/loans          (hr.loans.list — loan.view = 101 เท่านั้น)
-//   ค้างชำระ    GET /hr/loans/overdue?as_of=  (hr.loans.overdue)
-//   แถบเครื่องมือ: ตั้งค่ากองทุน (hr.loans.settings) · ทะเบียนคุมเงินกองทุน PDF (hr.loans.fundLedger, ปี พ.ศ.)
+//   รอพิจารณา   GET /hr/loans/queue    (hr.loans.queue — หัวหน้าแผนกการเงิน 112, ผู้จัดการ 101, ผช.ผจก. 102/103)
+//   ทั้งหมด     GET /hr/loans          (hr.loans.list — loan.view = 101, 112)
+//   ค้างชำระ    GET /hr/loans/overdue?as_of=  (hr.loans.overdue — 101, 105)
+//   แถบเครื่องมือ: ตั้งค่ากองทุน (hr.loans.settings) · ทะเบียนคุมเงินกองทุน PDF + Excel (hr.loans.fundLedger, ปี พ.ศ.)
+//               Excel = GET /hr/reports/loans/fund-ledger/xlsx?fiscal_year=
 //
-// ปุ่มพิจารณาของแต่ละแถวมาจาก stageActions() ตามสถานะ (lib/loans.js) · ข้อความสถานะ = status_label
+// ปุ่มพิจารณามาจาก stageActions() ตามสถานะ (lib/loans.js) — แสดงเฉพาะสัญญาที่อยู่ในคิวของผู้ใช้
+// (เปิดจาก "สัญญาทั้งหมด" ก็ได้ถ้าสัญญานั้นอยู่ในคิว) · ข้อความสถานะ = status_label
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useId, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
@@ -20,35 +22,28 @@ import ThaiDateField from "../../../components/ThaiDateField"
 import { useCan } from "../../../lib/permissions"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 import {
-  LOAN_PURPOSE_LABEL, asList, borrowerName, loanStatusLabel, loanStatusTone, money, stageActions, thaiDate, todayIso,
+  LOAN_PURPOSE_LABEL, LOAN_STATUS_OPTIONS, asList, borrowerName, loanStatusLabel, loanStatusTone, money, stageActions, thaiDate, todayIso,
 } from "../../../lib/loans"
 import { LoanDecisionSheet, LoanDetailSheet, LoanPdfButton, LoanSettingsSheet } from "./HRLoanSheets"
 import { keepBackState } from "../../../lib/drill"
+import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 
 const ID_BASE = "hr-loans"
 const fieldCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
 const smallBtn = "!h-9 !px-3 !text-xs md:!text-sm"
 
-const STATUS_FILTERS = [
-  { value: "", label: "ทุกสถานะ" },
-  { value: "pending", label: "รอผู้บังคับบัญชา" },
-  { value: "supervisor_endorsed", label: "รอผู้จัดการ" },
-  { value: "manager_forwarded", label: "รอคณะทำงานฯ" },
-  { value: "active", label: "กำลังผ่อน" },
-  { value: "closed", label: "ปิดบัญชี" },
-  { value: "rejected", label: "ไม่อนุมัติ" },
-]
+const STATUS_FILTERS = [{ value: "", label: "ทุกสถานะ" }, ...LOAN_STATUS_OPTIONS]
 
 const errText = (err, fallback) => apiDetail(err) || fallback
 
 // ─── ตารางสัญญา (desktop table / phone DataList) ─────────────────────────────
 
-function LoanList({ loans, loading, error, onRetry, onOpen, onAction, fromQueue, empty }) {
+function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, empty }) {
   const isPhone = useIsPhone()
   if (error) return <ErrorState message={error} onRetry={onRetry} />
 
   const actionsFor = (l) => {
-    const acts = stageActions(l, { fromQueue })
+    const acts = stageActions(l, { fromQueue: inQueue(l) })
     if (!acts.length) return null
     return (
       <div className="flex flex-wrap justify-end gap-2">
@@ -319,6 +314,10 @@ export default function HRLoansTab() {
     setDecision({ loan, mode })
   }
 
+  // ปุ่มพิจารณาตามคิวของผู้ใช้ — สถานะในคิวต้องตรงกับแถวที่เปิด (กันแถวเก่าจาก "ทั้งหมด" ที่ขั้นเปลี่ยนแล้ว)
+  const queueStatus = useMemo(() => new Map(queue.map((l) => [String(l.id), l.status])), [queue])
+  const inQueue = useCallback((l) => queueStatus.get(String(l?.id)) === l?.status, [queueStatus])
+
   const filteredAll = statusFilter ? all.filter((l) => l.status === statusFilter) : all
   const ledgerYearOk = /^25\d\d$/.test(fiscalYear)
 
@@ -335,6 +334,9 @@ export default function HRLoansTab() {
           </div>
           <LoanPdfButton path={`/hr/reports/loans/fund-ledger?fiscal_year=${fiscalYear}`} label="ทะเบียนคุมเงินกองทุน"
             fallbackName={`loan_fund_ledger_${fiscalYear}.pdf`} disabled={!ledgerYearOk} />
+          {/* Excel twin: GET /hr/reports/loans/fund-ledger/xlsx?fiscal_year= (excelUrl ต่อ /xlsx ให้) */}
+          <ExcelDownloadButton getPdfPath={() => (ledgerYearOk ? `/hr/reports/loans/fund-ledger?fiscal_year=${fiscalYear}` : null)}
+            fallbackName={`loan_fund_ledger_${fiscalYear}.xlsx`} disabled={!ledgerYearOk} />
         </div>
       )}
       {canSettings && (
@@ -351,7 +353,7 @@ export default function HRLoansTab() {
       return (
         <LoanList
           loans={queue} loading={queueLoading} error={queueErr} onRetry={loadQueue}
-          onOpen={(l) => setDetail({ loan: l, fromQueue: true })} onAction={openAction} fromQueue
+          onOpen={(l) => setDetail({ loan: l })} onAction={openAction} inQueue={inQueue}
           empty={<EmptyState title="ไม่มีคำขอกู้รอคุณพิจารณา" description="คำขอที่ถึงขั้นของคุณจะแสดงที่นี่ทันทีที่ผู้กู้ยื่นหรือขั้นก่อนหน้าส่งต่อ" />}
         />
       )
@@ -370,13 +372,13 @@ export default function HRLoansTab() {
           </div>
           <LoanList
             loans={filteredAll} loading={allLoading} error={allErr} onRetry={loadAll}
-            onOpen={(l) => setDetail({ loan: l, fromQueue: false })} onAction={openAction}
+            onOpen={(l) => setDetail({ loan: l })} onAction={openAction} inQueue={inQueue}
             empty={<EmptyState title={statusFilter ? "ไม่มีสัญญาในสถานะนี้" : "ยังไม่มีสัญญาเงินกู้"} description={statusFilter ? "เลือกสถานะอื่น หรือดูทุกสถานะ" : "คำขอกู้ที่เจ้าหน้าที่ยื่นจะแสดงที่นี่"} />}
           />
         </div>
       )
     }
-    if (sub === "overdue") return <OverduePanel onOpenLoan={(l) => setDetail({ loan: l, fromQueue: false })} />
+    if (sub === "overdue") return <OverduePanel onOpenLoan={(l) => setDetail({ loan: l })} />
     return (
       <div className={cardCls}>
         <EmptyState title="ใช้ได้เฉพาะเครื่องมือด้านบน" description="บัญชีนี้ไม่มีสิทธิ์ดูรายการสัญญาหรือคิวพิจารณา" />
@@ -408,7 +410,7 @@ export default function HRLoansTab() {
       {detail && (
         <LoanDetailSheet
           loan={detail.loan}
-          fromQueue={detail.fromQueue}
+          fromQueue={inQueue(detail.loan)}
           onClose={() => setDetail(null)}
           onAction={openAction}
           onChanged={refresh}

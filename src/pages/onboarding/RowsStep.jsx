@@ -102,7 +102,8 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
   const rows = data?.values?.[sectionKey] ?? []
   const hasNone = NONE_SECTIONS.includes(sectionKey)
   const none = Boolean(data?.none_flags?.[sectionKey])
-  const flow = useSectionFlow(sectionKey, handlers)
+  const addId = `ob-${sectionKey}-add`
+  const flow = useSectionFlow(sectionKey, { ...handlers, fallbackId: addId })
 
   const [editor, setEditor] = useState(null) // { row|null, key }
   const [editorBusy, setEditorBusy] = useState(false)
@@ -129,7 +130,7 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
   const saveRow = async (form) => {
     const original = editor?.row ?? null
     const miss = missingKeys(cfg.columns, form, !original)
-    if (miss.length) return setEditorErr({ message: "กรอกช่องที่มีเครื่องหมาย * ให้ครบ", missing: miss })
+    if (miss.length) return setEditorErr({ message: "", missing: miss })
     const body = rowBody(cfg.columns, form, original)
     if (original && Object.keys(body).length === 0) return setEditor(null)
     setEditorBusy(true)
@@ -243,7 +244,7 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
               ) : (
                 <p className="mb-4 text-[15px] leading-relaxed text-gray-600 dark:text-gray-300">{cfg.empty}</p>
               )}
-              <AddRowButton onClick={() => openEditor(null)}>
+              <AddRowButton id={addId} onClick={() => openEditor(null)}>
                 <Plus aria-hidden="true" className="size-5" strokeWidth={2} />
                 เพิ่ม{cfg.noun}
               </AddRowButton>

@@ -171,9 +171,10 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
       (c) => !(keepOld && c.key === "relationship") && !((keepOld || optionalStatus) && c.key === "legal_status"),
     )
     const miss = missingKeys(cols, form, !original)
-    if (miss.length) return setEditorErr({ message: "กรอกช่องที่มีเครื่องหมาย * ให้ครบ", missing: miss })
+    if (miss.length) return setEditorErr({ message: "", missing: miss })
     if (form.is_deceased && form.deceased_date > todayIso()) {
-      return setEditorErr({ message: "วันที่เสียชีวิตต้องไม่เป็นวันในอนาคต", missing: ["deceased_date"] })
+      const message = "วันที่เสียชีวิตต้องไม่เป็นวันในอนาคต"
+      return setEditorErr({ message, missing: ["deceased_date"], hints: { deceased_date: message } })
     }
     // only name_title changed → the row stays verified, no warning
     const changed = Object.keys(buildBody(form, original)).filter((k) => k !== "name_title")
@@ -343,6 +344,7 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
         busy={editorBusy}
         error={editorErr.message}
         missing={editorErr.missing}
+        hints={editorErr.hints}
         onSubmit={saveRow}
         onClose={() => !editorBusy && setEditor(null)}
       />

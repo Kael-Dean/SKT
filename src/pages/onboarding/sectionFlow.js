@@ -5,12 +5,45 @@
 //   flow.submit(body)   PUT body (only when it has keys) then POST confirm
 //   flow.busy · flow.problem { missing: string[], message } · flow.shake ("a" | "b" | "")
 //   flow.clearField(k)  drop k from the 422 problem list once the user edits it
+//   flow.fail(problem)  client-side rejection: same summary / shake / focus as a server 422
+//
+// problem = { missing: string[], message, hints?: { [key]: "inline text" } }.
+// Every failure toasts a short summary and focuses the first flagged field
+// (`fieldId(key)` → DOM id; unknown keys fall back to `fallbackId`, default the problem panel).
 import { useCallback, useState } from "react"
-import { confirmSection, isLockedForEdits, readValidation, saveSection } from "../../lib/onboarding"
+import { reportInvalid } from "../../lib/formErrors"
+import { confirmSection, isLockedForEdits, missingLabel, readValidation, saveSection } from "../../lib/onboarding"
 
 export const blank = (v) => v == null || (typeof v === "string" && !v.trim())
 
-export function useSectionFlow(key, { onDone, onLocked, onFailed } = {}) {
+/** id of the step's <ProblemPanel> — focus fallback when no field matches. */
+export const PROBLEM_PANEL_ID = "ob-problem"
+
+/** Red border on a plain baseField input once a save rejected it. */
+export const invalidInputCls = "!border-red-500 dark:!border-red-400"
+
+/** Toast + focus for a failed save. `fieldId(k)` → DOM id or null (non-field codes). */
+export function reportProblem(problem, fieldId, fallbackId = PROBLEM_PANEL_ID) {
+  const missing = problem?.missing ?? []
+  const ids = missing.map((k) => fieldId?.(k)).filter(Boolean)
+  const fieldsOnly = ids.length === missing.length
+  reportInvalid({
+    ids,
+    count: missing.length,
+    fallbackId,
+    ...(problem?.message
+      ? { title: "ข้อมูลไม่ถูกต้อง", description: problem.message }
+      : fieldsOnly
+        ? {}
+        : { title: "ยังกรอกไม่ครบ", description: missing.map(missingLabel).join(" · ") }),
+  })
+}
+
+/** Inline Thai error for an empty required column: "เลือก…" for pickers, "กรอก…" for text. */
+export const requiredHint = (c) =>
+  `${["select", "year", "date", "prefixedName"].includes(c.type) ? "เลือก" : "กรอก"}${c.label}`
+
+export function useSectionFlow(key, { onDone, onLocked, onFailed, fieldId, fallbackId } = {}) {
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState(null)
   const [shake, setShake] = useState("")
@@ -19,9 +52,10 @@ export function useSectionFlow(key, { onDone, onLocked, onFailed } = {}) {
     (v) => {
       setProblem(v)
       setShake((s) => (s === "a" ? "b" : "a"))
+      reportProblem(v, fieldId, fallbackId)
       onFailed?.(key, v)
     },
-    [key, onFailed],
+    [key, onFailed, fieldId, fallbackId],
   )
 
   const submit = useCallback(
@@ -48,7 +82,7 @@ export function useSectionFlow(key, { onDone, onLocked, onFailed } = {}) {
     setProblem((p) => (p && p.missing.includes(k) ? { ...p, missing: p.missing.filter((m) => m !== k) } : p))
   }, [])
 
-  return { submit, busy, problem, shake, clearField, setProblem }
+  return { submit, busy, problem, shake, clearField, setProblem, fail }
 }
 
 /** Thai date "1 พ.ค. 2533" from YYYY-MM-DD (null-safe). */

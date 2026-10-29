@@ -1,7 +1,7 @@
 // src/pages/onboarding/RowEditor.jsx
 // Add / edit one row of a list section (family, education, work, criminal) in a <Sheet>,
 // plus the row list item used by both list steps.
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import PrefixedNameInput from "../../components/PrefixedNameInput"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -9,7 +9,10 @@ import { ALL_PREFIX_OPTIONS, prefixOf } from "../../lib/namePrefix"
 import DateInput from "../../components/ThaiDateField"
 import { Sheet } from "../../components/ui"
 import { baseField, cx, focusRingCls, helpTextCls, iconBtnCls, neutralBtnCls, submitBtnCls } from "../../lib/styles"
+import { blank, invalidInputCls, reportProblem, requiredHint } from "./sectionFlow"
 import { Field } from "./shared"
+
+const NO_KEYS = []
 
 const emptyOf = (columns) =>
   Object.fromEntries(columns.map((c) => [c.key, c.type === "checkbox" ? false : ""]))
@@ -30,10 +33,30 @@ const toOptions = (options, current) => {
   return current && !list.some((o) => o.value === current) ? [{ value: current, label: current }, ...list] : list
 }
 
-function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
+function EditorBody({ columns, initial, formId, onSubmit, error, missing, hints }) {
   const [form, setForm] = useState(() => ({ ...emptyOf(columns), ...(initial ?? {}) }))
   const uid = useId()
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  // keys edited since the last rejected save lose their red mark
+  const [edited, setEdited] = useState({ missing, keys: [] })
+  if (edited.missing !== missing) setEdited({ missing, keys: [] })
+  const touch = (k) => setEdited((e) => (e.keys.includes(k) ? e : { ...e, keys: [...e.keys, k] }))
+  const set = (k, v) => {
+    setForm((p) => ({ ...p, [k]: v }))
+    touch(k)
+  }
+
+  // every rejected save (new `missing` array from the parent) → toast + focus the first flagged field
+  // (hidden columns aren't rendered, so focusFirstError skips them; an invalid prefix wins over the name)
+  useEffect(() => {
+    if (!missing.length && !error) return
+    const fieldId = (k) => {
+      const prefix = document.getElementById(`${uid}-${k}-prefix`)
+      return prefix?.getAttribute("aria-invalid") === "true" ? prefix.id : `${uid}-${k}`
+    }
+    reportProblem({ missing, message: error }, fieldId, `${uid}-error`)
+  }, [missing, error, uid])
+
+  const hintOf = (c) => hints?.[c.key] ?? (blank(form[c.key]) ? requiredHint(c) : "ตรวจสอบข้อมูลช่องนี้")
   return (
     <form
       id={formId}
@@ -47,7 +70,8 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
       {columns.map((c) => {
         if (c.showIf && !c.showIf(form)) return null
         const id = `${uid}-${c.key}`
-        const flagged = missing.includes(c.key)
+        const flagged = missing.includes(c.key) && !edited.keys.includes(c.key)
+        const describedBy = flagged ? `${id}-hint` : undefined
         if (c.type === "checkbox") {
           return (
             <label
@@ -74,6 +98,8 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
             label={c.label}
             required={c.required}
             flagged={flagged}
+            tone="error"
+            hint={hintOf(c)}
             className={c.wide ? "md:col-span-2" : ""}
             help={c.help ? <p className={helpTextCls}>{c.help}</p> : null}
           >
@@ -82,11 +108,15 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
                 id={id}
                 options={toOptions(typeof c.options === "function" ? c.options(form) : c.options, form[c.key])}
                 value={form[c.key] ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, [c.key]: v, ...(c.onChange?.(v, p) ?? {}) }))}
+                onChange={(v) => {
+                  setForm((p) => ({ ...p, [c.key]: v, ...(c.onChange?.(v, p) ?? {}) }))
+                  touch(c.key)
+                }}
                 placeholder={c.placeholder ?? "เลือก"}
                 showSwatch={false}
                 required={c.required}
                 error={flagged}
+                ariaDescribedby={describedBy}
               />
             ) : c.type === "year" ? (
               <SelectDropdown
@@ -96,6 +126,9 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
                 onChange={(v) => set(c.key, yearToIso(v, c.edge))}
                 placeholder="เลือกปี"
                 showSwatch={false}
+                required={c.required}
+                error={flagged}
+                ariaDescribedby={describedBy}
               />
             ) : c.type === "prefixedName" ? (
               <PrefixedNameInput
@@ -106,25 +139,36 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
                 placeholder={c.placeholder ?? "ชื่อ"}
                 invalid={flagged}
                 prefixInvalid={flagged && !prefixOf(form[c.key])}
+                describedBy={describedBy}
+                inputClassName={flagged ? invalidInputCls : undefined}
               />
             ) : c.type === "date" ? (
-              <DateInput id={id} value={form[c.key] ?? ""} onChange={(e) => set(c.key, e.target.value)} ariaLabel={c.label} />
+              <DateInput
+                id={id}
+                value={form[c.key] ?? ""}
+                onChange={(e) => set(c.key, e.target.value)}
+                ariaLabel={c.label}
+                error={flagged}
+                aria-describedby={describedBy}
+              />
             ) : (
               <input
                 id={id}
                 type="text"
-                className={baseField}
+                className={cx(baseField, flagged && invalidInputCls)}
                 value={form[c.key] ?? ""}
                 placeholder={c.placeholder}
                 onChange={(e) => set(c.key, e.target.value)}
                 aria-invalid={flagged || undefined}
+                aria-required={c.required || undefined}
+                aria-describedby={describedBy}
               />
             )}
           </Field>
         )
       })}
       {error && (
-        <p role="alert" className="rounded-xl bg-red-50 px-3 py-2.5 text-sm leading-relaxed text-red-700 md:col-span-2 dark:bg-red-500/10 dark:text-red-300">
+        <p id={`${uid}-error`} role="alert" tabIndex={-1} className="rounded-xl outline-none bg-red-50 px-3 py-2.5 text-sm leading-relaxed text-red-700 md:col-span-2 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </p>
       )}
@@ -133,10 +177,12 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
 }
 
 /**
- * <RowEditorSheet open title columns initial busy error missing onSubmit(form) onClose />
+ * <RowEditorSheet open title columns initial busy error missing hints onSubmit(form) onClose />
+ * `missing` = keys rejected by the last save (new array per attempt → toast + focus first);
+ * `hints` = { key: inline message } overriding the default "กรอก…/เลือก…".
  * `initial` = the row being edited (null → add). The body remounts per open/row.
  */
-export function RowEditorSheet({ open, title, subtitle, columns, initial, busy, error, missing = [], onSubmit, onClose, openKey }) {
+export function RowEditorSheet({ open, title, subtitle, columns, initial, busy, error, missing = NO_KEYS, hints, onSubmit, onClose, openKey }) {
   const formId = useId()
   return (
     <Sheet
@@ -172,6 +218,7 @@ export function RowEditorSheet({ open, title, subtitle, columns, initial, busy, 
           onSubmit={onSubmit}
           error={error}
           missing={missing}
+          hints={hints}
         />
       )}
     </Sheet>
@@ -216,9 +263,10 @@ export function RowItem({ title, lines = [], badge, extra, onEdit, onDelete, edi
 }
 
 /** Dashed "add" button that sits under (or instead of) the list. */
-export function AddRowButton({ onClick, children, disabled }) {
+export function AddRowButton({ id, onClick, children, disabled }) {
   return (
     <button
+      id={id}
       type="button"
       onClick={onClick}
       disabled={disabled}

@@ -4,6 +4,7 @@
 import { CircleAlert, TriangleAlert } from "lucide-react"
 import { missingLabel } from "../../lib/onboarding"
 import { cx, labelCls } from "../../lib/styles"
+import { PROBLEM_PANEL_ID } from "./sectionFlow"
 
 /** Step heading: title + one-line purpose. */
 export function StepHeader({ title, purpose, id }) {
@@ -17,8 +18,12 @@ export function StepHeader({ title, purpose, id }) {
   )
 }
 
-/** Wraps a control; when `flagged`, draws a calm amber frame that breathes once. */
-export function Frame({ flagged, children }) {
+/**
+ * Wraps a control; when `flagged`, draws a frame that breathes once.
+ * tone "warn" (amber) = still empty from an earlier visit · "error" (red) = rejected on save.
+ */
+export function Frame({ flagged, tone = "warn", children }) {
+  const error = tone === "error"
   return (
     <div className="relative">
       {children}
@@ -26,11 +31,19 @@ export function Frame({ flagged, children }) {
         <>
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute -inset-[3px] rounded-[1.15rem] ring-2 ring-amber-500/80 dark:ring-amber-400/80"
+            className={cx(
+              "pointer-events-none absolute -inset-[3px] rounded-[1.15rem] ring-2",
+              error ? "ring-red-500/80 dark:ring-red-400/80" : "ring-amber-500/80 dark:ring-amber-400/80",
+            )}
           />
           <span
             aria-hidden="true"
-            className="animate-ob-pulse pointer-events-none absolute -inset-[7px] rounded-[1.4rem] bg-amber-400/15 ring-2 ring-amber-400/40 dark:bg-amber-400/10"
+            className={cx(
+              "animate-ob-pulse pointer-events-none absolute -inset-[7px] rounded-[1.4rem] ring-2",
+              error
+                ? "bg-red-400/10 ring-red-400/40 dark:bg-red-400/10"
+                : "bg-amber-400/15 ring-amber-400/40 dark:bg-amber-400/10",
+            )}
           />
         </>
       )}
@@ -38,20 +51,30 @@ export function Frame({ flagged, children }) {
   )
 }
 
-/** Amber "still empty" line under a control. */
-export function MissingHint({ id, children = "ยังไม่ได้กรอก" }) {
+/** "still empty" (amber) or error (red) line under a control. */
+export function MissingHint({ id, tone = "warn", children = "ยังไม่ได้กรอก" }) {
   return (
-    <p id={id} className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-amber-800 dark:text-amber-300">
+    <p
+      id={id}
+      className={cx(
+        "mt-1.5 flex items-center gap-1.5 text-sm font-medium",
+        tone === "error" ? "text-red-700 dark:text-red-300" : "text-amber-800 dark:text-amber-300",
+      )}
+    >
       <CircleAlert aria-hidden="true" className="size-4 shrink-0" strokeWidth={2} />
       {children}
     </p>
   )
 }
 
-/** Label + control + hint. `flagged` = required and still empty (or rejected by the server). */
-export function Field({ id, label, required, optional, flagged, hint, help, className = "", children }) {
+/**
+ * Label + control + hint. `flagged` = required and still empty (or rejected by the server);
+ * `tone` "error" once a save rejected it. The hint gets id `${id}-hint` — point the control's
+ * aria-describedby at it. `data-field` = scroll target of focusFirstError.
+ */
+export function Field({ id, label, required, optional, flagged, tone = "warn", hint, help, className = "", children }) {
   return (
-    <div className={cx("min-w-0", className)}>
+    <div data-field className={cx("min-w-0 scroll-mt-24 scroll-mb-28", className)}>
       <label htmlFor={id} className={labelCls}>
         {label}
         {required && (
@@ -62,34 +85,36 @@ export function Field({ id, label, required, optional, flagged, hint, help, clas
         )}
         {optional && <span className="ml-1.5 text-sm font-normal text-gray-500 dark:text-gray-400">ไม่บังคับ</span>}
       </label>
-      <Frame flagged={flagged}>{children}</Frame>
-      {flagged ? <MissingHint id={`${id}-hint`}>{hint}</MissingHint> : help}
+      <Frame flagged={flagged} tone={tone}>{children}</Frame>
+      {flagged ? <MissingHint id={`${id}-hint`} tone={tone}>{hint}</MissingHint> : help}
     </div>
   )
 }
 
 /** Failed confirm / validation summary — announced, lists what is left in plain Thai. */
-export function ProblemPanel({ problem }) {
+export function ProblemPanel({ problem, id = PROBLEM_PANEL_ID }) {
   const has = problem && (problem.missing?.length || problem.message)
   return (
     <div aria-live="assertive" aria-atomic="true">
       {has ? (
         <div
+          id={id}
           role="alert"
-          className="mt-5 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-400/25"
+          tabIndex={-1}
+          className="mt-5 scroll-mb-28 rounded-2xl outline-none bg-amber-50 p-4 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:ring-amber-400/25"
         >
           <p className="flex items-center gap-2 text-[15px] font-semibold text-amber-900 dark:text-amber-200">
             <TriangleAlert aria-hidden="true" className="size-5 shrink-0" strokeWidth={2} />
-            {problem.missing?.length ? "ยังกรอกไม่ครบ" : "บันทึกไม่สำเร็จ"}
+            {problem.message ? "ข้อมูลไม่ถูกต้อง" : "ยังกรอกไม่ครบ"}
           </p>
-          {problem.missing?.length > 0 && (
+          {problem.missing?.length > 0 && !problem.message && (
             <ul className="mt-2 space-y-1 pl-7 text-[15px] leading-relaxed text-amber-900 dark:text-amber-100">
               {problem.missing.map((m) => (
                 <li key={m} className="list-disc">{missingLabel(m)}</li>
               ))}
             </ul>
           )}
-          {problem.message && !problem.missing?.length && (
+          {problem.message && (
             <p className="mt-1.5 pl-7 text-[15px] leading-relaxed text-amber-900 dark:text-amber-100">{problem.message}</p>
           )}
         </div>

@@ -2,7 +2,8 @@
 // The three "one form" sections: account · personal · address.
 // Each step: prefill from data.values[key] → edit → "บันทึกและไปต่อ" = PUT (only the changed
 // keys) + confirm. Missing fields (data.sections[key].missing, or the confirm 422) get the
-// amber frame until filled.
+// amber frame until filled; fields a save rejected turn red, the first one gets focus and a
+// toast sums them up (sectionFlow → lib/formErrors).
 import { useMemo, useState } from "react"
 import { CalendarDays, IdCard, Plus, X } from "lucide-react"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -13,16 +14,26 @@ import PrefixedNameInput from "../../components/PrefixedNameInput"
 import { genderOfPrefix, prefixOf } from "../../lib/namePrefix"
 import { GENDERS, diffBody, sectionMeta } from "../../lib/onboarding"
 import { baseField, cx, focusRingCls, helpTextCls, readonlyFieldCls } from "../../lib/styles"
-import { blank, thaiDate, useSectionFlow } from "./sectionFlow"
+import { blank, invalidInputCls, thaiDate, useSectionFlow } from "./sectionFlow"
 import { Field, Frame, MissingHint, ProblemPanel, SectionCard, StepHeader } from "./shared"
 
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj?.[k] ?? ""]))
 
-/** Common wiring: form state, flags, submit. */
-function useScalarSection(sectionKey, keys, data, handlers, seed) {
+/** `ob-<key>`, or the prefix trigger when that part is the invalid one. */
+const scalarFieldId = (k) => {
+  const prefix = document.getElementById(`ob-${k}-prefix`)
+  return prefix?.getAttribute("aria-invalid") === "true" ? prefix.id : `ob-${k}`
+}
+
+/**
+ * Common wiring: form state, flags, submit.
+ * flagged(k) = still empty per server (amber) or rejected by the last save (red: tone(k) "error").
+ * hint(k) = the inline message; describedBy(k) = aria-describedby for the control.
+ */
+function useScalarSection(sectionKey, keys, data, handlers, seed, fieldId = scalarFieldId) {
   const original = useMemo(() => data?.values?.[sectionKey] ?? {}, [data, sectionKey])
   const [form, setForm] = useState(() => ({ ...pick(original, keys), ...seed?.(original) }))
-  const flow = useSectionFlow(sectionKey, handlers)
+  const flow = useSectionFlow(sectionKey, { ...handlers, fieldId })
   const serverMissing = data?.sections?.[sectionKey]?.missing ?? []
   const problemMissing = flow.problem?.missing ?? []
 
@@ -31,7 +42,12 @@ function useScalarSection(sectionKey, keys, data, handlers, seed) {
     flow.clearField(k)
   }
   const flagged = (k) => problemMissing.includes(k) || (serverMissing.includes(k) && blank(form[k]))
-  return { original, form, setForm, set, flagged, flow }
+  const tone = (k) => (problemMissing.includes(k) ? "error" : "warn")
+  const hint = (k, empty = "ยังไม่ได้กรอก") =>
+    flow.problem?.hints?.[k] ?? (blank(form[k]) || tone(k) === "warn" ? empty : "ตรวจสอบข้อมูลช่องนี้")
+  const describedBy = (k) => (flagged(k) ? `ob-${k}-hint` : undefined)
+  const inputCls = (k, extra) => cx(baseField, extra, flagged(k) && tone(k) === "error" && invalidInputCls)
+  return { original, form, setForm, set, flagged, tone, hint, describedBy, inputCls, flow }
 }
 
 function StepShell({ sectionKey, flow, onSubmit, onBack, children }) {
@@ -65,23 +81,29 @@ function StepShell({ sectionKey, flow, onSubmit, onBack, children }) {
 const ACCOUNT_KEYS = ["th_first_name", "th_last_name", "first_name", "last_name", "email"]
 
 export function AccountStep({ data, handlers, onBack }) {
-  const { original, form, set, flagged, flow } = useScalarSection("account", ACCOUNT_KEYS, data, handlers)
+  const { original, form, set, flagged, tone, hint, describedBy, inputCls, flow } = useScalarSection(
+    "account",
+    ACCOUNT_KEYS,
+    data,
+    handlers,
+  )
   const input = (k, extra = {}) => (
     <input
       id={`ob-${k}`}
       type="text"
-      className={baseField}
+      className={inputCls(k)}
       value={form[k]}
       onChange={(e) => set(k)(e.target.value)}
-      aria-describedby={flagged(k) ? `ob-${k}-hint` : undefined}
+      aria-describedby={describedBy(k)}
       aria-invalid={flagged(k) || undefined}
       {...extra}
     />
   )
+  const field = (k) => ({ flagged: flagged(k), tone: tone(k), hint: hint(k) })
   const noPrefix = !blank(form.th_first_name) && !prefixOf(form.th_first_name)
   const submit = () => {
     if (noPrefix) {
-      flow.setProblem({ missing: ["th_first_name"], message: "เลือกคำนำหน้าชื่อ (นาย / นาง / นางสาว)" })
+      flow.fail({ missing: ["th_first_name"], message: "", hints: { th_first_name: "เลือกคำนำหน้าชื่อ (นาย / นาง / นางสาว)" } })
       return
     }
     flow.submit(diffBody(original, form, ACCOUNT_KEYS))
@@ -95,8 +117,8 @@ export function AccountStep({ data, handlers, onBack }) {
             id="ob-th_first_name"
             label="คำนำหน้าและชื่อ"
             required
-            flagged={flagged("th_first_name")}
-            hint={noPrefix ? "ยังไม่ได้เลือกคำนำหน้า" : undefined}
+            {...field("th_first_name")}
+            hint={noPrefix ? hint("th_first_name", "ยังไม่ได้เลือกคำนำหน้า") : hint("th_first_name")}
           >
             <PrefixedNameInput
               id="ob-th_first_name"
@@ -106,10 +128,11 @@ export function AccountStep({ data, handlers, onBack }) {
               autoComplete="given-name"
               invalid={flagged("th_first_name")}
               prefixInvalid={flagged("th_first_name") && noPrefix}
-              describedBy={flagged("th_first_name") ? "ob-th_first_name-hint" : undefined}
+              describedBy={describedBy("th_first_name")}
+              inputClassName={flagged("th_first_name") && tone("th_first_name") === "error" && !noPrefix ? invalidInputCls : undefined}
             />
           </Field>
-          <Field id="ob-th_last_name" label="นามสกุล" required flagged={flagged("th_last_name")}>
+          <Field id="ob-th_last_name" label="นามสกุล" required {...field("th_last_name")}>
             {input("th_last_name", { autoComplete: "family-name" })}
           </Field>
         </div>
@@ -121,16 +144,16 @@ export function AccountStep({ data, handlers, onBack }) {
           <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">ตามบัตรประชาชน</span>
         </p>
         <div className="grid gap-5 md:grid-cols-2">
-          <Field id="ob-first_name" label="ชื่อ" required flagged={flagged("first_name")}>
+          <Field id="ob-first_name" label="ชื่อ" required {...field("first_name")}>
             {input("first_name", { lang: "en", autoCapitalize: "words" })}
           </Field>
-          <Field id="ob-last_name" label="นามสกุล" required flagged={flagged("last_name")}>
+          <Field id="ob-last_name" label="นามสกุล" required {...field("last_name")}>
             {input("last_name", { lang: "en", autoCapitalize: "words" })}
           </Field>
         </div>
       </fieldset>
       <div className="mt-7 border-t border-gray-100 pt-6 dark:border-line">
-        <Field id="ob-email" label="อีเมล" optional flagged={flagged("email")} className="md:max-w-md">
+        <Field id="ob-email" label="อีเมล" optional {...field("email")} className="md:max-w-md">
           {input("email", { type: "email", inputMode: "email", autoComplete: "email", lang: "en" })}
         </Field>
       </div>
@@ -182,7 +205,7 @@ const splitDiseases = (v) =>
     .map((x) => x.trim())
     .filter((x) => x && x !== NONE)
 
-function DiseaseField({ id, value, onChange, invalid }) {
+function DiseaseField({ id, value, onChange, invalid, error }) {
   const [draft, setDraft] = useState("")
   const items = splitDiseases(value)
   const isNone = String(value ?? "").trim() === NONE
@@ -199,7 +222,7 @@ function DiseaseField({ id, value, onChange, invalid }) {
         <input
           id={id}
           type="text"
-          className={baseField}
+          className={cx(baseField, error && invalidInputCls)}
           value={draft}
           placeholder={items.length ? "เพิ่มโรคอื่น" : "เช่น ความดันโลหิตสูง"}
           onChange={(e) => setDraft(e.target.value)}
@@ -211,7 +234,7 @@ function DiseaseField({ id, value, onChange, invalid }) {
           }}
           onBlur={add}
           aria-invalid={invalid || undefined}
-          aria-describedby={`${id}-help`}
+          aria-describedby={invalid ? `${id}-hint ${id}-help` : `${id}-help`}
         />
         <button
           type="button"
@@ -277,7 +300,7 @@ function DiseaseField({ id, value, onChange, invalid }) {
 
 export function PersonalStep({ data, handlers, onBack, onReport }) {
   // เพศยังว่าง → ตั้งตามคำนำหน้าชื่อที่เลือกไว้ในขั้น "ชื่อและอีเมล" (ผู้ใช้เปลี่ยนได้)
-  const { original, form, set, flagged, flow } = useScalarSection("personal", PERSONAL_KEYS, data, handlers, (o) => {
+  const { original, form, set, flagged, tone, hint, describedBy, inputCls, flow } = useScalarSection("personal", PERSONAL_KEYS, data, handlers, (o) => {
     const g = genderOfPrefix(prefixOf(data?.values?.account?.th_first_name))
     return blank(o.gender) && g ? { gender: g } : {}
   })
@@ -288,32 +311,45 @@ export function PersonalStep({ data, handlers, onBack, onReport }) {
     const raw = String(form.children_number ?? "").trim()
     const n = raw === "" ? null : Number(raw)
     if (n !== null && (!Number.isInteger(n) || n < 0)) {
-      flow.setProblem({ missing: [], message: "จำนวนบุตรต้องเป็นตัวเลขจำนวนเต็ม 0 ขึ้นไป" })
+      flow.fail({
+        missing: ["children_number"],
+        message: "จำนวนบุตรต้องเป็นตัวเลขจำนวนเต็ม 0 ขึ้นไป",
+        hints: { children_number: "ต้องเป็นตัวเลขจำนวนเต็ม 0 ขึ้นไป" },
+      })
       return
     }
     flow.submit(diffBody(original, { ...form, children_number: n }, PERSONAL_KEYS))
   }
 
-  const text = (k, extra = {}) => (
+  const text = (k, { inputClassName, ...extra } = {}) => (
     <input
       id={`ob-${k}`}
       type="text"
-      className={baseField}
+      className={inputCls(k, inputClassName)}
       value={form[k] ?? ""}
       onChange={(e) => set(k)(e.target.value)}
-      aria-describedby={flagged(k) ? `ob-${k}-hint` : undefined}
+      aria-describedby={describedBy(k)}
       aria-invalid={flagged(k) || undefined}
       {...extra}
     />
   )
+  const field = (k, empty) => ({ flagged: flagged(k), tone: tone(k), hint: hint(k, empty) })
+  const errorOf = (k) => flagged(k) && tone(k) === "error"
 
   return (
     <StepShell sectionKey="personal" flow={flow} onBack={onBack} onSubmit={submit}>
       <div className="grid gap-5 md:grid-cols-2">
-        <Field id="ob-birthday" label="วันเกิด" required flagged={flagged("birthday")}>
-          <DateInput id="ob-birthday" value={form.birthday} onChange={(e) => set("birthday")(e.target.value)} ariaLabel="วันเกิด" />
+        <Field id="ob-birthday" label="วันเกิด" required {...field("birthday", "ยังไม่ได้เลือก")}>
+          <DateInput
+            id="ob-birthday"
+            value={form.birthday}
+            onChange={(e) => set("birthday")(e.target.value)}
+            ariaLabel="วันเกิด"
+            error={errorOf("birthday")}
+            aria-describedby={describedBy("birthday")}
+          />
         </Field>
-        <Field id="ob-gender" label="เพศ" required flagged={flagged("gender")}>
+        <Field id="ob-gender" label="เพศ" required {...field("gender", "ยังไม่ได้เลือก")}>
           <SelectDropdown
             id="ob-gender"
             options={GENDERS.map((g) => ({ value: g, label: g }))}
@@ -322,14 +358,15 @@ export function PersonalStep({ data, handlers, onBack, onReport }) {
             placeholder="เลือกเพศ"
             showSwatch={false}
             required
+            error={errorOf("gender")}
+            ariaDescribedby={describedBy("gender")}
           />
         </Field>
         <Field
           id="ob-m_status"
           label="สถานภาพสมรส"
           required
-          flagged={flagged("m_status")}
-          hint="ยังไม่ได้เลือก"
+          {...field("m_status", "ยังไม่ได้เลือก")}
         >
           <SelectDropdown
             id="ob-m_status"
@@ -339,43 +376,45 @@ export function PersonalStep({ data, handlers, onBack, onReport }) {
             placeholder="เลือกสถานภาพ"
             showSwatch={false}
             required
+            error={errorOf("m_status")}
+            ariaDescribedby={describedBy("m_status")}
           />
         </Field>
         <Field
           id="ob-children_number"
           label="จำนวนบุตร"
           required
-          flagged={flagged("children_number")}
+          {...field("children_number")}
           help={<p className={helpTextCls}>ไม่มีบุตร ใส่ 0</p>}
         >
-          {text("children_number", { inputMode: "numeric", className: cx(baseField, "tabular-nums md:max-w-40") })}
+          {text("children_number", { inputMode: "numeric", inputClassName: "tabular-nums md:max-w-40" })}
         </Field>
       </div>
 
       <div className="mt-7 grid gap-5 border-t border-gray-100 pt-6 md:grid-cols-2 dark:border-line">
-        <Field id="ob-p_number" label="เบอร์โทรศัพท์" required flagged={flagged("p_number")}>
-          {text("p_number", { type: "tel", inputMode: "tel", autoComplete: "tel", className: cx(baseField, "tabular-nums") })}
+        <Field id="ob-p_number" label="เบอร์โทรศัพท์" required {...field("p_number")}>
+          {text("p_number", { type: "tel", inputMode: "tel", autoComplete: "tel", inputClassName: "tabular-nums" })}
         </Field>
         <Field
           id="ob-e_contact"
           label="เบอร์ติดต่อฉุกเฉิน"
           required
-          flagged={flagged("e_contact")}
+          {...field("e_contact")}
           help={<p className={helpTextCls}>ญาติหรือคนใกล้ชิดที่ติดต่อได้</p>}
         >
-          {text("e_contact", { type: "tel", inputMode: "tel", className: cx(baseField, "tabular-nums") })}
+          {text("e_contact", { type: "tel", inputMode: "tel", inputClassName: "tabular-nums" })}
         </Field>
-        <Field id="ob-line_id" label="LINE ID" optional flagged={flagged("line_id")}>
+        <Field id="ob-line_id" label="LINE ID" optional {...field("line_id")}>
           {text("line_id", { autoCapitalize: "none", lang: "en" })}
         </Field>
         <Field
           id="ob-bank_no"
           label="เลขบัญชีธนาคาร"
           required
-          flagged={flagged("bank_no")}
+          {...field("bank_no")}
           help={<p className={helpTextCls}>บัญชีที่ใช้รับเงินเดือน</p>}
         >
-          {text("bank_no", { inputMode: "numeric", className: cx(baseField, "tabular-nums") })}
+          {text("bank_no", { inputMode: "numeric", inputClassName: "tabular-nums" })}
         </Field>
       </div>
 
@@ -384,14 +423,14 @@ export function PersonalStep({ data, handlers, onBack, onReport }) {
           id="ob-underlying_disease"
           label="โรคประจำตัว"
           required
-          flagged={flagged("underlying_disease")}
-          hint="ยังไม่ได้กรอก ถ้าไม่มีให้กด “ไม่มี”"
+          {...field("underlying_disease", "ยังไม่ได้กรอก ถ้าไม่มีให้กด “ไม่มี”")}
         >
           <DiseaseField
             id="ob-underlying_disease"
             value={form.underlying_disease ?? ""}
             onChange={set("underlying_disease")}
             invalid={flagged("underlying_disease")}
+            error={errorOf("underlying_disease")}
           />
         </Field>
       </div>
@@ -424,11 +463,22 @@ const ADDRESS_KEYS = ["h_address", "mhoo", "soi", "road", "province", "district"
 const ADDRESS_REQUIRED = ["h_address", "province", "district", "sub_district", "postal_code"]
 
 export function AddressStep({ data, handlers, onBack }) {
-  const { original, form, setForm, flagged, flow } = useScalarSection("address", ADDRESS_KEYS, data, handlers)
+  const { original, form, setForm, flagged, tone, hint, flow } = useScalarSection(
+    "address",
+    ADDRESS_KEYS,
+    data,
+    handlers,
+    undefined,
+    (k) => `ob-addr-${k}`,
+  )
 
   const submit = () => {
     if (form.postal_code && !/^\d{5}$/.test(form.postal_code)) {
-      flow.setProblem({ missing: ["postal_code"], message: "" })
+      flow.fail({
+        missing: ["postal_code"],
+        message: "รหัสไปรษณีย์ต้องเป็นตัวเลข 5 หลัก",
+        hints: { postal_code: "ต้องเป็นตัวเลข 5 หลัก" },
+      })
       return
     }
     flow.submit(diffBody(original, form, ADDRESS_KEYS))
@@ -444,10 +494,16 @@ export function AddressStep({ data, handlers, onBack }) {
           setForm((p) => ({ ...p, ...patch }))
           Object.keys(patch).forEach(flow.clearField)
         }}
-        frame={(k, node) => <Frame flagged={flagged(k)}>{node}</Frame>}
+        frame={(k, node) => (
+          <div data-field className="scroll-mt-24 scroll-mb-28">
+            <Frame flagged={flagged(k)} tone={tone(k)}>{node}</Frame>
+          </div>
+        )}
         renderHint={(k) =>
           flagged(k) ? (
-            <MissingHint>{k === "postal_code" && form.postal_code ? "ต้องเป็นตัวเลข 5 หลัก" : "ยังไม่ได้กรอก"}</MissingHint>
+            <MissingHint id={`ob-addr-${k}-hint`} tone={tone(k)}>
+              {hint(k, ["province", "district", "sub_district"].includes(k) ? "ยังไม่ได้เลือก" : "ยังไม่ได้กรอก")}
+            </MissingHint>
           ) : null
         }
       />

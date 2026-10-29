@@ -193,5 +193,36 @@ export const OOO_TYPE_LABEL = {
   personal: "ออกนอกสถานที่เพื่อธุระส่วนตัว",
 }
 
+// 3O work details (section28A1) — only on request_type "work"; older work rows have them all null
+export const OOO_WORK_AREA_LABEL = { in_province: "ในจังหวัด", out_province: "นอกจังหวัด" }
+export const OOO_PLAN_STATUS_LABEL = { planned: "ตามแผน", adjusted: "ปรับแผน" }
+// transport is free text on the backend — the frontend owns this list; "อื่นๆ" sends the typed text
+export const OOO_TRANSPORT_OPTIONS = ["รถยนต์", "จักรยานยนต์", "เครื่องบิน", "เรือ", "รถไฟ"]
+// road vehicles carry a plate number; the plate field is hidden for the rest
+export const OOO_ROAD_TRANSPORT = ["รถยนต์", "จักรยานยนต์"]
+
+/** "25.0" → "25" · "12.5" → "12.5" */
+export function fmtOooKm(v) {
+  if (v == null || v === "") return ""
+  const n = Number(v)
+  if (!Number.isFinite(n)) return ""
+  return `${n.toLocaleString("th-TH", { maximumFractionDigits: 1 })} กม.`
+}
+
+/** One-line transport summary: "รถยนต์ · บน6810 · 25 กม." */
+export function oooTransportText(r) {
+  return [r?.transport, r?.vehicle_plate, fmtOooKm(r?.distance_km)].filter(Boolean).join(" · ")
+}
+
+/** Label/value rows for detail views (Inbox) — [] for personal requests. */
+export function oooWorkRows(r) {
+  if (r?.request_type !== "work") return []
+  return [
+    ["พื้นที่", OOO_WORK_AREA_LABEL[r.work_area] || "—"],
+    ["แผนงาน", [r.plan_name, OOO_PLAN_STATUS_LABEL[r.plan_status] && `(${OOO_PLAN_STATUS_LABEL[r.plan_status]})`].filter(Boolean).join(" ") || "—"],
+    ["การเดินทาง", oooTransportText(r) || "—"],
+  ]
+}
+
 /** "HH:MM:SS" | "HH:MM" → "HH:MM" */
 export const hhmm = (t) => (typeof t === "string" ? t.slice(0, 5) : "-")

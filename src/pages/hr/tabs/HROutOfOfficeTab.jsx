@@ -16,6 +16,7 @@ import { KIND, requestNotificationsRefresh } from "../../../lib/approvalActions"
 import DecisionModal from "../../../components/DecisionModal"
 import LeaveStageActions from "../../../components/LeaveStageActions"
 import ApprovalHistory from "../../../components/ApprovalHistory"
+import OOOWorkDetails from "../../../components/OOOWorkDetails"
 import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadges"
 import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
@@ -285,6 +286,7 @@ function RequestsPanel({ branchOptions, branchName }) {
                 </p>
                 <p className="text-sm text-gray-700 dark:text-gray-300 break-words">{r.place}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 break-words">{r.reason}</p>
+                <OOOWorkDetails req={r} compact />
                 {r.reject_reason && (
                   <p className="rounded-lg bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 text-sm text-rose-700 dark:text-rose-300 break-words">
                     เหตุผลที่ไม่อนุมัติ: {r.reject_reason}
@@ -330,6 +332,7 @@ function RequestsPanel({ branchOptions, branchName }) {
                     <td className={`${tdCls} max-w-[320px]`}>
                       <p className="break-words">{r.place}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 break-words line-clamp-2" title={r.reason}>{r.reason}</p>
+                      <OOOWorkDetails req={r} compact className="mt-1.5" />
                     </td>
                     <td className={`${tdCls} max-w-[220px]`}>
                       <div className="flex flex-wrap gap-1">

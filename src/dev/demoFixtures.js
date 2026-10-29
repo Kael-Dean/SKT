@@ -38,9 +38,12 @@ const state = {
   ],
   ooo: [
     { id: 401, request_date: iso(daysAgo(6)), time_out: "13:30:00", time_back: "15:30:00", request_type: "work",
-      place: "ตลาดสดเทศบาลเมืองสุรินทร์", reason: "สำรวจราคาข้าวเปลือกหน้าร้าน", status: "approved", stage: "approved", justification: "justified" },
+      place: "ตลาดสดเทศบาลเมืองสุรินทร์", reason: "สำรวจราคาข้าวเปลือกหน้าร้าน", status: "approved", stage: "approved", justification: "justified",
+      work_area: "in_province", plan_name: "สำรวจราคาตลาด", plan_status: "planned", transport: "รถยนต์", vehicle_plate: "บน6810", distance_km: "25.0",
+      attachments: [{ id: 9401, filename: "รายงานสำรวจราคา.pdf", content_type: "application/pdf", size_bytes: 182340 }] },
     { id: 402, request_date: iso(daysAgo(2)), time_out: "10:00:00", time_back: "11:30:00", request_type: "work",
-      place: "สาขาปราสาท", reason: "ส่งเอกสารสัญญาซื้อขาย", status: "pending_branch_head", stage: "pending_branch_head" },
+      place: "สาขาปราสาท", reason: "ส่งเอกสารสัญญาซื้อขาย", status: "pending_branch_head", stage: "pending_branch_head",
+      work_area: null, plan_name: null, plan_status: null, transport: null, vehicle_plate: null, distance_km: null, attachments: [] },
   ],
   certs: [
     { id: 501, status: "approved", purpose_type: "document", copies_count: 1, requested_at: at(55), purpose_detail: "ยื่นขอวีซ่าท่องเที่ยว",
@@ -201,7 +204,9 @@ export function demoFixture(path, method, u, body, values) {
     return ok(row)
   }
   if (path === "/personnel/me/out-of-office" && method === "POST") {
-    const row = { id: nextId++, status: "pending_branch_head", stage: "pending_branch_head", ...body }
+    const { attachment_ids, ...rest } = body
+    const row = { id: nextId++, status: "pending_branch_head", stage: "pending_branch_head", ...rest,
+      attachments: (attachment_ids || []).map((id) => ({ id, filename: `ไฟล์ ${id}.pdf`, content_type: "application/pdf", size_bytes: 1024 })) }
     state.ooo.unshift(row)
     return ok(row)
   }

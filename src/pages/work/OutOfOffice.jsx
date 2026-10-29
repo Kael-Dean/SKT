@@ -1,11 +1,16 @@
 // src/pages/work/OutOfOffice.jsx
-import { cx, baseField } from "../../lib/styles"
+import { cx, baseField, neutralBtnCls, submitBtnCls } from "../../lib/styles"
 // 3O ขอออกนอกสถานที่ — ฝั่งพนักงาน: ยื่นคำขอ + ดูรายการของฉัน + ยกเลิก
 // Spec: handoff/api-handoff-payment-2.md §1 (approval chain) + §2 (3O)
+//       + section28A1: work details (work_area / plan / transport) + attachments (POST /files → attachment_ids,
+//         later POST /personnel/me/out-of-office/{id}/attachments for pending/approved requests)
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Paperclip } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import {
   OOO_TYPE_LABEL,
+  OOO_TRANSPORT_OPTIONS,
+  OOO_ROAD_TRANSPORT,
   STATUS_LABEL,
   statusTone,
   isPendingStatus,
@@ -13,7 +18,11 @@ import {
 } from "../../lib/approval"
 import Portal from "../../components/Portal"
 import SelectDropdown from "../../components/SelectDropdown"
-import { Skeleton, ErrorState, EmptyState } from "../../components/ui"
+import FileUploader from "../../components/FileUploader"
+import OOOWorkDetails from "../../components/OOOWorkDetails"
+import useFileUploads from "../../hooks/useFileUploads"
+import { FILE_MAX_COUNT } from "../../lib/files"
+import { Skeleton, ErrorState, EmptyState, Sheet, toast } from "../../components/ui"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import PageTitle from "../../components/PageTitle"
@@ -103,6 +112,69 @@ const EMPTY_FORM = {
   time_back: "",
   place: "",
   reason: "",
+  // work only
+  work_area: "",
+  plan_name: "",
+  plan_status: "",
+  transport: "",
+  transport_other: "",
+  vehicle_plate: "",
+  distance_km: "",
+}
+
+const TRANSPORT_OTHER = "__other__"
+const TRANSPORT_SELECT_OPTIONS = [
+  ...OOO_TRANSPORT_OPTIONS.map((t) => ({ value: t, label: t })),
+  { value: TRANSPORT_OTHER, label: "อื่นๆ (ระบุ)" },
+]
+const FIELD_ORDER = [
+  "request_type", "request_date", "time_out", "time_back", "work_area", "plan_status", "plan_name",
+  "place", "reason", "transport", "transport_other", "vehicle_plate", "distance_km",
+]
+
+/** Files can be added to pending or approved requests only (409 otherwise). */
+const canAttach = (r) =>
+  !!r && (isPendingStatus(r.status) || r.status === "approved") &&
+  (Array.isArray(r.attachments) ? r.attachments.length : 0) < FILE_MAX_COUNT
+
+/** Two-option pill radio group (same look as ประเภท). */
+function ChoiceGroup({ id, legend, name, value, options, onChange, error }) {
+  return (
+    <fieldset aria-describedby={error ? `${id}-err` : undefined}>
+      <legend className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+        {legend}<span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+      </legend>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map((o, i) => {
+          const active = value === o.value
+          return (
+            <label
+              key={o.value}
+              className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm transition-colors duration-200 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500 ${
+                active
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-800 dark:border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-200"
+                  : error
+                    ? "border-red-400 text-gray-700 hover:bg-gray-50 dark:border-red-500 dark:text-gray-300 dark:hover:bg-gray-700/50"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50"
+              }`}
+            >
+              <input
+                id={i === 0 ? id : undefined}
+                type="radio"
+                name={name}
+                value={o.value}
+                checked={active}
+                onChange={() => onChange(o.value)}
+                className="accent-indigo-600"
+              />
+              <span className="leading-snug">{o.label}</span>
+            </label>
+          )
+        })}
+      </div>
+      {error && <p id={`${id}-err`} className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+    </fieldset>
+  )
 }
 
 function Field({ id, label, required, error, hint, children }) {
@@ -198,6 +270,15 @@ export default function OutOfOffice() {
   const [cancelError, setCancelError] = useState("")
   const [notice, setNotice] = useState("")
 
+  const uploads = useFileUploads()
+  // attach later (pending / approved) — own uploader so the form's files stay put
+  const [attachTarget, setAttachTarget] = useState(null)
+  const [attaching, setAttaching] = useState(false)
+  const [attachError, setAttachError] = useState("")
+  const laterUploads = useFileUploads({
+    maxFiles: Math.max(1, FILE_MAX_COUNT - (attachTarget?.attachments?.length || 0)),
+  })
+
   // Work-hour hint — optional, ignore failure (e.g. role 5 has no access)
   useEffect(() => {
     apiAuth("/hr/out-of-office/settings", { redirectOn401: false })
@@ -227,6 +308,48 @@ export default function OutOfOffice() {
     setSubmitError("")
   }
 
+  const isWork = form.request_type === "work"
+  // plate only for road vehicles (and free-text "อื่นๆ" — could be a van/truck)
+  const showPlate = isWork && (OOO_ROAD_TRANSPORT.includes(form.transport) || form.transport === TRANSPORT_OTHER)
+
+  const openAttach = (r) => {
+    laterUploads.discard()
+    setAttachTarget(r)
+    setAttachError("")
+  }
+  const closeAttach = () => {
+    if (attaching) return
+    laterUploads.discard()
+    setAttachTarget(null)
+  }
+  const handleAttach = async () => {
+    if (!attachTarget || !laterUploads.ids.length || laterUploads.busy) return
+    setAttaching(true)
+    setAttachError("")
+    try {
+      const res = await apiAuth(`/personnel/me/out-of-office/${attachTarget.id}/attachments`, {
+        method: "POST",
+        body: { attachment_ids: laterUploads.ids },
+      })
+      laterUploads.reset()
+      setAttachTarget(null)
+      if (res?.id) setItems((list) => list.map((x) => (x.id === res.id ? res : x)))
+      else fetchList()
+      toast.success("แนบไฟล์แล้ว")
+    } catch (err) {
+      if (err.status === 404 || err.status === 409) {
+        laterUploads.discard()
+        setAttachTarget(null)
+        toast.error("แนบไฟล์ไม่ได้", { description: err.message })
+        fetchList()
+      } else {
+        setAttachError(err.message || "แนบไฟล์ไม่สำเร็จ")
+      }
+    } finally {
+      setAttaching(false)
+    }
+  }
+
   const durationMin = useMemo(() => {
     const o = toMin(form.time_out)
     const b = toMin(form.time_back)
@@ -252,6 +375,15 @@ export default function OutOfOffice() {
     }
     if (!form.place.trim()) er.place = "กรุณาระบุสถานที่"
     if (!form.reason.trim()) er.reason = "กรุณาระบุเหตุผล"
+    if (isWork) {
+      if (!form.work_area) er.work_area = "กรุณาเลือกพื้นที่"
+      if (!form.plan_status) er.plan_status = "กรุณาเลือกว่าตามแผนหรือปรับแผน"
+      if (!form.plan_name.trim()) er.plan_name = "กรุณาระบุชื่อแผนงาน"
+      if (!form.transport) er.transport = "กรุณาเลือกการเดินทาง"
+      else if (form.transport === TRANSPORT_OTHER && !form.transport_other.trim()) er.transport_other = "กรุณาระบุการเดินทาง"
+      const km = form.distance_km.trim()
+      if (km && !/^\d+(\.\d)?$/.test(km)) er.distance_km = "ตัวเลข 0 ขึ้นไป ทศนิยมไม่เกิน 1 ตำแหน่ง"
+    }
     return er
   }
 
@@ -260,27 +392,37 @@ export default function OutOfOffice() {
     const er = validate()
     setErrors(er)
     if (Object.keys(er).length) {
-      const first = ["request_type", "request_date", "time_out", "time_back", "place", "reason"].find((k) => er[k])
+      const first = FIELD_ORDER.find((k) => er[k])
       document.getElementById(`ooo-${first}`)?.focus()
       return
     }
+    if (uploads.busy) return
     setSubmitting(true)
     setSubmitError("")
     setSubmitted(null)
+    const body = {
+      request_type: form.request_type,
+      request_date: form.request_date,
+      time_out: form.time_out,
+      time_back: form.time_back,
+      place: form.place.trim(),
+      reason: form.reason.trim(),
+    }
+    // personal: never send the work keys (backend 422s on any of them)
+    if (isWork) {
+      body.work_area = form.work_area
+      body.plan_name = form.plan_name.trim()
+      body.plan_status = form.plan_status
+      body.transport = form.transport === TRANSPORT_OTHER ? form.transport_other.trim() : form.transport
+      body.vehicle_plate = showPlate ? form.vehicle_plate.trim() || null : null
+      body.distance_km = form.distance_km.trim() ? Number(form.distance_km) : null
+    }
+    if (uploads.ids.length) body.attachment_ids = uploads.ids
     try {
-      const res = await apiAuth("/personnel/me/out-of-office", {
-        method: "POST",
-        body: {
-          request_type: form.request_type,
-          request_date: form.request_date,
-          time_out: form.time_out,
-          time_back: form.time_back,
-          place: form.place.trim(),
-          reason: form.reason.trim(),
-        },
-      })
+      const res = await apiAuth("/personnel/me/out-of-office", { method: "POST", body })
       setSubmitted(res || null)
       setForm(EMPTY_FORM)
+      uploads.reset()
       // jump the list to the request's month so the new row is visible
       const p = parseISODate(res?.request_date)
       if (p && (String(p.y) !== year || (month && String(p.m) !== month))) {
@@ -447,6 +589,41 @@ export default function OutOfOffice() {
               {settings && <WorkdayStrip settings={settings} timeOut={form.time_out} timeBack={form.time_back} />}
             </div>
 
+            {isWork && (
+              <>
+                <ChoiceGroup
+                  id="ooo-work_area"
+                  legend="พื้นที่ปฏิบัติงาน"
+                  name="work_area"
+                  value={form.work_area}
+                  options={[{ value: "in_province", label: "ในจังหวัด" }, { value: "out_province", label: "นอกจังหวัด" }]}
+                  onChange={set("work_area")}
+                  error={errors.work_area}
+                />
+                <ChoiceGroup
+                  id="ooo-plan_status"
+                  legend="การปฏิบัติงาน"
+                  name="plan_status"
+                  value={form.plan_status}
+                  options={[{ value: "planned", label: "ตามแผน" }, { value: "adjusted", label: "ปรับแผน" }]}
+                  onChange={set("plan_status")}
+                  error={errors.plan_status}
+                />
+                <Field id="ooo-plan_name" label="ชื่อแผนงาน" required error={errors.plan_name}>
+                  <input
+                    id="ooo-plan_name"
+                    type="text"
+                    maxLength={255}
+                    className={`${inputCls} ${errors.plan_name ? inputErrCls : ""}`}
+                    value={form.plan_name}
+                    onChange={set("plan_name")}
+                    placeholder="เช่น สำรวจความต้องการสมาชิก"
+                    {...errProps("plan_name")}
+                  />
+                </Field>
+              </>
+            )}
+
             <Field id="ooo-place" label="สถานที่" required error={errors.place}>
               <input
                 id="ooo-place"
@@ -467,10 +644,78 @@ export default function OutOfOffice() {
                 className={`${inputCls} resize-y ${errors.reason ? inputErrCls : ""}`}
                 value={form.reason}
                 onChange={set("reason")}
-                placeholder="ไปทำอะไร"
+                placeholder={isWork ? "เช่น สำรวจความต้องการ 20 ราย" : "ไปทำอะไร"}
                 {...errProps("reason")}
               />
             </Field>
+
+            {isWork && (
+              <>
+                <Field id="ooo-transport" label="การเดินทาง" required error={errors.transport}>
+                  <SelectDropdown
+                    id="ooo-transport"
+                    size="sm"
+                    required
+                    options={TRANSPORT_SELECT_OPTIONS}
+                    value={form.transport}
+                    onChange={set("transport")}
+                    placeholder="— เลือกการเดินทาง —"
+                    error={!!errors.transport}
+                    ariaDescribedby={errors.transport ? "ooo-transport-err" : undefined}
+                  />
+                </Field>
+                {form.transport === TRANSPORT_OTHER && (
+                  <Field id="ooo-transport_other" label="ระบุการเดินทาง" required error={errors.transport_other}>
+                    <input
+                      id="ooo-transport_other"
+                      type="text"
+                      maxLength={100}
+                      className={`${inputCls} ${errors.transport_other ? inputErrCls : ""}`}
+                      value={form.transport_other}
+                      onChange={set("transport_other")}
+                      placeholder="เช่น รถตู้ รถโดยสารประจำทาง"
+                      {...errProps("transport_other")}
+                    />
+                  </Field>
+                )}
+                <div className={`grid gap-3 ${showPlate ? "grid-cols-2" : "grid-cols-1"}`}>
+                  {showPlate && (
+                    <Field id="ooo-vehicle_plate" label="ทะเบียนรถ" hint="ไม่บังคับ">
+                      <input
+                        id="ooo-vehicle_plate"
+                        type="text"
+                        maxLength={20}
+                        className={inputCls}
+                        value={form.vehicle_plate}
+                        onChange={set("vehicle_plate")}
+                        placeholder="เช่น บน6810"
+                        aria-describedby="ooo-vehicle_plate-hint"
+                      />
+                    </Field>
+                  )}
+                  <Field id="ooo-distance_km" label="ระยะทาง (กม.)" error={errors.distance_km} hint="ไม่บังคับ">
+                    <input
+                      id="ooo-distance_km"
+                      type="text"
+                      inputMode="decimal"
+                      maxLength={8}
+                      className={`${inputCls} tabular-nums ${errors.distance_km ? inputErrCls : ""}`}
+                      value={form.distance_km}
+                      onChange={(e) => set("distance_km")(e.target.value.replace(/[^\d.]/g, ""))}
+                      placeholder="เช่น 25"
+                      {...errProps("distance_km")}
+                      aria-describedby={errors.distance_km ? "ooo-distance_km-err" : "ooo-distance_km-hint"}
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
+
+            <FileUploader
+              uploads={uploads}
+              disabled={submitting}
+              hint={isWork ? "เช่น รายงานการประชุม แบบสำรวจ — แนบเพิ่มภายหลังได้" : "แนบเพิ่มภายหลังได้"}
+            />
 
             {submitError && (
               <p role="alert" className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-700 dark:text-red-300">
@@ -492,11 +737,11 @@ export default function OutOfOffice() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || uploads.busy}
               className={`w-full inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-sm transition-colors duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${focusRing} focus-visible:ring-indigo-500`}
             >
               {submitting && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />}
-              {submitting ? "กำลังส่ง..." : "ส่งคำขอ"}
+              {submitting ? "กำลังส่ง..." : uploads.busy ? "กำลังอัปโหลดไฟล์..." : "ส่งคำขอ"}
             </button>
           </form>
 
@@ -568,12 +813,26 @@ export default function OutOfOffice() {
                             {r.reason}
                           </p>
                         )}
+                        <OOOWorkDetails req={r} compact className="pt-0.5" />
                         {r.reject_reason && (
                           <p className="rounded-lg bg-rose-50 dark:bg-rose-900/20 px-3 py-1.5 text-sm text-rose-700 dark:text-rose-300 break-words">
                             เหตุผลที่ไม่อนุมัติ: {r.reject_reason}
                           </p>
                         )}
                       </div>
+                      {(canAttach(r) || isCancellable(r)) && (
+                      <div className="flex shrink-0 flex-col items-stretch gap-2">
+                      {canAttach(r) && (
+                        <button
+                          type="button"
+                          onClick={() => openAttach(r)}
+                          className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 min-h-touch md:min-h-0 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer ${focusRing} focus-visible:ring-indigo-500`}
+                          aria-label={`แนบไฟล์ให้คำขอวันที่ ${fmtThaiShort(r.request_date)} เวลา ${hhmm(r.time_out)}`}
+                        >
+                          <Paperclip className="size-4" aria-hidden="true" />
+                          แนบไฟล์
+                        </button>
+                      )}
                       {isCancellable(r) && (
                         <button
                           type="button"
@@ -584,6 +843,8 @@ export default function OutOfOffice() {
                           ยกเลิก
                         </button>
                       )}
+                      </div>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -592,6 +853,50 @@ export default function OutOfOffice() {
           </section>
         </div>
       </div>
+
+      {/* Attach files later (pending / approved) */}
+      <Sheet
+        open={!!attachTarget}
+        onClose={closeAttach}
+        busy={attaching}
+        size="sm"
+        title="แนบไฟล์เพิ่ม"
+        subtitle={attachTarget ? `${fmtThaiShort(attachTarget.request_date)} ${hhmm(attachTarget.time_out)}–${hhmm(attachTarget.time_back)} น. · ${attachTarget.place || ""}` : undefined}
+        footer={
+          <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+            <button type="button" onClick={closeAttach} disabled={attaching} className={neutralBtnCls}>ยกเลิก</button>
+            <button
+              type="button"
+              onClick={handleAttach}
+              disabled={attaching || laterUploads.busy || !laterUploads.ids.length}
+              className={submitBtnCls}
+            >
+              {attaching ? "กำลังแนบ..." : "แนบไฟล์"}
+            </button>
+          </div>
+        }
+      >
+        {attachTarget && (
+          <div className="space-y-4">
+            {attachTarget.attachments?.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">ไฟล์ที่แนบแล้ว</p>
+                <OOOWorkDetails req={{ attachments: attachTarget.attachments }} compact />
+              </div>
+            )}
+            <FileUploader
+              uploads={laterUploads}
+              disabled={attaching}
+              optional={false}
+              label="ไฟล์ใหม่"
+              hint={`แนบได้อีก ${FILE_MAX_COUNT - (attachTarget.attachments?.length || 0)} ไฟล์ เช่น รายงานการประชุมหลังกลับมา`}
+            />
+            {attachError && (
+              <p role="alert" className="rounded-lg bg-red-50 dark:bg-red-900/20 px-3 py-2 text-sm text-red-700 dark:text-red-300">{attachError}</p>
+            )}
+          </div>
+        )}
+      </Sheet>
 
       {/* Cancel confirm */}
       {cancelTarget && (

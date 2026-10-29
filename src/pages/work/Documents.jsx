@@ -634,6 +634,9 @@ const HR_REPORTS = [
   // งดจ่าย: backend รับ year เป็น ค.ศ. — ผู้ใช้กรอก พ.ศ. เหมือนรายงานอื่น แล้วแปลงตอนสร้าง query (yearCE)
   { key: "hr-unpaid-deductions", title: "สรุปการงดจ่ายเงินเดือน (ลาเกินสิทธิ์ / พักงาน)", endpoint: "/hr/reports/unpaid-deductions-pdf", require: ["month", "yearBE"], optional: ["branchId"], yearCE: true, perm: "hr.reports.payrollMonthly", xlsx: true, allBranchesOption: true },
   { key: "hr-out-of-office", title: "รายงานการออกนอกพื้นที่", endpoint: "/hr/reports/out-of-office-pdf", require: ["startDate", "endDate"], optional: ["branchId", "oooStatus"], perm: "hr.ooo.list", xlsx: true, allBranchesOption: true },
+  // บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน) — เฉพาะคำขอที่อนุมัติแล้ว · year = ค.ศ. · สาขา = สาขาตอนยื่น (ต้องเลือก)
+  { key: "hr-ooo-monthly-branch", title: "บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน · ทั้งสาขา)", endpoint: "/hr/reports/out-of-office-monthly-pdf", require: ["month", "yearBE", "branchId"], yearCE: true, perm: "hr.ooo.list", xlsx: true },
+  { key: "hr-ooo-monthly-employee", title: "บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน · รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/out-of-office-monthly-pdf`, require: ["employeeId", "month", "yearBE"], yearCE: true, perm: "hr.ooo.list", xlsx: true },
   { key: "hr-discipline-history", title: "ประวัติการลงโทษทางวินัย", endpoint: "/hr/reports/discipline-history-pdf", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.discipline.view", xlsx: true, allBranchesOption: true },
   // รายคน/รายสัญญา (PDF อย่างเดียว ไม่มี Excel)
   { key: "hr-profile-pdf", title: "ข้อมูลประวัติพนักงาน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/profile-pdf`, require: ["employeeId"], optional: ["showSensitive"], perm: "hr.reports.profilePdf" },

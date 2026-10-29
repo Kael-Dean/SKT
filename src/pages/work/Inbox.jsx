@@ -14,6 +14,7 @@ import Portal from "../../components/Portal"
 import DecisionModal from "../../components/DecisionModal"
 import LeaveStageActions from "../../components/LeaveStageActions"
 import ApprovalHistory from "../../components/ApprovalHistory"
+import AttachmentList from "../../components/AttachmentList"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { EmptyState } from "../../components/ui"
 import { getRoleId } from "../../lib/auth"
@@ -23,6 +24,7 @@ import { can } from "../../lib/permissions"
 import {
   STAGE_APPROVE_LABEL,
   OOO_TYPE_LABEL,
+  oooWorkRows,
   hhmm,
   isApproverRole,
   stageOf,
@@ -236,6 +238,7 @@ function DetailModal({ state, onClose, onDecide }) {
           ["วันและเวลา", item.when],
           ["สถานที่", req.place],
           ["เหตุผล", req.reason],
+          ...oooWorkRows(req),
           ["วันที่ยื่น", fmtDateTimeTh(req.created_at)],
         ]
       : [
@@ -304,6 +307,12 @@ function DetailModal({ state, onClose, onDecide }) {
                     <JustificationBadge req={req} />
                   </dd>
                 </div>
+                {item.kind === KIND.OOO && req.attachments?.length > 0 && (
+                  <div className="flex items-start gap-3 px-4 py-2.5 text-sm">
+                    <dt className="w-28 shrink-0 pt-1 text-xs text-gray-500 dark:text-gray-400">เอกสารแนบ</dt>
+                    <dd className="min-w-0 flex-1"><AttachmentList attachments={req.attachments} variant="compact" /></dd>
+                  </div>
+                )}
                 {req.justification_note && (
                   <div className="flex items-baseline gap-3 px-4 py-2.5 text-sm">
                     <dt className="w-28 shrink-0 text-xs text-gray-500 dark:text-gray-400">เหตุผลผลตรวจ</dt>

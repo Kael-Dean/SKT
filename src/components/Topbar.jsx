@@ -4,7 +4,8 @@
 // stack under it now that <body> is the scroller.
 //
 // <md layout:  [back ◀ 44px][☰ 44px][page title …] [branch (compact)][🔔][avatar]
-// ≥md layout:  [☰][logo][‹ back][page title]  [search (decorative)]  [branch][🔔][dark][profile]
+// ≥md layout:  [☰][logo][‹ back][page title]  [search (decorative)]  [branch][role*][🔔][dark][profile]
+//              (*role = Super Admin act-as-role เท่านั้น; ตอนสวม role มีแถบเตือนใต้ header)
 //              (หน้าหลัก: [☰][logo + org name] — ไม่มี back / title)
 // ชื่อหน้า (title) มาจาก <PageTitle> ในหน้า ผ่าน AppLayout — h1 จริงอยู่ในหน้า (sr-only),
 // ข้อความที่นี่จึง aria-hidden เพื่อไม่ให้ screen reader อ่านซ้ำ
@@ -14,6 +15,7 @@ import { ChevronLeft, Menu, Moon, Sun, X } from "lucide-react";
 import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import NotificationBell from "./NotificationBell";
+import { ActingRoleBanner, RoleSwitcherButton } from "./RoleSwitcher";
 import { myRoleLabel } from "../lib/permissions";
 import { canGoBack } from "../lib/drill";
 
@@ -184,6 +186,9 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
             <BranchSwitcher />
           </div>
 
+          {/* Super Admin "act as role" — แสดงเฉพาะบัญชีที่เป็น Super Admin ใน DB */}
+          <RoleSwitcherButton className={`inline-flex size-11 md:size-9 ${chromeBtnBase}`} />
+
           {/* Notification bell — polls /personnel/me/notifications */}
           <NotificationBell />
 
@@ -225,6 +230,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
           </button>
         </div>
       </div>
+      {/* สวม role อยู่ → แถบเตือนติดใต้ header (นับรวมใน --topbar-h) */}
+      <ActingRoleBanner />
     </header>
   );
 };

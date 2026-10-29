@@ -2,10 +2,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // In-memory fake backend for the onboarding flow (PR 59) so the screens can be walked
 // end-to-end without the real API. Turn on with  http://localhost:5173/?mockOnboarding=1
-// (role via &mockRole=5 staff | 3 HR; default 5), off with ?mockOnboarding=0.
+// (role via &mockRole=5 staff | 3 HR | 1 Super Admin + act-as-role; default 5), off with ?mockOnboarding=0.
 // Login with any username/password. Unmatched requests answer 200 [] so pages render.
 // State resets on reload unless ?mockKeep=1 (kept in sessionStorage).
 // ─────────────────────────────────────────────────────────────────────────────
+import { PERMISSION_MATRIX, POSITION_ROLES } from "../lib/rbacMatrix"
+
 const FLAG = "mock_onboarding"
 const ROLE_FLAG = "mock_onboarding_role"
 const STORE = "mock_onboarding_state"
@@ -117,9 +119,36 @@ function payload() {
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
 const err422 = (msg, field) => json(422, { detail: [{ loc: ["body", field ?? "x"], msg, type: "value_error" }] })
 
-function fakeJwt(role) {
-  const b64 = (o) => btoa(JSON.stringify(o)).replace(/=+$/, "")
-  return `${b64({ alg: "none" })}.${b64({ sub: "mock", user_id: 42, username: "mock", role_id: role, branch: 3, exp: 4102444800 })}.x`
+function fakeJwt(role, actRole = null) {
+  const b64 = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/, "")
+  const act = actRole ? { role: actRole, act_role: actRole, real_role: 1 } : {}
+  return `${b64({ alg: "none" })}.${b64({ sub: "mock", user_id: 42, username: "mock", role_id: role, branch: 3, exp: 4102444800, ...act })}.x`
+}
+
+// Super Admin "act as role" (mockRole=1) — acted role kept in localStorage so reloads keep acting
+const ACT_FLAG = "mock_act_role"
+function actAsRoleMock(path, method, body) {
+  const roles = [
+    { role_id: 1, role_name: "Super Admin", scope: "all", senior: true },
+    ...Object.entries(POSITION_ROLES).map(([id, r]) => ({ role_id: Number(id), role_name: r.name, scope: r.scope, senior: r.senior })),
+  ]
+  const acting = Number(localStorage.getItem(ACT_FLAG)) || null
+  const cur = roles.find((r) => r.role_id === (acting ?? 1))
+  if (path === "/auth/login_json") localStorage.removeItem(ACT_FLAG)
+  if (path === "/auth/act-as-role/roles") return json(200, roles.map((r) => ({ role_id: r.role_id, role_name: r.role_name, scope: r.scope, current: r.role_id === cur.role_id })))
+  if (path === "/auth/act-as-role" && method === "POST") {
+    const id = body.role_id == null || Number(body.role_id) === 1 ? null : Number(body.role_id)
+    const next = roles.find((r) => r.role_id === (id ?? 1))
+    if (!next) return json(422, { detail: `ไม่พบบทบาท ${body.role_id}` })
+    if (id) localStorage.setItem(ACT_FLAG, String(id))
+    else localStorage.removeItem(ACT_FLAG)
+    return json(200, { access_token: fakeJwt(1, id), token_type: "bearer", account_status: "registered", role_id: next.role_id, role_name: next.role_name, acting: id != null })
+  }
+  if (path === "/auth/me/permissions") {
+    const codes = acting ? Object.entries(PERMISSION_MATRIX).filter(([, m]) => m.roles.includes(acting)).map(([c]) => c) : []
+    return json(200, { role_id: cur.role_id, role_name: cur.role_name, scope: cur.scope, senior: cur.senior, permissions: codes, acting: acting != null, real_role_id: 1 })
+  }
+  return null
 }
 
 function putSection(key, body) {
@@ -186,6 +215,10 @@ async function handle(url, init) {
   load()
   await new Promise((r) => setTimeout(r, 250)) // feel real latency
 
+  if (role === 1) {
+    const r = actAsRoleMock(path, method, body)
+    if (r) return r
+  }
   if (path === "/auth/login_json") return json(200, { access_token: fakeJwt(role), token_type: "bearer", account_status: "register" })
   if (path === "/auth/me/permissions") return json(404, { detail: "Not Found" }) // → role-table fallback
   if (path === "/personnel/me") return json(200, { first_name: "สมชาย", last_name: "ใจดี", username: "mock", role_id: role, personnel_info: db.values.personal })

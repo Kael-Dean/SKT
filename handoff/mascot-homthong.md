@@ -6,6 +6,21 @@
 **Concept:** หัว/ตัวคือเมล็ดข้าวสารสีงาช้างทรงเรียว สวม "เปลือกข้าวสีทอง" เป็นเสื้อตัวสั้น
 บนหัวมีใบข้าว 2 ใบ + รวงเล็ก บุคลิกใจดี ขยัน
 
+**สไตล์ v7 (textured-flat / editorial avatar):** ตาม ref ภาพประกอบแนว editorial (flat + เม็ด grain) — ทำตาม skill
+`rive-modern-flat-character` หัวข้อ "Textured-flat (editorial avatar) variant"
+- **หน้า:** ตาเป็นจุดดำรี (12×14) + ประกายขาวจุดเดียว, คิ้วเป็นแท่งมนหนา, จมูกวงรีสีพีช `#E6BB98`,
+  ปากเป็นเส้นยิ้มบาง 3px ปลายมน, แก้มเป็น radial gradient จาง ๆ (ไม่มีขอบ), กระ 3 จุด
+- **เงา = เม็ด grain:** ไล่ gradient อ่อน ๆ บนหัว/เปลือก + ชั้นจุด stipple (PNG 1-bit) ทับเฉพาะด้านเงา (ขวา/ขวาล่าง)
+  และแถบ AO เหนือขอบเปลือก ไม่ใช้ cel plane ขอบแข็งแบบ v3–v6 แล้ว ไม่มี feather/blur
+  ทดสอบแล้วขึ้นทั้ง `@rive-app/canvas@2.44.2` และ `@rive-app/webgl2@2.44.2` ไม่มี console error
+- **สีลดความสด:** งาช้างอุ่น, ทองหม่น, เขียวฝุ่น (ดู Palette)
+- **กลีบเปลือกหุบเข้า:** กลีบซ้าย-ขวาพับแนบข้างหัว ปลายสูงไม่เกินกลางหัว โค้งเข้าหาหัว silhouette กระชับ
+  (ลบด้านในกลีบสีเข้มของ v6 ออก) follow-through ของกลีบยังมีแต่แกว่งน้อยลงมาก
+- **สัดส่วน/ท่า/rig:** เหมือน v5–v6 (เมล็ด ≈ 1.54:1, แขนยกเหนือไหล่ได้)
+
+ประวัติ: v3 modern flat → v4 กลม chibi → v5 เรียว → v6 กลีบเปลือกยาวกางออก → v7 textured-flat + กลีบหุบ
+รายละเอียด v5/v6 ด้านล่างยังใช้ได้ ยกเว้นเรื่องสี, cel shadow, หน้า (ตาโต/ขนตา/ปากเปิด) และกลีบกาง ที่ v7 แทนแล้ว
+
 **สไตล์ v5 (modern flat, chibi เรียว):** ทำตาม skill `rive-modern-flat-character` (`~/.claude/skills/rive-modern-flat-character/`)
 - **สัดส่วน:** เมล็ดสูง:กว้าง ≈ 1.54:1 (250×162) เรียวสอบขึ้นไปทางยอดแบบเมล็ดข้าว (อยู่ระหว่าง v3 ที่ยาวแคบไปกับ v4 ที่กลมไป)
   เสื้อเปลือกช่วงลำตัวแคบลงตามทรง ขาเรียวยาวขึ้น แขนยาวขึ้นแต่ยังปลายมน
@@ -27,15 +42,15 @@
   เมล็ดในรวงแกว่งเบา ๆ เป็น follow-through (group `Panicle`)
 - **Accent:** ประกาย 2 ดวงใน `success`, เครื่องหมาย "?" สีทองใน `search` (ตัวเอียงซ้าย-ขวา 6° พร้อมมองซ้าย-ขวา มือแตะแก้ม)
 
-API ของ runtime เหมือน v1–v5 ทุกอย่าง (artboard / state machine / view model / ชื่อ animation) โค้ดฝั่งแอปไม่ต้องแก้
+API ของ runtime เหมือน v1–v7 ทุกอย่าง (artboard / state machine / view model / ชื่อ animation) โค้ดฝั่งแอปไม่ต้องแก้
 
 ## ไฟล์
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
-| `public/mascot/homthong.riv` | runtime file (12.7 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
+| `public/mascot/homthong.riv` | runtime file v7 (21.8 KB รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
 | `public/mascot/homthong.png` | fallback ภาพนิ่งท่า idle, 1024×1024, พื้นใส |
-| `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (สร้างจาก geometry เดียวกัน), viewBox 512×512 |
+| `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (geometry เดียวกัน), viewBox 512×512, grain ทำด้วย SVG `feTurbulence` (ใกล้เคียง ไม่ใช่ลายจุดเดียวกับ .riv) |
 
 ไฟล์ต้นฉบับอยู่ใน Rive cloud: `https://editor.rive.app/file/homthong/2692657`
 
@@ -81,28 +96,29 @@ group `Husk` (เสื้อเปลือก, pivot ที่ก้น) ม�
 
 ## Palette
 
+Palette v7 (muted):
+
 | token | hex | ใช้ที่ |
 |---|---|---|
-| grain | `#F3EBDB` (งาช้างอุ่น) | เนื้อข้าว (หัว/ตัว); มือ `#F1EBDD` |
-| grain rim | `#E4D9C2` | แถบบางที่ขอบหัวด้านซ้ายบน (ให้ขอบไม่หายบนพื้นขาว) |
-| grain cel | `#DFD2B8` | ระนาบเงาบนหัว + แถบเงาใต้ขอบเปลือก |
-| husk | `#E8B53A` | เสื้อเปลือก |
-| husk cel | `#CC9226` | เงาขวาล่างของเปลือก |
-| husk flap inner | `#C9922E` | ด้านในของกลีบเปลือกด้านหลัง (v6) |
-| sleeve | `#D39A2A` | แขนเสื้อ (เข้มกว่าเปลือกนิดหน่อย จะได้แยกจากตัว) |
-| husk line | `#A8701A` 2.6px | ตะเข็บกลางเส้นเดียว |
-| husk lip | `#F7D477` 4px | ขอบปากเปลือกโค้ง U |
-| leaf | `#6DB04F` / `#4E8E3B` (ใบหน้า), `#5FA244` / `#3F7A30` (ใบหลัง) | ใบแบ่งสองโทน, ก้าน `#4E8E3B` |
-| seed / sparkle | `#E8B53A` / `#F2C14E` | เมล็ดในรวง, ประกาย |
-| ink | `#1E1A17` | ขนตา, รูม่านตา |
-| iris | `#7B4A24` | ม่านตา |
-| boots | `#4A3324` | เท้า (น้ำตาลเข้ม ไม่ใช้ดำสนิท เพื่อให้เห็นบนพื้น #1c1c20) |
-| blush | `#F2A08A` @ 55% | แก้ม |
-| mouth | `#2A1A12` + ลิ้น `#E77A5E` | ปาก |
+| grain | linear `#F4EDE0` → `#F1E8D8` → `#E6D7BE` → `#DCC9AC` (ซ้ายบน → ขวาล่าง) | เนื้อข้าว (หัว); มือ `#F1E8D8` |
+| grain stipple | จุด `#C8B291` (PNG 1-bit, `GrainHead`) | เงาด้านขวา + AO เหนือขอบเปลือก |
+| husk | linear `#DDB15A` → `#B4833C` | เสื้อเปลือก |
+| husk stipple | จุด `#A07234` (PNG 1-bit, `GrainHusk`) | เงาขวาล่างของเปลือก |
+| husk flap | `#C69545` | กลีบเปลือกที่พับแนบข้างหัว |
+| sleeve | `#C99A48` | แขนเสื้อ |
+| husk line | `#9C6F33` 2.6px | ตะเข็บกลางเส้นเดียว |
+| husk lip | `#EACB86` 4px | ขอบปากเปลือกโค้ง U; เงาใต้ขอบ `#D9C6A6` @ 50% |
+| leaf | `#86A672` / `#789A66` + เงา `#62835A` | ใบข้าว, ก้าน `#62835A` |
+| seed / sparkle / "?" | `#D6A54E` / `#DDAA52` | เมล็ดในรวง, ประกาย, เครื่องหมายคำถาม |
+| ink | `#2B2421` | ตา, คิ้ว, เส้นปาก |
+| nose | `#E6BB98` | จมูก |
+| blush | radial `#E8A08A` → โปร่งใส | แก้ม (+ กระ 3 จุด) |
+| boots | `#4A3B31` | เท้า |
 | ground | `#000000` @ 20% | วงรีเงาพื้นแบบแบน |
 
-ไม่มีเส้นขอบรอบตัว ทุกสีเป็น flat solid ไม่ใช้ gradient / feather / blur
-แสงมาจากซ้ายบนทิศเดียว เลยออกมาเหมือนกันทั้ง renderer canvas และ webgl
+ไม่มีเส้นขอบรอบตัว ไม่ใช้ feather / blur (บาง renderer ไม่วาด) — เงาใช้ linear/radial gradient + ภาพจุด stipple
+แสงมาจากซ้ายบนทิศเดียว ผลออกมาเหมือนกันทั้ง renderer canvas และ webgl2 (ทดสอบแล้ว)
+ภาพ grain เป็น Image ใน group `Body` / `Husk` (scale 50% ของ PNG 2× จึงคมบนจอ retina) ขยับ/squash ไปกับชิ้นเลย
 ตอนนี้สียังไม่ได้ผูกกับ view model — ถ้าจะ theme ต้องเพิ่ม color property เอง
 
 ## ขนาดแนะนำ
@@ -165,7 +181,10 @@ export default function HomThong({ mood = 0, size = 160, className = "" }) {
 ## ข้อจำกัด / สิ่งที่ต้องตัดสินใจ
 
 1. **Splash "RIVE" แก้แล้ว**: v1 ที่ export จาก plan ฟรีมีจอดำโลโก้ RIVE ~3 วินาที
-   v2–v6 export จากบัญชี Pro แล้วทดสอบใน browser (`@rive-app/webgl2@2.44.2`) ตัวละครขึ้นตั้งแต่เฟรมแรก ไม่มี splash/ลายน้ำ
+   v2–v7 export จากบัญชี Pro แล้วทดสอบใน browser ตัวละครขึ้นตั้งแต่เฟรมแรก ไม่มี splash/ลายน้ำ
 2. แขนอยู่หลังเสื้อเปลือก ท่า `wave` / `success` ยกมือได้เหนือไหล่ราว 40px แต่ยังไม่สูงเหนือหัว
-3. สไตล์ flat ไม่มีเส้นขอบ บนพื้นขาวล้วนขอบหัวด้านซ้ายบนยังอ่อน แม้มีแถบ rim ช่วย ถ้าวางบนการ์ดสีหรือพื้นเทาอ่อนจะเด่นที่สุด
-4. ยังไม่มี eye-follow (`look`) และ listener hover/tap — brief ไม่ได้ขอ
+3. สไตล์ flat ไม่มีเส้นขอบ บนพื้นขาวล้วนขอบหัวด้านซ้ายบน (ด้านสว่าง ไม่มี grain) ยังอ่อน
+   ถ้าวางบนการ์ดสีหรือพื้นเทาอ่อนจะเด่นที่สุด
+4. เม็ด grain ละเอียด: ต่ำกว่า ~96px จะกลืนเป็นสีเรียบ (ไม่เสีย แต่ไม่เห็น texture)
+5. สีและ grain ยังไม่ผูก view model — เปลี่ยนธีมต้องแก้ใน Rive หรือ export ภาพ grain ใหม่
+6. ยังไม่มี eye-follow (`look`) และ listener hover/tap — brief ไม่ได้ขอ

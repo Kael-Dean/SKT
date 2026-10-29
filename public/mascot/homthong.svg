@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="น้องหอมทอง มาสคอต AMC">
-  <!-- v4: cute chibi, modern flat, lineless, hard cel shadows, light from upper-left -->
+  <!-- v5: slender chibi rice grain, modern flat, lineless, hard cel shadows, light from upper-left -->
   <defs>
     <g id="ht-eyeL">
       <path d="M20 2C16-14-12-17-20-4C-15 13 12 16 20 2Z" fill="#fff"/>
@@ -19,15 +19,15 @@
     </g>
   </defs>
 
-  <ellipse cx="256" cy="455" rx="85" ry="11" fill="#000" fill-opacity=".2"/>
+  <ellipse cx="256" cy="455" rx="70" ry="11" fill="#000" fill-opacity=".2"/>
 
   <g transform="translate(256 452)">
-    <rect x="-37" y="-20" width="26" height="24" rx="12" fill="#4A3324"/>
-    <rect x="11" y="-20" width="26" height="24" rx="12" fill="#4A3324"/>
+    <rect x="-30.5" y="-36" width="21" height="40" rx="10.5" fill="#4A3324"/>
+    <rect x="9.5" y="-36" width="21" height="40" rx="10.5" fill="#4A3324"/>
 
-    <g transform="translate(0 -22)">
-      <!-- sprout (one smooth stem path, seeds hang from it) -->
-      <g transform="translate(-6 48)">
+    <g transform="translate(0 -30)">
+      <!-- sprout: one smooth stem path, seeds hang from it -->
+      <g transform="translate(-4 40)">
         <g transform="translate(14 -282) scale(1.2)">
           <path d="M-1 4C-10-14-22-25-35-29C-42-31-45-26-40-22C-30-12-16-1-1 9Z" fill="#5FA244"/>
           <path d="M-38-27C-41-26-42-24-40-22C-30-12-16-1-1 9C-1 8-1 7-1 6C-14-5-26-18-38-27Z" fill="#3F7A30"/>
@@ -46,26 +46,26 @@
       </g>
 
       <!-- arms: sleeve + mitt on one bone each, pivot hidden behind the husk -->
-      <g transform="translate(90 -52) rotate(64)">
-        <rect x="-8" y="-14" width="44" height="28" rx="14" fill="#D39A2A"/>
-        <circle cx="38" r="14.5" fill="#F1EBDD"/>
+      <g transform="translate(80 -50) rotate(64)">
+        <rect x="-8" y="-13" width="54" height="26" rx="13" fill="#D39A2A"/>
+        <circle cx="48" r="13.5" fill="#F1EBDD"/>
       </g>
-      <g transform="translate(-88 -48) rotate(116)">
-        <rect x="-8" y="-14" width="44" height="28" rx="14" fill="#D39A2A"/>
-        <circle cx="38" r="14.5" fill="#F1EBDD"/>
+      <g transform="translate(-78 -46) rotate(116)">
+        <rect x="-8" y="-13" width="54" height="26" rx="13" fill="#D39A2A"/>
+        <circle cx="48" r="13.5" fill="#F1EBDD"/>
       </g>
 
-      <!-- plump grain: base, cel plane, faint rim on the lit edge -->
-      <path d="M8-236C46-236 94-180 94-118C94-50 52 6-2 6C-56 6-92-48-92-112C-92-176-32-236 8-236Z" fill="#F3EBDB"/>
-      <path d="M45.7-220.4C71.8-199.5 94-160.2 94-118C94-50 52 6-2 6C30-40 42-160 45.7-220.4Z" fill="#DFD2B8"/>
-      <path d="M-89.5-134.8C-77.9-189.5-27.2-236 8-236C14.8-236 22-234.2 29.2-230.8C20.7-227.3 14-229.1 7.5-229C-25.7-229.2-72.8-184.7-89.5-134.8Z" fill="#E4D9C2"/>
+      <!-- slender grain: base, cel plane, faint rim on the lit edge -->
+      <path d="M10-244C34-244 81-180 81-105C81-45 46 6-1 6C-48 6-81-42-81-100C-81-172-18-244 10-244Z" fill="#F3EBDB"/>
+      <path d="M35.9-228.2C58-204.6 81-157.5 81-105C81-45 46 6-1 6C24-40 33-168 35.9-228.2Z" fill="#DFD2B8"/>
+      <path d="M-78.4-125.8C-66.4-188.2-14.6-244 10-244C14.3-244 19.4-241.9 24.8-238.1C18.4-236 13.6-238 9.5-238C-13.9-238-62.2-183.9-78.4-125.8Z" fill="#E4D9C2"/>
 
       <!-- face -->
-      <g transform="translate(4 -110)">
-        <ellipse cx="-44" cy="14" rx="13" ry="7.2" fill="#F2A08A" fill-opacity=".55"/>
-        <ellipse cx="44" cy="14" rx="13" ry="7.2" fill="#F2A08A" fill-opacity=".55"/>
-        <use href="#ht-eyeL" transform="translate(-38 -10) scale(1.16)"/>
-        <use href="#ht-eyeR" transform="translate(38 -10) scale(1.16)"/>
+      <g transform="translate(4 -116)">
+        <ellipse cx="-36" cy="14" rx="11.5" ry="6.7" fill="#F2A08A" fill-opacity=".55"/>
+        <ellipse cx="36" cy="14" rx="11.5" ry="6.7" fill="#F2A08A" fill-opacity=".55"/>
+        <use href="#ht-eyeL" transform="translate(-30 -10) scale(1.12)"/>
+        <use href="#ht-eyeR" transform="translate(30 -10) scale(1.12)"/>
         <g transform="translate(0 28)">
           <path transform="scale(.95 .9)" d="M-11 0C-5 1.8 5 1.8 11 0C10 11.5-10 11.5-11 0Z" fill="#2A1A12"/>
           <ellipse cy="6.2" rx="4.5" ry="1.8" fill="#E77A5E"/>
@@ -73,11 +73,11 @@
       </g>
 
       <!-- golden husk shirt: soft U lip, rounded corners -->
-      <path pathLength="100" stroke-dasharray="80 100" stroke-dashoffset="-10" transform="translate(0 -3)" d="M-70-68C-52-52-28-44-2-44C28-44 54-52 72-70" fill="none" stroke="#DFD2B8" stroke-width="12" stroke-linecap="round"/>
-      <path d="M100-80C100-34 56 12-2 12C-60 12-98-32-98-80C-98-88-92-92-86-86C-68-58-34-44-2-44C34-44 70-58 88-88C94-94 100-88 100-80Z" fill="#E8B53A"/>
-      <path d="M54.4-57C68.2-64.2 79.9-74.5 88-88C94-94 100-88 100-80C100-34 56 12-2 12C24 0 46-26 54.4-57Z" fill="#CC9226"/>
+      <path pathLength="100" stroke-dasharray="80 100" stroke-dashoffset="-10" transform="translate(0 -3)" d="M-62-62C-48-49-26-42-1-42C26-42 48-49 62-62" fill="none" stroke="#DFD2B8" stroke-width="12" stroke-linecap="round"/>
+      <path d="M86-74C86-30 50 11-1 11C-52 11-86-28-86-72C-86-80-80-84-75-79C-60-56-30-42-1-42C30-42 60-54 76-80C81-86 86-82 86-74Z" fill="#E8B53A"/>
+      <path d="M47.1-53.2C58.8-59.4 68.8-68.3 76-80C81-86 86-82 86-74C86-30 50 11-1 11C20 0 40-24 47.1-53.2Z" fill="#CC9226"/>
       <path d="M-2-36C-1-24-1-10-2 2" fill="none" stroke="#A8701A" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M-86-86C-68-58-34-44-2-44C34-44 70-58 88-88" fill="none" stroke="#F7D477" stroke-width="4" stroke-linecap="round"/>
+      <path d="M-75-79C-60-56-30-42-1-42C30-42 60-54 76-80" fill="none" stroke="#F7D477" stroke-width="4" stroke-linecap="round"/>
     </g>
   </g>
 </svg>

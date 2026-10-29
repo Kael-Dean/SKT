@@ -1,8 +1,8 @@
 // src/components/RoleSwitcher.jsx
-// Super Admin "act as role" — ปุ่มใน Topbar เปิด Sheet เลือก role + แถบเตือนตอนกำลังสวม role อยู่
+// Super Admin "act as role" — Sheet เลือก role (เปิดจากปุ่มโปรไฟล์ใน Topbar) + แถบเตือนตอนกำลังสวม role อยู่
 // แสดงเฉพาะบัญชีที่เป็น Super Admin ใน DB (real_role_id === 1). logic อยู่ที่ src/lib/actAsRole.js
 import { useEffect, useMemo, useState } from "react"
-import { Check, FlaskConical, Undo2, UserCog } from "lucide-react"
+import { Check, FlaskConical, Undo2 } from "lucide-react"
 import Sheet from "./ui/Sheet"
 import { useMyPermissionsVersion, getMyPermissions } from "../lib/myPermissions"
 import { actAsRole, actAsRoleErrorMessage, isActingAsRole, isRealSuperAdmin, listActAsRoles } from "../lib/actAsRole"
@@ -13,33 +13,8 @@ import { toast } from "./ui/toast"
 
 const SCOPE_LABEL = { all: "ทุกสาขา", own_branch: "เฉพาะสาขาของตน" }
 
-export function RoleSwitcherButton({ className = "" }) {
-  useMyPermissionsVersion()
-  const [open, setOpen] = useState(false)
-  if (!isRealSuperAdmin()) return null
-  const acting = isActingAsRole()
-  const label = acting ? `กำลังทดสอบบทบาท ${myRoleLabel()} — เปลี่ยนบทบาท` : "ทดสอบในบทบาทอื่น"
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={label}
-        title={label}
-        aria-haspopup="dialog"
-        className={cx(
-          className,
-          acting && "!border-amber-300 !bg-amber-50 !text-amber-700 dark:!border-amber-400/40 dark:!bg-amber-400/10 dark:!text-amber-300",
-        )}
-      >
-        <UserCog aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
-      </button>
-      <RoleSwitcherSheet open={open} onClose={() => setOpen(false)} />
-    </>
-  )
-}
-
-function RoleSwitcherSheet({ open, onClose }) {
+/** เปิดจากปุ่มโปรไฟล์ใน Topbar (เฉพาะ isRealSuperAdmin()) */
+export function RoleSwitcherSheet({ open, onClose }) {
   const [roles, setRoles] = useState([])
   const [status, setStatus] = useState("idle") // idle | loading | ready | error
   const [error, setError] = useState("")

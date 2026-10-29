@@ -157,8 +157,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
         aria-label="เมนูส่วนตัว"
         aria-hidden={isOpen ? undefined : "true"}
         inert={!isOpen}
-        className={`fixed left-0 top-0 z-[9999] h-dvh w-72 bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-surface dark:ring-1 dark:ring-line ${
-          isOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none"
+        className={`fixed inset-y-2 left-2 z-[9999] w-72 max-w-[calc(100vw-1rem)] overflow-hidden rounded-3xl bg-white will-change-transform transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(.32,.72,0,1)] motion-reduce:transition-none dark:bg-surface dark:ring-1 dark:ring-line ${
+          isOpen ? "translate-x-0 shadow-2xl" : "-translate-x-[calc(100%+1rem)] shadow-none"
         }`}
       >
         <div className="flex h-full flex-col">

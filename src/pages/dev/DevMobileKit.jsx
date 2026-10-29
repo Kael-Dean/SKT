@@ -1,7 +1,7 @@
 // src/pages/dev/DevMobileKit.jsx
 // Dev-only gallery of the mobile primitives (registered in App.jsx only when
 // import.meta.env.DEV, outside the login guard so QA can hit it directly):
-//   http://localhost:5173/#/dev/mobile-kit
+//   http://localhost:5173/dev/mobile-kit
 // Every primitive from plan §B2 is exercised here in light + dark so it can be
 // QA'd (playwright-cli) before any trading page consumes it.
 import { useEffect, useMemo, useRef, useState } from "react"

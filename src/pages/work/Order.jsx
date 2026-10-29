@@ -98,9 +98,9 @@ const Order = () => {
   const isPhone = useIsPhone()
 
   /** ---------- State ---------- */
-  // เปิดโหมดจากลิงก์ได้ เช่น #/order?mode=sell (ปุ่ม "ดูออเดอร์" หลังขายข้าว)
+  // เปิดโหมดจากลิงก์ได้ เช่น /order?mode=sell (ปุ่ม "ดูออเดอร์" หลังขายข้าว)
   const [mode, setMode] = useState(() =>
-    /[?&]mode=sell\b/.test(typeof window !== "undefined" ? window.location.hash : "") ? "sell" : "buy"
+    /[?&]mode=sell\b/.test(typeof window !== "undefined" ? window.location.search : "") ? "sell" : "buy"
   ) // 'buy' | 'sell'
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)

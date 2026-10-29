@@ -137,7 +137,7 @@ function _expireSession() {
   _redirecting401 = true;
   logout();
   localStorage.setItem("session_expired", "1");
-  window.location.hash = "#/login";
+  window.location.assign("/");
 }
 
 /**

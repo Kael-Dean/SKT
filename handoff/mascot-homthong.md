@@ -8,7 +8,10 @@
 
 **สไตล์ v7 (textured-flat / editorial avatar):** ตาม ref ภาพประกอบแนว editorial (flat + เม็ด grain) — ทำตาม skill
 `rive-modern-flat-character` หัวข้อ "Textured-flat (editorial avatar) variant"
-- **หน้า:** ตาเป็นจุดดำรี (12×14) + ประกายขาวจุดเดียว, คิ้วเป็นแท่งมนหนา, จมูกวงรีสีพีช `#E6BB98`,
+- **หน้า (v7.1 ตาใหญ่ขึ้น):** ตาเป็นจุดดำรี 20×23 (ใหญ่ขึ้น ~1.65× จาก v7) + ประกายหลัก 1 จุด (6.2) + ประกายเล็ก 1 จุด (2.8)
+  ยังเป็นจุดกลมแบบ textured-flat ไม่ใช่ตาการ์ตูนอนิเมะ อ่านออกที่ 64px และยังเห็นที่ 48px
+  ขยับคิ้วขึ้น 6 หน่วย แก้มกับกระขยับออกด้านนอก/ลงนิดหน่อยให้ไม่เบียดตา · blink, หันมองใน search และ squash ตรวจแล้ว ตาไม่หลุดขอบหัว
+  คิ้วเป็นแท่งมนหนา, จมูกวงรีสีพีช `#E6BB98`,
   ปากเป็นเส้นยิ้มบาง 3px ปลายมน, แก้มเป็น radial gradient จาง ๆ (ไม่มีขอบ), กระ 3 จุด
 - **เงา = เม็ด grain:** ไล่ gradient อ่อน ๆ บนหัว/เปลือก + ชั้นจุด stipple (PNG 1-bit) ทับเฉพาะด้านเงา (ขวา/ขวาล่าง)
   และแถบ AO เหนือขอบเปลือก ไม่ใช้ cel plane ขอบแข็งแบบ v3–v6 แล้ว ไม่มี feather/blur
@@ -48,7 +51,7 @@ API ของ runtime เหมือน v1–v7 ทุกอย่าง (artbo
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
-| `public/mascot/homthong.riv` | runtime file v7 (21.8 KB รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
+| `public/mascot/homthong.riv` | runtime file v7.1 (21.9 KB รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
 | `public/mascot/homthong.png` | fallback ภาพนิ่งท่า idle, 1024×1024, พื้นใส |
 | `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (geometry เดียวกัน), viewBox 512×512, grain ทำด้วย SVG `feTurbulence` (ใกล้เคียง ไม่ใช่ลายจุดเดียวกับ .riv) |
 

@@ -39,7 +39,7 @@ async function fetchLatestEntry() {
 function showUpdateToast() {
   toast.info("มีเวอร์ชันใหม่ของระบบ", {
     id: TOAST_ID,
-    description: "รีเฟรชหน้าเพื่อใช้งานเวอร์ชันล่าสุด — บันทึกข้อมูลที่กรอกค้างไว้ก่อน",
+    description: "รีเฟรชหน้าเพื่อใช้งานเวอร์ชันล่าสุด — บันทึกข้อมูลที่กรอกค้างไว้ก่อนรีเฟรช",
     duration: Infinity,
     action: { label: "รีเฟรชตอนนี้", onClick: () => window.location.reload() },
   })

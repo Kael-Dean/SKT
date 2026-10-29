@@ -26,6 +26,15 @@ import PersonnelDisciplineTab from "./tabs/PersonnelDisciplineTab"
 import PersonnelPayBasisTab from "./tabs/PersonnelPayBasisTab"
 import PersonnelActivitiesTab from "./tabs/PersonnelActivitiesTab"
 import { getTenure, tenureText } from "../../lib/tenure"
+import PrefixedNameInput from "../../components/PrefixedNameInput"
+import SelectDropdown from "../../components/SelectDropdown"
+import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../lib/namePrefix"
+
+const CHILD_PREFIX_GENDER = { ชาย: "male", หญิง: "female" }
+const CHILD_GENDER_OPTIONS = [
+  { value: "male", label: "ชาย" },
+  { value: "female", label: "หญิง" },
+]
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -143,6 +152,15 @@ export default function HRPersonnelDetail() {
   }
 
   const handleSaveFamily = async () => {
+    const names = [
+      familyForm.hasSpouse ? familyForm.spouse?.spouse_name ?? "" : "",
+      ...familyForm.children.map((c) => c.child_name),
+      ...familyForm.parents.map((p) => p.parent_name),
+    ]
+    if (names.some((n) => n.trim() && !prefixOf(n))) {
+      setFamilySaveMsg({ tone: "warning", text: "เลือกคำนำหน้าชื่อให้ครบทุกช่องที่กรอกชื่อ" })
+      return
+    }
     setFamilySaving(true)
     setFamilySaveMsg("")
     try {
@@ -531,11 +549,13 @@ export default function HRPersonnelDetail() {
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ชื่อ-นามสกุลคู่สมรส</label>
-                    <input
-                      className={inputCls}
+                    <PrefixedNameInput
+                      size="sm"
+                      label="คู่สมรส"
                       value={familyForm.spouse?.spouse_name ?? ""}
-                      onChange={(e) => setFamilyForm((p) => ({ ...p, spouse: { ...p.spouse, spouse_name: e.target.value } }))}
+                      onChange={(v) => setFamilyForm((p) => ({ ...p, spouse: { ...p.spouse, spouse_name: v } }))}
                       placeholder="ชื่อ-นามสกุล"
+                      inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm"
                     />
                   </div>
                   <div>
@@ -606,11 +626,18 @@ export default function HRPersonnelDetail() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ชื่อ-นามสกุลบุตร</label>
-                      <input
-                        className={inputCls}
+                      <PrefixedNameInput
+                        size="sm"
+                        label="บุตร"
+                        options={ALL_PREFIX_OPTIONS}
                         value={child.child_name}
-                        onChange={(e) => setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_name: e.target.value }; return { ...p, children: next } })}
+                        onChange={(v) => setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_name: v }; return { ...p, children: next } })}
+                        onPrefixChange={(pre) => {
+                          const g = CHILD_PREFIX_GENDER[genderOfPrefix(pre)]
+                          if (g) setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_gender: g }; return { ...p, children: next } })
+                        }}
                         placeholder="ชื่อ-นามสกุล"
+                        inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm"
                       />
                     </div>
                     <div>
@@ -624,15 +651,15 @@ export default function HRPersonnelDetail() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">เพศ</label>
-                      <select
-                        className={inputCls}
+                      <SelectDropdown
+                        size="sm"
                         value={child.child_gender}
-                        onChange={(e) => setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_gender: e.target.value }; return { ...p, children: next } })}
-                      >
-                        <option value="">— เลือกเพศ —</option>
-                        <option value="male">ชาย</option>
-                        <option value="female">หญิง</option>
-                      </select>
+                        onChange={(v) => setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_gender: v }; return { ...p, children: next } })}
+                        placeholder="— เลือกเพศ —"
+                        ariaLabel="เพศบุตร"
+                        showSwatch={false}
+                        options={CHILD_GENDER_OPTIONS}
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">สถานะบุตร</label>
@@ -691,11 +718,13 @@ export default function HRPersonnelDetail() {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ชื่อ-นามสกุล</label>
-                        <input
-                          className={inputCls}
+                        <PrefixedNameInput
+                          size="sm"
+                          label="บิดามารดา"
                           value={parent.parent_name}
-                          onChange={(e) => setFamilyForm((p) => { const next = [...p.parents]; next[i] = { ...next[i], parent_name: e.target.value }; return { ...p, parents: next } })}
+                          onChange={(v) => setFamilyForm((p) => { const next = [...p.parents]; next[i] = { ...next[i], parent_name: v }; return { ...p, parents: next } })}
                           placeholder="ชื่อ-นามสกุล"
+                          inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm"
                         />
                       </div>
                       <div>

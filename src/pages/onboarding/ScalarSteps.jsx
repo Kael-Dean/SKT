@@ -9,6 +9,8 @@ import SelectDropdown from "../../components/SelectDropdown"
 import DateInput from "../../components/ThaiDateField"
 import ThaiAddressFields from "../../components/ThaiAddressFields"
 import { StickyActionBar } from "../../components/ui"
+import PrefixedNameInput from "../../components/PrefixedNameInput"
+import { genderOfPrefix, prefixOf } from "../../lib/namePrefix"
 import { GENDERS, diffBody, sectionMeta } from "../../lib/onboarding"
 import { baseField, cx, focusRingCls, helpTextCls, readonlyFieldCls } from "../../lib/styles"
 import { blank, thaiDate, useSectionFlow } from "./sectionFlow"
@@ -17,9 +19,9 @@ import { Field, Frame, MissingHint, ProblemPanel, SectionCard, StepHeader } from
 const pick = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj?.[k] ?? ""]))
 
 /** Common wiring: form state, flags, submit. */
-function useScalarSection(sectionKey, keys, data, handlers) {
+function useScalarSection(sectionKey, keys, data, handlers, seed) {
   const original = useMemo(() => data?.values?.[sectionKey] ?? {}, [data, sectionKey])
-  const [form, setForm] = useState(() => pick(original, keys))
+  const [form, setForm] = useState(() => ({ ...pick(original, keys), ...seed?.(original) }))
   const flow = useSectionFlow(sectionKey, handlers)
   const serverMissing = data?.sections?.[sectionKey]?.missing ?? []
   const problemMissing = flow.problem?.missing ?? []
@@ -76,8 +78,16 @@ export function AccountStep({ data, handlers, onBack }) {
       {...extra}
     />
   )
+  const noPrefix = !blank(form.th_first_name) && !prefixOf(form.th_first_name)
+  const submit = () => {
+    if (noPrefix) {
+      flow.setProblem({ missing: ["th_first_name"], message: "เลือกคำนำหน้าชื่อ (นาย / นาง / นางสาว)" })
+      return
+    }
+    flow.submit(diffBody(original, form, ACCOUNT_KEYS))
+  }
   return (
-    <StepShell sectionKey="account" flow={flow} onBack={onBack} onSubmit={() => flow.submit(diffBody(original, form, ACCOUNT_KEYS))}>
+    <StepShell sectionKey="account" flow={flow} onBack={onBack} onSubmit={submit}>
       <fieldset>
         <legend className="mb-3 text-[15px] font-semibold text-gray-900 dark:text-gray-100">ภาษาไทย</legend>
         <div className="grid gap-5 md:grid-cols-2">
@@ -86,9 +96,18 @@ export function AccountStep({ data, handlers, onBack }) {
             label="คำนำหน้าและชื่อ"
             required
             flagged={flagged("th_first_name")}
-            help={<p className={helpTextCls}>เช่น นายสมชาย หรือ นางสาวสมหญิง</p>}
+            hint={noPrefix ? "ยังไม่ได้เลือกคำนำหน้า" : undefined}
           >
-            {input("th_first_name", { autoComplete: "given-name" })}
+            <PrefixedNameInput
+              id="ob-th_first_name"
+              value={form.th_first_name}
+              onChange={set("th_first_name")}
+              placeholder="ชื่อ"
+              autoComplete="given-name"
+              invalid={flagged("th_first_name")}
+              prefixInvalid={flagged("th_first_name") && noPrefix}
+              describedBy={flagged("th_first_name") ? "ob-th_first_name-hint" : undefined}
+            />
           </Field>
           <Field id="ob-th_last_name" label="นามสกุล" required flagged={flagged("th_last_name")}>
             {input("th_last_name", { autoComplete: "family-name" })}
@@ -257,7 +276,11 @@ function DiseaseField({ id, value, onChange, invalid }) {
 }
 
 export function PersonalStep({ data, handlers, onBack, onReport }) {
-  const { original, form, set, flagged, flow } = useScalarSection("personal", PERSONAL_KEYS, data, handlers)
+  // เพศยังว่าง → ตั้งตามคำนำหน้าชื่อที่เลือกไว้ในขั้น "ชื่อและอีเมล" (ผู้ใช้เปลี่ยนได้)
+  const { original, form, set, flagged, flow } = useScalarSection("personal", PERSONAL_KEYS, data, handlers, (o) => {
+    const g = genderOfPrefix(prefixOf(data?.values?.account?.th_first_name))
+    return blank(o.gender) && g ? { gender: g } : {}
+  })
   const values = data?.values?.personal ?? {}
   const mChoices = data?.m_status_choices ?? ["โสด", "สมรส", "หย่า", "หม้าย", "แยกกันอยู่"]
 

@@ -9,6 +9,7 @@
 import { useState } from "react"
 import { Baby, HeartHandshake, Plus } from "lucide-react"
 import { ConfirmDialog, StickyActionBar, toast } from "../../components/ui"
+import { ADULT_PREFIX_OPTIONS, ALL_PREFIX_OPTIONS, prefixOf } from "../../lib/namePrefix"
 import { MISSING_MESSAGES, RELATIONSHIPS, readValidation, saveSection, sectionMeta } from "../../lib/onboarding"
 import { badgeNeutral, badgePending, badgeSuccess, cx, focusRingCls } from "../../lib/styles"
 import { AddRowButton, RowEditorSheet, RowItem } from "./RowEditor"
@@ -18,7 +19,15 @@ import { ProblemPanel, SectionCard, StepHeader } from "./shared"
 const COLUMNS = [
   // switching away from บุตร clears the twin flag (it only applies to children)
   { key: "relationship", label: "ความสัมพันธ์", type: "select", options: RELATIONSHIPS, required: true, placeholder: "เลือกความสัมพันธ์", onChange: (v) => (v === "บุตร" ? null : { is_twin: false }) },
-  { key: "first_name", label: "ชื่อ", required: true },
+  {
+    key: "first_name",
+    label: "คำนำหน้าและชื่อ",
+    type: "prefixedName",
+    required: true,
+    wide: true,
+    // บุตรเลือก เด็กชาย/เด็กหญิง ได้ด้วย · บิดา/มารดา/คู่สมรส ใช้คำนำหน้าผู้ใหญ่
+    prefixOptions: (f) => (f.relationship === "บุตร" ? ALL_PREFIX_OPTIONS : ADULT_PREFIX_OPTIONS),
+  },
   { key: "last_name", label: "นามสกุล" },
   { key: "birthday", label: "วันเกิด", type: "date" },
   { key: "is_twin", label: "เป็นแฝด", type: "checkbox", showIf: (f) => f.relationship === "บุตร" },
@@ -107,6 +116,7 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
     const cols = original && !RELATIONSHIPS.includes(original.relationship) ? COLUMNS.filter((c) => c.key !== "relationship") : COLUMNS
     const miss = missingKeys(cols, form, !original)
     if (miss.length) return setEditorErr({ message: "กรอกช่องที่มีเครื่องหมาย * ให้ครบ", missing: miss })
+    if (!prefixOf(form.first_name)) return setEditorErr({ message: "เลือกคำนำหน้าชื่อ", missing: ["first_name"] })
     if (original?.hr_verified && Object.keys(buildBody(form, original)).length) return setPendingEdit({ form })
     commit(form)
   }

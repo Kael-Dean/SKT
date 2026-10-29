@@ -4,6 +4,8 @@ import { cx, baseField } from "../../../lib/styles"
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import SelectDropdown from "../../../components/SelectDropdown"
+import PrefixedNameInput from "../../../components/PrefixedNameInput"
+import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../../lib/namePrefix"
 import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import Portal from "../../../components/Portal"
@@ -31,6 +33,9 @@ const MARRIAGE_STATUS_OPTIONS = [
   { value: "registered", label: "จดทะเบียนสมรส" },
   { value: "unregistered", label: "ไม่ได้จดทะเบียน" },
 ]
+// เพศจากคำนำหน้า ("ชาย"/"หญิง" ใน namePrefix.js) → ค่าที่ /hr/signup ใช้
+const PREFIX_GENDER = { ชาย: "M", หญิง: "F" }
+const CHILD_PREFIX_GENDER = { ชาย: "male", หญิง: "female" }
 const CHILD_GENDER_OPTIONS = [
   { value: "male", label: "ชาย" },
   { value: "female", label: "หญิง" },
@@ -168,6 +173,11 @@ export default function HREmployeesTab() {
   const handleSignup = async () => {
     if (!form.first_name || !form.last_name || !form.cid || !form.role_id || !form.branch_location) {
       setSubmitMsg({ tone: "warning", text: "กรุณากรอกข้อมูลที่จำเป็น (ชื่อ, นามสกุล, เลขบัตร, ตำแหน่ง, สาขา)" })
+      return
+    }
+    const names = [form.first_name, hasSpouse ? spouse.spouse_name : "", ...modalChildren.map((c) => c.child_name), ...modalParents.map((p) => p.parent_name)]
+    if (names.some((n) => n.trim() && !prefixOf(n))) {
+      setSubmitMsg({ tone: "warning", text: "เลือกคำนำหน้าชื่อให้ครบทุกช่องที่กรอกชื่อ" })
       return
     }
     setSubmitting(true)
@@ -341,8 +351,10 @@ export default function HREmployeesTab() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="ชื่อ" required>
-                <input type="text" value={form.first_name} onChange={set("first_name")} className={inputCls} placeholder="ชื่อจริง" />
+              <Field label="คำนำหน้าและชื่อ" required>
+                <PrefixedNameInput size="sm" value={form.first_name} onChange={(v) => setForm((f) => ({ ...f, first_name: v }))}
+                  onPrefixChange={(p) => { const g = PREFIX_GENDER[genderOfPrefix(p)]; if (g) setForm((f) => ({ ...f, gender: g })) }}
+                  placeholder="ชื่อจริง" inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm" />
               </Field>
               <Field label="นามสกุล" required>
                 <input type="text" value={form.last_name} onChange={set("last_name")} className={inputCls} placeholder="นามสกุล" />
@@ -504,7 +516,7 @@ export default function HREmployeesTab() {
                 {hasSpouse && (
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="ชื่อ-นามสกุลคู่สมรส" required>
-                      <input type="text" value={spouse.spouse_name} onChange={(e) => setSpouse(s => ({ ...s, spouse_name: e.target.value }))} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                      <PrefixedNameInput size="sm" label="คู่สมรส" value={spouse.spouse_name} onChange={(v) => setSpouse(s => ({ ...s, spouse_name: v }))} placeholder="ชื่อ-นามสกุล" inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm" />
                     </Field>
                     <Field label="อาชีพ">
                       <input type="text" value={spouse.spouse_occupation} onChange={(e) => setSpouse(s => ({ ...s, spouse_occupation: e.target.value }))} className={inputCls} placeholder="อาชีพ" />
@@ -544,7 +556,9 @@ export default function HREmployeesTab() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Field label="ชื่อ-นามสกุลบุตร" required>
-                        <input type="text" value={c.child_name} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_name:e.target.value}; return n })} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                        <PrefixedNameInput size="sm" label="บุตร" options={ALL_PREFIX_OPTIONS} value={c.child_name} onChange={(v) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_name:v}; return n })}
+                          onPrefixChange={(p) => { const g = CHILD_PREFIX_GENDER[genderOfPrefix(p)]; if (g) setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_gender:g}; return n }) }}
+                          placeholder="ชื่อ-นามสกุล" inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm" />
                       </Field>
                       <Field label="วันเกิด" required>
                         <input type="date" value={c.child_birthday} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_birthday:e.target.value}; return n })} className={inputCls} />
@@ -591,7 +605,7 @@ export default function HREmployeesTab() {
                           <SelectDropdown value={p.parent_type} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_type:v}; return n })} placeholder="เลือก" options={parentTypeOpts} />
                         </Field>
                         <Field label="ชื่อ-นามสกุล" required>
-                          <input type="text" value={p.parent_name} onChange={(e) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_name:e.target.value}; return n })} className={inputCls} placeholder="ชื่อ-นามสกุล" />
+                          <PrefixedNameInput size="sm" label="บิดามารดา" value={p.parent_name} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_name:v}; return n })} placeholder="ชื่อ-นามสกุล" inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm" />
                         </Field>
                         <Field label="วันเกิด">
                           <input type="date" value={p.parent_birthday} onChange={(e) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_birthday:e.target.value}; return n })} className={inputCls} />

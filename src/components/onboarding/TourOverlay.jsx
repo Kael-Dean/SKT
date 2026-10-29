@@ -232,8 +232,9 @@ function TourRunner({ index, onFinished }) {
     : { top: vp.h / 2, left: vp.w / 2, width: 0, height: 0, r: 0 }
 
   let cardPos = null
+  const cardW = Math.min(CARD_W, vp.w - 2 * GAP)
   if (!isPhone) {
-    const w = Math.min(CARD_W, vp.w - 2 * GAP)
+    const w = cardW
     const h = cardH || 280
     if (!rect) cardPos = { x: (vp.w - w) / 2, y: (vp.h - h) / 2 }
     else {
@@ -250,6 +251,20 @@ function TourRunner({ index, onFinished }) {
       }
     }
   }
+
+  // Where น้องหอมทอง points: from the mascot (top-left of the card) toward the
+  // spotlight centre. Mostly sideways; up/down only when the target sits clearly
+  // above or below. The artwork points to its right, so mirror for targets on the left.
+  const mascotAim = (() => {
+    if (!rect) return { point: "side", mirror: false }
+    const mx = isPhone ? 64 : cardPos.x + 64
+    const my = isPhone ? vp.h - (cardH || vp.h * 0.6) + 80 : cardPos.y + 96
+    const dx = hole.left + hole.width / 2 - mx
+    const dy = hole.top + hole.height / 2 - my
+    const mirror = dx < 0
+    if (Math.abs(dy) > Math.abs(dx) * 1.2) return { point: dy < 0 ? "up" : "down", mirror }
+    return { point: "side", mirror }
+  })()
   useEffect(() => {
     if (cardH) {
       const id = requestAnimationFrame(() => setPlaced(true))
@@ -330,7 +345,7 @@ function TourRunner({ index, onFinished }) {
       style={
         isPhone
           ? undefined
-          : { width: Math.min(CARD_W, vp.w - 2 * GAP), transform: `translate3d(${cardPos.x}px, ${cardPos.y}px, 0)` }
+          : { width: cardW, transform: `translate3d(${cardPos.x}px, ${cardPos.y}px, 0)` }
       }
       className={cx(
         "fixed bg-white shadow-2xl ring-1 ring-gray-200 dark:bg-surface dark:shadow-black/60 dark:ring-line-strong",
@@ -356,11 +371,17 @@ function TourRunner({ index, onFinished }) {
           </button>
         </div>
         {/* น้องหอมทอง guides every stop. It stays mounted across stops (outside the keyed
-            block) so the Rive state machine keeps running: wave once, then point; the last
-            stop switches to the success jump. */}
-        <div className="mt-2 flex items-start gap-3">
-          <Mascot mood={isLast ? "success" : "onboard"} size={isPhone ? 56 : 72} className="-ml-1 shrink-0" />
-          <div key={stop.key} className="animate-fade-in min-w-0 flex-1 pt-1">
+            block) so the Rive state machine keeps running: wave once, then point at the
+            spotlight; the last stop switches to the success dance. */}
+        <div className="mt-1 flex items-center gap-3">
+          <Mascot
+            mood={isLast ? "success" : "onboard"}
+            size={isPhone ? 84 : 112}
+            point={mascotAim.point}
+            mirror={mascotAim.mirror}
+            className="-my-2 -ml-2 shrink-0"
+          />
+          <div key={stop.key} className="animate-fade-in min-w-0 flex-1">
             <h2
               id={titleId}
               ref={headingRef}
@@ -471,7 +492,7 @@ function FinishFlourish({ onDone }) {
   useEffect(() => {
     toast.success("เริ่มใช้งานบริการตนเองได้แล้ว", { id: "onboarding-complete" })
     navigate("/home")
-    const t = setTimeout(onDone, reducedMotion() ? 900 : 1700)
+    const t = setTimeout(onDone, reducedMotion() ? 900 : 2800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once
   }, [])
@@ -484,7 +505,9 @@ function FinishFlourish({ onDone }) {
         role="status"
       >
         <div className="flex flex-col items-center text-center">
-          <Celebration size={152} />
+          {/* the success state is น้องหอมทอง's happy dance; Celebration stays as the
+              still fallback under reduced motion (Mascot shows a static pose there) */}
+          {reducedMotion() ? <Celebration size={152} /> : <Mascot mood="success" size={176} />}
           <p className="mt-3 text-xl font-bold text-gray-900 dark:text-gray-100">พร้อมใช้งานแล้ว</p>
           <p className="mt-1 text-[15px] text-gray-600 dark:text-gray-300">เมนูบริการตนเองเปิดให้ใช้ครบทุกเมนู</p>
         </div>

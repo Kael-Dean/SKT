@@ -51,7 +51,7 @@ API ของ runtime เหมือน v1–v7 ทุกอย่าง (artbo
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
-| `public/mascot/homthong.riv` | runtime file v7.1 (21.9 KB รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
+| `public/mascot/homthong.riv` | runtime file v7.2 (26.2 KB, เพิ่ม pointDir + ท่าเต้น; รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
 | `public/mascot/homthong.png` | fallback ภาพนิ่งท่า idle, 1024×1024, พื้นใส |
 | `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (geometry เดียวกัน), viewBox 512×512, grain ทำด้วย SVG `feTurbulence` (ใกล้เคียง ไม่ใช่ลายจุดเดียวกับ .riv) |
 
@@ -70,7 +70,15 @@ API ของ runtime เหมือน v1–v7 ทุกอย่าง (artbo
 |---|---|---|
 | `mood` | number | `0` idle · `1` onboard (wave 1 ครั้ง แล้ว point วนต่อ) · `2` empty (search) · `3` loading · `4` success (กระโดดครั้งเดียว แล้วยืนนิ่ง) |
 | `wave` | trigger | โบกมือ 1 ครั้ง จบแล้วกลับไป state ตาม `mood` ปัจจุบัน |
-| `celebrate` | trigger | เล่น success 1 ครั้ง จบแล้วกลับไป state ตาม `mood` |
+| `celebrate` | trigger | เล่น success (ท่าเต้นดีใจ) 1 ครั้ง จบแล้วกลับไป state ตาม `mood` |
+| `pointDir` | number (v7.2) | ทิศชี้ตอน `mood = 1` (onboard): `0` ชี้ข้าง (ขวาของตัวละคร, ค่าเริ่มต้น = ท่าเดิม) · `1` ชี้ขึ้น (แขนยกเฉียงขึ้น ตัวเอนหงายเล็กน้อย ตามองขึ้น) · `2` ชี้ลง (แขนเฉียงลง ตัวเอนไปทางที่ชี้ ตามองลง). เปลี่ยนระหว่างวนอยู่ได้ blend 200ms ไม่กระตุก. นอก mood 1 ไม่มีผล |
+
+**ชี้ไปทางซ้าย:** กลับด้านทั้ง canvas ด้วย CSS `transform: scaleX(-1)` (ทั้งตัว + เงาพื้น) — ตัวละครไม่มีตัวอักษร
+ทรงเกือบสมมาตร จึงดูถูกต้องเมื่อกลับด้าน. ข้อสังเกต: แสงหลักจะย้ายจากซ้ายบนเป็นขวาบน (เม็ด grain ย้ายไปฝั่งซ้าย)
+ภายในตัวละครยังสอดคล้องกันเอง แต่ถ้าวางคู่กับตัวที่ไม่กลับด้านในจอเดียวกันจะเห็นว่าแสงคนละทิศ
+
+React: `const { setValue: setPointDir } = useViewModelInstanceNumber("pointDir", vmi)` แล้ว `setPointDir(1)` ตามขั้นของ tour
+(vanilla: `r.viewModelInstance.number("pointDir").value = 1`) — ไฟล์เก่าที่ไม่มี `pointDir` จะไม่ error แค่ไม่ชี้ขึ้น/ลง
 
 ลำดับการทำงาน (ทดสอบด้วย simulate และใน browser แล้ว):
 - เปลี่ยน `mood` → mix ไป state ใหม่ใน 220ms จากท่าวนได้ทุกท่า
@@ -88,7 +96,9 @@ API ของ runtime เหมือน v1–v7 ทุกอย่าง (artbo
 | `point` | 2.0 s | loop | แขนขวาชี้ไปทางขวา (ชี้ไปที่ UI ข้าง ๆ), หน้าหันตาม |
 | `search` | 3.0 s | loop | "?" สีทองเด้งขึ้นเหนือหัว, ตัวเอียงซ้าย/ขวา 6°, มองซ้ายแล้วมองขวา, มือแตะแก้ม, ปากเล็กแบบ "อืม" |
 | `loading` | 1.0 s | loop | เด้งตัว squash/stretch ปานกลาง (93–106%), เงาที่พื้นหดและจางตามความสูง |
-| `success` | 1.4 s | one-shot | ย่อตัว → กระโดดชูสองแขน → squash ตอนลงพื้น → settle → แขนลงมาที่ท่าพัก |
+| `pointUp` | 2.0 s | loop | (v7.2, `pointDir = 1`) แขนขวาชี้เฉียงขึ้น ~64°, ตัวยืดขึ้นเล็กน้อย, หน้า/ตาเลื่อนขึ้น |
+| `pointDown` | 2.0 s | loop | (v7.2, `pointDir = 2`) แขนขวาชี้เฉียงลง, ตัวเอนไปทางที่ชี้ 5°, หน้า/ตาเลื่อนลง |
+| `success` | 2.2 s | one-shot | (v7.2 ท่าเต้นดีใจ) ย่อตัว → กระโดดชูสองแขน + ประกาย → ลง squash → กระโดดเอียงไปขวา (แขนขวาโบกขึ้น แขนซ้ายลง) → กระโดดไปซ้าย (สลับแขน) → กระโดดเล็กกลับกลาง → ท่า "ta-da" ชูแขน + ประกายเด้งอีกรอบ → แขนลงท่าพัก แล้วไป SuccessHold. กลีบเปลือก/ใบข้าว/รวงสะบัดตามหลัง (follow-through) ทุกครั้งที่กระโดด/ลง; เงาพื้นตามตัวไปด้านข้างและหด/จางตามความสูง |
 
 Rig: bones `ArmL_Bone`, `ArmR_Bone` (แขนเสื้อ + มือ), `Sprout_Bone1` (ใบ + ก้าน + รวง แกว่งทั้งชุด) และ group `Panicle`
 (เมล็ดในรวงแกว่งเบา ๆ ช้ากว่าโคน เป็น follow-through) ส่วน `Sprout_Bone2/3` ลบแล้ว
@@ -191,3 +201,5 @@ export default function HomThong({ mood = 0, size = 160, className = "" }) {
 4. เม็ด grain ละเอียด: ต่ำกว่า ~96px จะกลืนเป็นสีเรียบ (ไม่เสีย แต่ไม่เห็น texture)
 5. สีและ grain ยังไม่ผูก view model — เปลี่ยนธีมต้องแก้ใน Rive หรือ export ภาพ grain ใหม่
 6. ยังไม่มี eye-follow (`look`) และ listener hover/tap — brief ไม่ได้ขอ
+7. (v7.2) แขนสั้นตามดีไซน์ ท่า "ชูแขน" ในท่าเต้นยกมือได้ถึงระดับแก้ม ไม่ถึงเหนือหัว; ชี้ขึ้นเป็นมุมเฉียง ~64° ไม่ตั้งตรง
+8. (v7.2) `pointDir` รับ 0/1/2 เท่านั้น (ค่าอื่น = ค้างทิศเดิม)

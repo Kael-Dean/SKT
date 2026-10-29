@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="น้องหอมทอง มาสคอต AMC">
-  <!-- v5: slender chibi rice grain, modern flat, lineless, hard cel shadows, light from upper-left -->
+  <!-- v6: slender chibi rice grain with peeled husk flaps, modern flat, lineless, hard cel shadows, light from upper-left -->
   <defs>
     <g id="ht-eyeL">
       <path d="M20 2C16-14-12-17-20-4C-15 13 12 16 20 2Z" fill="#fff"/>
@@ -26,6 +26,12 @@
     <rect x="9.5" y="-36" width="21" height="40" rx="10.5" fill="#4A3324"/>
 
     <g transform="translate(0 -30)">
+      <!-- peeled husk flaps behind the head (gold front + darker inner face) -->
+      <path d="M-46-56C-68-58-92-66-100-92C-112-126-126-162-131-192C-132-202-124-206-120-199C-102-170-64-128-46-56Z" fill="#E8B53A"/>
+      <path d="M-120-199C-102-170-64-128-46-56C-76-100-104-150-124-194C-123-197-121-199-120-199Z" fill="#C9922E"/>
+      <path d="M46-56C68-58 92-66 100-92C112-126 126-162 131-192C132-202 124-206 120-199C102-170 64-128 46-56Z" fill="#E8B53A"/>
+      <path d="M120-199C102-170 64-128 46-56C76-100 104-150 124-194C123-197 121-199 120-199Z" fill="#C9922E"/>
+
       <!-- sprout: one smooth stem path, seeds hang from it -->
       <g transform="translate(-4 40)">
         <g transform="translate(14 -282) scale(1.2)">

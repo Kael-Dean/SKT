@@ -7,6 +7,10 @@ import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../compo
 
 const inputCls = cx(baseField, "!w-24 !rounded-lg !px-3 !py-1.5 md:!text-sm text-right")
 
+// GET /hr/leave-types returns the Leaves row as-is: { id, type, days, max_days, is_active }
+const leaveName = (lt) => lt?.type ?? lt?.leave_name ?? lt?.name ?? ""
+const leaveDays = (lt) => lt?.days ?? lt?.days_allowed ?? null
+
 export default function HRLeaveTypesTab() {
   const [leaveTypes, setLeaveTypes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,7 +34,7 @@ export default function HRLeaveTypesTab() {
 
   const startEdit = (lt) => {
     setEditingId(lt.id)
-    setEditVal(String(lt.days_allowed ?? ""))
+    setEditVal(String(leaveDays(lt) ?? ""))
     setMsg(null)
   }
 
@@ -40,7 +44,7 @@ export default function HRLeaveTypesTab() {
     try {
       await apiAuth(`/hr/leave-types/${id}`, {
         method: "PATCH",
-        body: { days_allowed: Number(editVal) },
+        body: { days: Number(editVal) },
       })
       setMsg({ ok: true, text: "บันทึกสำเร็จ" })
       setEditingId(null)
@@ -101,7 +105,12 @@ export default function HRLeaveTypesTab() {
                   <SkeletonTableRows rows={6} cols={4} />
                 ) : leaveTypes.map((lt) => (
                   <tr key={lt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{lt.leave_name}</td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900 dark:text-gray-100">{leaveName(lt) || "—"}</div>
+                      {lt.max_days != null && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">ลาได้สูงสุด {lt.max_days} วัน</div>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       {editingId === lt.id ? (
                         <div className="flex items-center justify-end gap-2">
@@ -112,7 +121,7 @@ export default function HRLeaveTypesTab() {
                             className={inputCls + " tabular-nums"}
                             min="0"
                             autoFocus
-                            aria-label={`จำนวนวัน/ปี ของ ${lt.leave_name}`}
+                            aria-label={`จำนวนวัน/ปี ของ ${leaveName(lt)}`}
                           />
                           <button onClick={() => saveDays(lt.id)} disabled={saving === lt.id}
                             className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded">
@@ -122,10 +131,10 @@ export default function HRLeaveTypesTab() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
-                          <span className="font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">{lt.days_allowed ?? "—"} วัน</span>
+                          <span className="font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">{leaveDays(lt) ?? "—"} วัน</span>
                           <button
                             onClick={() => startEdit(lt)}
-                            aria-label={`แก้ไขจำนวนวัน ${lt.leave_name}`}
+                            aria-label={`แก้ไขจำนวนวัน ${leaveName(lt)}`}
                             className="inline-flex items-center justify-center rounded-lg p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                           >
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">

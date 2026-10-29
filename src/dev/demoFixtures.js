@@ -157,11 +157,11 @@ export function demoFixture(path, method, u, body, values) {
         })
       case "/hr/leave-types":
         return ok([
-          { id: 1, leave_name: "ลาป่วย", is_active: true, max_days: 30 },
-          { id: 2, leave_name: "ลากิจส่วนตัว", is_active: true, max_days: 6 },
-          { id: 3, leave_name: "ลาพักผ่อน", is_active: true, max_days: 10 },
-          { id: 4, leave_name: "ลาคลอดบุตร", is_active: true, max_days: 98, code: "maternity" },
-          { id: 5, leave_name: "ลาอุปสมบท", is_active: true, max_days: 120 },
+          { id: 1, type: "ลาป่วย", days: 30, is_active: true, max_days: 30 },
+          { id: 2, type: "ลากิจส่วนตัว", days: 6, is_active: true, max_days: 6 },
+          { id: 3, type: "ลาพักผ่อน", days: 10, is_active: true, max_days: 10 },
+          { id: 4, type: "ลาคลอดบุตร", days: 98, is_active: true, max_days: 98, code: "maternity" },
+          { id: 5, type: "ลาอุปสมบท", days: 120, is_active: true, max_days: 120 },
         ])
       case "/personnel/me/leave-defaults":
         return ok({ address_during_leave: "112 หมู่ 4 ถ.สุรินทร์-ปราสาท ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000", contact_during_leave: "0812345678" })

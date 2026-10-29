@@ -6,7 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
-  base: './',   // ✅ use relative URLs (works from any path)
+  // BrowserRouter: asset ต้องเป็น absolute — base './' ทำให้ /hr/dashboard โหลด /hr/assets/... แล้วพัง
+  base: '/',
   plugins: [
     react(),
     tailwindcss(),

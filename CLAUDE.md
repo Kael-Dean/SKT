@@ -10,7 +10,7 @@
 
 **ชื่อโปรเจค:** ระบบ HR กลาง สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส. สุรินทร์ (SKT)
 **ประเภท:** Web Application — Centralized HR System
-**Frontend Stack:** React 19 + Vite 7 + Tailwind CSS v4 + React Router v7 (HashRouter)
+**Frontend Stack:** React 19 + Vite 7 + Tailwind CSS v4 + React Router v7 (BrowserRouter)
 **Backend:** Python FastAPI บน Google Cloud Run — repo **https://github.com/FeatureRichDevelopment/um_backend** (อ่านดู route/schema ได้ แต่ห้ามแก้จากโปรเจคนี้)
 **Frontend repo:** https://github.com/Kael-Dean/SKT
 **Deploy:** Frontend อยู่บน Google Cloud Storage Bucket (Static Hosting)
@@ -21,7 +21,7 @@
 
 ```
 src/
-├── main.jsx              # Entry point — HashRouter ห้ามเปลี่ยนเป็น BrowserRouter
+├── main.jsx              # Entry point — BrowserRouter + แปลงลิงก์ /#/ เก่า
 ├── App.jsx               # Routing หลัก + Route Guards ทุกตัวอยู่ที่นี่
 ├── index.css             # Tailwind v4 imports
 ├── lib/
@@ -126,7 +126,10 @@ get(path)   post(path, body)   put(path, body)   del(path)
 
 ### Must Follow
 1. **ใช้ JSX เสมอ** — ห้ามใช้ TypeScript ในโปรเจคนี้
-2. **HashRouter ห้ามแตะ** — Static hosting ไม่รองรับ BrowserRouter
+2. **BrowserRouter + `base: '/'` (ต.ค. 2026)** — URL ไม่มี `#` แล้ว. ต้องพึ่ง bucket ที่ตั้ง not-found page = `index.html`
+   (ทุก path ได้ index.html แต่ status 404 — ห้ามเอาออก). ห้ามกลับไปใช้ `base: './'` (route ลึกจะโหลด asset ผิด path).
+   ลิงก์ `/#/...` เก่าถูกแปลงใน `src/main.jsx` (`migrateHashUrl`). ห้ามเขียน `#/` / `location.hash` เพื่อ routing — ใช้ `navigate` / `location.search`.
+   ห้ามสร้างไฟล์ใน `public/` ที่ชื่อชน route (เช่น `public/reset-password/`) — bucket จะเสิร์ฟไฟล์นั้นแทน SPA
 3. **State management = React hooks เท่านั้น** — `useState`, `useMemo`, `useCallback` ห้ามเพิ่ม Redux/Context
 4. **Dark mode ต้องทดสอบเสมอ** — ใช้ `dark:` prefix ทุก element ที่มีสีพื้นหลังหรือสีข้อความ
 5. **ตัวเลขการเงิน** ใช้ `thb()` สกุลเงิน, `nf()` ตัวเลขธรรมดา
@@ -168,7 +171,7 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 - **ช่องกรอกบนมือถือต้อง ≥16px** (กัน iOS zoom) — มี global rule ใน `index.css` แล้ว; ช่องในตาราง grid หนาแน่นใส่ class `cell-input` เพื่อยกเว้น
 - **Touch target ≥44px** บนมือถือ: ใช้ `iconBtnCls` / `min-h-touch` / `size-11 md:size-9`
 - **z-index stack:** Sidebar 9990/9999 < StickyTableScrollbar 10000 < Sheet 10040 < ComboBox/SelectDropdown panel, picker sheet, ThaiDatePicker 10050 < ConfirmDialog 10070 < Toaster 10080
-- Spec/ที่มา: `handoff/mobile-ux-spec.md`, `handoff/mobile-copy.md`, `handoff/mobile-qa-report.md`, `handoff/mobile-perf.md`; demo primitive ที่ `/#/dev/mobile-kit` (dev เท่านั้น)
+- Spec/ที่มา: `handoff/mobile-ux-spec.md`, `handoff/mobile-copy.md`, `handoff/mobile-qa-report.md`, `handoff/mobile-perf.md`; demo primitive ที่ `/dev/mobile-kit` (dev เท่านั้น)
 
 ---
 

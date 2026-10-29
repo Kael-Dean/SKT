@@ -28,7 +28,7 @@ function currentEntry() {
 }
 
 async function fetchLatestEntry() {
-  const url = new URL("./", window.location.href)
+  const url = new URL(import.meta.env.BASE_URL, window.location.origin)
   url.hash = ""
   url.searchParams.set("_v", String(Date.now()))
   const res = await fetch(url, { cache: "no-store", credentials: "same-origin" })

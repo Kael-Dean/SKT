@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from "react"
 
-// base path ตาม Vite (base:'./' → BASE_URL === './') — relative จึงปลอดภัยกับ HashRouter
+// base path ตาม Vite (base:'/' → BASE_URL === '/') — absolute จึงโหลดได้จากทุก route
 // และรองรับ deploy ใต้ sub-path
 const stripTrailingSlash = (s = "") => s.replace(/\/+$/, "")
 const assetUrl = (p) => `${stripTrailingSlash(import.meta.env.BASE_URL)}${p}`

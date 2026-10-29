@@ -11,6 +11,10 @@
     {
       "source": "/api-proxy/:path*",
       "destination": "https://um-backend-staging-243977022740.asia-southeast1.run.app/:path*"
+    },
+    {
+      "source": "/((?!api-proxy/|assets/).*)",
+      "destination": "/index.html"
     }
   ]
 }

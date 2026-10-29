@@ -4,8 +4,8 @@
 // stack under it now that <body> is the scroller.
 //
 // <md layout:  [back ◀ 44px][☰ 44px][page title …] [branch (compact)][🔔][avatar]
-// ≥md layout:  [☰][logo][‹ back][page title]  [search (decorative)]  [branch][role*][🔔][dark][profile]
-//              (*role = Super Admin act-as-role เท่านั้น; ตอนสวม role มีแถบเตือนใต้ header)
+// ≥md layout:  [☰][logo][‹ back][page title]  [search (decorative)]  [branch][🔔][dark][profile*]
+//              (*Super Admin: กดโปรไฟล์ = เปลี่ยนบทบาท act-as-role; ตอนสวม role มีแถบเตือนใต้ header)
 //              (หน้าหลัก: [☰][logo + org name] — ไม่มี back / title)
 // ชื่อหน้า (title) มาจาก <PageTitle> ในหน้า ผ่าน AppLayout — h1 จริงอยู่ในหน้า (sr-only),
 // ข้อความที่นี่จึง aria-hidden เพื่อไม่ให้ screen reader อ่านซ้ำ
@@ -15,8 +15,10 @@ import { ChevronLeft, Menu, Moon, Sun, X } from "lucide-react";
 import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import NotificationBell from "./NotificationBell";
-import { ActingRoleBanner, RoleSwitcherButton } from "./RoleSwitcher";
+import { ActingRoleBanner, RoleSwitcherSheet } from "./RoleSwitcher";
 import { myRoleLabel } from "../lib/permissions";
+import { useMyPermissionsVersion } from "../lib/myPermissions";
+import { isActingAsRole, isRealSuperAdmin } from "../lib/actAsRole";
 import { canGoBack } from "../lib/drill";
 
 // Shared chrome for the icon buttons; display + size are set per button so
@@ -32,6 +34,11 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
   const navigate = useNavigate();
   const headerRef = useRef(null);
   const [userInfo, setUserInfo] = useState({ username: "", id: null, roleId: 0 });
+  // Super Admin (DB) กดปุ่มโปรไฟล์ → เลือกบทบาทที่จะทดสอบ (act-as-role); คนอื่นปุ่มนี้แสดงข้อมูลอย่างเดียว
+  useMyPermissionsVersion();
+  const [roleSheetOpen, setRoleSheetOpen] = useState(false);
+  const canSwitchRole = isRealSuperAdmin();
+  const acting = canSwitchRole && isActingAsRole();
 
   useEffect(() => {
     const refresh = () => {
@@ -186,9 +193,6 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
             <BranchSwitcher />
           </div>
 
-          {/* Super Admin "act as role" — แสดงเฉพาะบัญชีที่เป็น Super Admin ใน DB */}
-          <RoleSwitcherButton className={`inline-flex size-11 md:size-9 ${chromeBtnBase}`} />
-
           {/* Notification bell — polls /personnel/me/notifications */}
           <NotificationBell />
 
@@ -210,8 +214,10 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
 
           <button
             className="group inline-flex min-h-11 items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-2 py-1.5 shadow-sm transition-all duration-150 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-line-strong dark:bg-white/[.04] dark:shadow-none dark:hover:bg-white/[.08] md:min-h-0 md:px-2.5"
-            title="โปรไฟล์ฉัน"
-            aria-label={`โปรไฟล์: ${displayName} · ${displayRole}`}
+            title={canSwitchRole ? "เปลี่ยนบทบาทที่ใช้ทดสอบ" : "โปรไฟล์ฉัน"}
+            aria-label={`โปรไฟล์: ${displayName} · ${displayRole}${acting ? " (กำลังทดสอบ)" : ""}${canSwitchRole ? " — เปลี่ยนบทบาท" : ""}`}
+            aria-haspopup={canSwitchRole ? "dialog" : undefined}
+            onClick={canSwitchRole ? () => setRoleSheetOpen(true) : undefined}
             type="button"
           >
             <div className="relative shrink-0">
@@ -222,7 +228,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
             </div>
             <div className="hidden text-left md:block">
               <div className="text-[13px] font-semibold leading-4 text-gray-800 dark:text-gray-100">{displayName}</div>
-              <div className="text-[11px] text-gray-500 dark:text-gray-400">{displayRole}</div>
+              <div className={acting ? "text-[11px] font-semibold text-amber-700 dark:text-amber-300" : "text-[11px] text-gray-500 dark:text-gray-400"}>{displayRole}</div>
             </div>
             <svg className="ml-0.5 hidden h-3 w-3 text-gray-400 transition-colors group-hover:text-gray-600 dark:text-gray-500 md:block" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
@@ -232,6 +238,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
       </div>
       {/* สวม role อยู่ → แถบเตือนติดใต้ header (นับรวมใน --topbar-h) */}
       <ActingRoleBanner />
+      {canSwitchRole && <RoleSwitcherSheet open={roleSheetOpen} onClose={() => setRoleSheetOpen(false)} />}
     </header>
   );
 };

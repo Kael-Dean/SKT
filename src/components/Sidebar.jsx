@@ -30,6 +30,7 @@ import { HR_HUB_PERMS, useCan } from "../lib/permissions"
 import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
 import { useOnboarding } from "../lib/onboarding"
 import { goToOnboardingFromLocked } from "../lib/onboardingGate"
+import { lockBodyScroll, unlockBodyScroll } from "../lib/scrollLock"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -110,7 +111,12 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- role comes from localStorage; recompute with permissions
   }, [can])
 
-  // ไม่ล็อก body scroll — scroller จริงคือ <main> ใน AppLayout; lock body ทำให้ layout shift เปล่า ๆ
+  // ล็อก body scroll ตอนเปิด — body เป็นตัว scroll ของแอป ถ้าไม่ล็อก wheel ที่เลื่อนเมนูจนสุดจะไหลไปเลื่อนหน้าหลักต่อ
+  useEffect(() => {
+    if (!isOpen) return
+    lockBodyScroll()
+    return unlockBodyScroll
+  }, [isOpen])
 
   // ปิดด้วย ESC
   useEffect(() => {
@@ -183,7 +189,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
           </div>
 
           {/* Nav items */}
-          <nav aria-label="เมนูส่วนตัว" data-tour="self-service-menu" className="flex-1 overflow-y-auto px-3 py-3">
+          <nav aria-label="เมนูส่วนตัว" data-tour="self-service-menu" className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
             <ul className="space-y-1">
               {visibleMenus.map((item) => {
                 const active = isActive(item.path)

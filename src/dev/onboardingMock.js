@@ -5,8 +5,12 @@
 // (role via &mockRole=5 staff | 3 HR | 1 Super Admin + act-as-role; default 5), off with ?mockOnboarding=0.
 // Login with any username/password. Unmatched requests answer 200 [] so pages render.
 // State resets on reload unless ?mockKeep=1 (kept in sessionStorage).
+// Client demo build (npm run build:demo, VITE_DEMO=1): installOnboardingMock({ demo: true }) is
+// always on, answers every request (also the Thai address JSON) and starts from the login page.
 // ─────────────────────────────────────────────────────────────────────────────
+import { logout } from "../lib/auth"
 import { PERMISSION_MATRIX, POSITION_ROLES } from "../lib/rbacMatrix"
+import { demoFixture } from "./demoFixtures"
 
 const FLAG = "mock_onboarding"
 const ROLE_FLAG = "mock_onboarding_role"
@@ -27,12 +31,12 @@ const SCALAR_COLS = {
   address: ["h_address", "mhoo", "soi", "road", "district", "sub_district", "province", "postal_code"],
 }
 
-function seed() {
+function seed({ demo = false } = {}) {
   return {
     completed_at: null,
     tour_completed_at: null,
     exempt: false,
-    confirmed: { account: "2026-10-23T03:11:20+00:00" },
+    confirmed: demo ? {} : { account: "2026-10-23T03:11:20+00:00" }, // demo walks all 7 from 0/7
     none: { work: false, criminal: false },
     nextId: 100,
     values: {
@@ -52,6 +56,7 @@ function seed() {
 }
 
 let db = null
+let demoMode = false
 function load() {
   if (db) return db
   try {
@@ -122,7 +127,7 @@ const err422 = (msg, field) => json(422, { detail: [{ loc: ["body", field ?? "x"
 function fakeJwt(role, actRole = null) {
   const b64 = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/, "")
   const act = actRole ? { role: actRole, act_role: actRole, real_role: 1 } : {}
-  return `${b64({ alg: "none" })}.${b64({ sub: "mock", user_id: 42, username: "mock", role_id: role, branch: 3, exp: 4102444800, ...act })}.x`
+  return `${b64({ alg: "none" })}.${b64({ sub: "somchai", user_id: 42, username: "somchai", role_id: role, branch: 3, exp: 4102444800, ...act })}.x`
 }
 
 // Super Admin "act as role" (mockRole=1) — acted role kept in localStorage so reloads keep acting
@@ -205,15 +210,24 @@ let UNVERIFIED = [
   { id: 102, user_id: 44, employee_name: "ประเสริฐ ดีงาม", branch_id: 5, branch_name: "สาขาปราสาท", first_name: "มาลี", last_name: "ดีงาม", relationship: "คู่สมรส", birthday: "1991-07-07", is_twin: false, added_by: 44, created_at: "2026-10-24T05:00:00+00:00" },
 ]
 
+// demo build (file://): the Thai address JSON in public/ cannot be fetched, serve it from the bundle
+const THAI_DATA = {
+  "province.json": () => import("../../public/data/thai/province.json"),
+  "district.json": () => import("../../public/data/thai/district.json"),
+  "sub_district.json": () => import("../../public/data/thai/sub_district.json"),
+}
+
 async function handle(url, init) {
-  const u = new URL(url, location.origin)
+  const u = new URL(url, location.href) // file:// origin is "null" — resolve against the page URL
+  const thai = u.pathname.match(/\/data\/thai\/([a-z_]+\.json)$/)
+  if (thai && THAI_DATA[thai[1]]) return json(200, (await THAI_DATA[thai[1]]()).default)
   // strip the dev base (/api, /api-proxy from .env.development.local)
   const path = u.pathname.replace(/^\/api(-proxy)?(?=\/)/, "")
   const method = (init?.method || "GET").toUpperCase()
   const body = init?.body && typeof init.body === "string" ? JSON.parse(init.body) : {}
   const role = Number(localStorage.getItem(ROLE_FLAG) || 5)
   load()
-  await new Promise((r) => setTimeout(r, 250)) // feel real latency
+  await new Promise((r) => setTimeout(r, demoMode ? 120 : 250)) // feel real latency (demo: snappier tour)
 
   if (role === 1) {
     const r = actAsRoleMock(path, method, body)
@@ -221,14 +235,17 @@ async function handle(url, init) {
   }
   if (path === "/auth/login_json") return json(200, { access_token: fakeJwt(role), token_type: "bearer", account_status: "register" })
   if (path === "/auth/me/permissions") return json(404, { detail: "Not Found" }) // → role-table fallback
-  if (path === "/personnel/me") return json(200, { first_name: "สมชาย", last_name: "ใจดี", username: "mock", role_id: role, personnel_info: db.values.personal })
+  if (path === "/personnel/me") {
+    const [, me] = demoFixture(path, "GET", u, body, db.values)
+    return json(200, { ...me, role_id: role })
+  }
   if (path === "/personnel/me/report-issue/fields") return json(200, [
     { category: "personal_info", category_label: "ข้อมูลส่วนตัว", fields: [
       { field: "cid", label: "เลขบัตรประชาชน", input_type: "text" }, { field: "hired", label: "วันเริ่มงาน", input_type: "date" },
       { field: "th_first_name", label: "ชื่อ (ภาษาไทย)", input_type: "text" }, { field: "underlying_disease", label: "โรคประจำตัว", input_type: "text" }] },
     { category: "family", category_label: "ครอบครัว", fields: [{ field: "family_other", label: "ข้อมูลครอบครัวไม่ถูกต้อง (ระบุในรายละเอียด)", input_type: "textarea" }] },
   ])
-  if (path === "/personnel/me/report-issue") return json(200, { status: "created", id: 1 })
+  if (path === "/personnel/me/report-issue") return json(...demoFixture(path, method, u, body, db.values))
   if (path === "/personnel/me/leave-balance") return json(200, [
     { leave_type: "ลาป่วย", quota: "30", used: "2", remaining: "28" },
     { leave_type: "ลากิจส่วนตัว", quota: "6", used: "1", remaining: "5" },
@@ -292,10 +309,28 @@ async function handle(url, init) {
   if (deps) return json(200, UNVERIFIED.filter((r) => r.user_id === Number(deps[1])).map((r) => ({ ...r, hr_verified: false })))
   if (path === "/hr/dashboard") return json(200, { total_employees: 178, status_breakdown: { onboarding: { done: 120, in_progress: 30, not_started: 25, exempt: 3 } } })
 
+  // self-service pages (leave, payslips, loans, welfare, profile …) — see ./demoFixtures.js
+  const fixture = demoFixture(path, method, u, body, db.values)
+  if (fixture) return json(...fixture)
+
   return json(200, method === "GET" ? [] : {})
 }
 
-export function installOnboardingMock() {
+export function installOnboardingMock({ demo = false } = {}) {
+  if (demo) {
+    demoMode = true
+    // client demo: always on, staff role, every launch starts at the login page with a fresh person
+    localStorage.removeItem(ACT_FLAG)
+    localStorage.setItem(ROLE_FLAG, "5")
+    logout()
+    db = seed({ demo: true })
+    const real = window.fetch.bind(window)
+    window.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input.url
+      return url.startsWith("data:") || url.startsWith("blob:") ? real(input, init) : handle(url, init)
+    }
+    return
+  }
   const qs = new URLSearchParams(location.search)
   if (qs.has("mockOnboarding")) {
     if (qs.get("mockOnboarding") === "1") localStorage.setItem(FLAG, "1")

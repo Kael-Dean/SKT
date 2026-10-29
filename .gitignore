@@ -37,3 +37,7 @@ __pycache__/
 .agents/
 skills-lock.json
 .impeccable.md
+
+# client demo build output (npm run build:demo) — 8 MB, regenerate instead of committing
+demo/skt-demo.html
+demo/.build/

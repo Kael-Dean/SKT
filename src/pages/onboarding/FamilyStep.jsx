@@ -1,37 +1,67 @@
 // src/pages/onboarding/FamilyStep.jsx
-// Family rows (บิดา มารดา คู่สมรส บุตร). Rules (api-handoff §3.4):
+// Family rows (บิดา มารดา คู่สมรส อดีตคู่สมรส บุตร). Rules (api-handoff §3.4):
 //  · rows the employee adds/edits become hr_verified:false → badge "รอ HR ตรวจสอบ"
 //  · delete only when can_delete; other rows → "แจ้ง HR" (3F category family / family_other)
 //  · editing an hr_verified row flips it to unverified → warn first
 //  · edit sends only changed keys; omit `relationship` when the row holds an imported value
 //    outside RELATIONSHIPS and the user did not change it
-//  · section is "missing" spouse_row / children_count → explain + link to personal
+//  · section is "missing" spouse_row / children_count / ex_spouse_row → explain + link to personal
+//  · name_title + legal_status (api-handoff licenses/family): required on new rows, legal_status
+//    filtered by relationship; first_name is sent WITHOUT the title. Older rows have both null → "—";
+//    their typed-in title is split out when editing (left alone on HR-verified rows so a title-only
+//    change keeps the row verified). is_deceased + deceased_date (not in the future).
 import { useState } from "react"
-import { Baby, HeartHandshake, Plus } from "lucide-react"
+import { Baby, FileWarning, HeartHandshake, Plus } from "lucide-react"
 import { ConfirmDialog, StickyActionBar, toast } from "../../components/ui"
-import { ADULT_PREFIX_OPTIONS, ALL_PREFIX_OPTIONS, prefixOf } from "../../lib/namePrefix"
-import { MISSING_MESSAGES, RELATIONSHIPS, readValidation, saveSection, sectionMeta } from "../../lib/onboarding"
+import { splitPrefixedName } from "../../lib/namePrefix"
+import {
+  FAMILY_TITLES,
+  MISSING_MESSAGES,
+  RELATIONSHIPS,
+  familyDisplayName,
+  familyTitleOptions,
+  legalStatusOptions,
+  readValidation,
+  saveSection,
+  sectionMeta,
+} from "../../lib/onboarding"
 import { badgeNeutral, badgePending, badgeSuccess, cx, focusRingCls } from "../../lib/styles"
 import { AddRowButton, RowEditorSheet, RowItem } from "./RowEditor"
 import { blank, missingKeys, rowBody, thaiDate, useSectionFlow } from "./sectionFlow"
 import { ProblemPanel, SectionCard, StepHeader } from "./shared"
 
+const todayIso = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+
 const COLUMNS = [
-  // switching away from บุตร clears the twin flag (it only applies to children)
-  { key: "relationship", label: "ความสัมพันธ์", type: "select", options: RELATIONSHIPS, required: true, placeholder: "เลือกความสัมพันธ์", onChange: (v) => (v === "บุตร" ? null : { is_twin: false }) },
+  // changing relationship: twin flag only for children; legal_status / title must fit the new one
   {
-    key: "first_name",
-    label: "คำนำหน้าและชื่อ",
-    type: "prefixedName",
-    required: true,
-    wide: true,
-    // บุตรเลือก เด็กชาย/เด็กหญิง ได้ด้วย · บิดา/มารดา/คู่สมรส ใช้คำนำหน้าผู้ใหญ่
-    prefixOptions: (f) => (f.relationship === "บุตร" ? ALL_PREFIX_OPTIONS : ADULT_PREFIX_OPTIONS),
+    key: "relationship", label: "ความสัมพันธ์", type: "select", options: RELATIONSHIPS, required: true, placeholder: "เลือกความสัมพันธ์",
+    onChange: (v, f) => ({
+      ...(v === "บุตร" ? {} : { is_twin: false }),
+      ...(legalStatusOptions(v).includes(f?.legal_status) ? {} : { legal_status: "" }),
+      ...(!f?.name_title || familyTitleOptions(v).includes(f.name_title) ? {} : { name_title: "" }),
+    }),
   },
-  { key: "last_name", label: "นามสกุล" },
+  {
+    key: "legal_status", label: "สถานะทางกฎหมาย", type: "select", required: true,
+    options: (f) => legalStatusOptions(f.relationship),
+    placeholder: "เลือกสถานะ",
+    help: "ใช้พิจารณาสิทธิ์สวัสดิการ",
+  },
+  // บุตรเลือก เด็กชาย/เด็กหญิง ได้ด้วย · คนอื่นใช้คำนำหน้าผู้ใหญ่
+  { key: "name_title", label: "คำนำหน้า", type: "select", required: true, options: (f) => familyTitleOptions(f.relationship), placeholder: "เลือกคำนำหน้า" },
+  { key: "first_name", label: "ชื่อ", required: true, placeholder: "ไม่ต้องใส่คำนำหน้า" },
+  { key: "last_name", label: "นามสกุล", wide: true },
   { key: "birthday", label: "วันเกิด", type: "date" },
   { key: "is_twin", label: "เป็นแฝด", type: "checkbox", showIf: (f) => f.relationship === "บุตร" },
+  { key: "is_deceased", label: "เสียชีวิตแล้ว", type: "checkbox" },
+  { key: "deceased_date", label: "วันที่เสียชีวิต", type: "date", required: true, showIf: (f) => Boolean(f.is_deceased) },
 ]
+/** A row the employee added that still lacks the new fields (backend missing code family_details). */
+const needsDetails = (r) => !r.hr_verified && (!r.name_title || !r.legal_status)
 
 const linkCls = cx(
   "inline-flex min-h-touch items-center rounded-lg text-sm font-semibold text-indigo-700 underline-offset-4 hover:underline md:min-h-8 dark:text-indigo-300",
@@ -54,6 +84,16 @@ function RuleNotice({ icon, title, children, action }) {
   )
 }
 
+/** Stored row → editor form. Older rows: pull a typed-in title out of first_name. */
+function toEditForm(row) {
+  const form = { ...row, relationship: RELATIONSHIPS.includes(row.relationship) ? row.relationship : "" }
+  if (!row.name_title) {
+    const { prefix, name } = splitPrefixedName(row.first_name)
+    if (prefix && FAMILY_TITLES.includes(prefix)) Object.assign(form, { name_title: prefix, first_name: name })
+  }
+  return form
+}
+
 export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport, onPayload }) {
   const meta = sectionMeta("family")
   const rows = data?.values?.family ?? []
@@ -70,6 +110,7 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
 
   const childRows = rows.filter((r) => r.relationship === "บุตร").length
   const spouseRows = rows.filter((r) => r.relationship === "คู่สมรส").length
+  const detailRows = rows.filter(needsDetails)
 
   const put = async (body) => {
     const payload = await saveSection("family", body)
@@ -88,6 +129,14 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
     if (original && !RELATIONSHIPS.includes(original.relationship) && (blank(form.relationship) || form.relationship === original.relationship)) {
       delete body.relationship
     }
+    // older row: the title was typed into first_name and split out for the form. Unchanged name on an
+    // HR-verified row → keep the stored name (a title-only change keeps it verified); else send it clean.
+    if (original && "first_name" in body && !original.name_title) {
+      const split = splitPrefixedName(original.first_name)
+      if (split.prefix && form.first_name?.trim() === split.name && original.hr_verified) delete body.first_name
+    }
+    // stored rows that never had these: an empty value is not a change
+    if (original) for (const k of ["name_title", "legal_status"]) if (body[k] === null && blank(original[k])) delete body[k]
     return body
   }
 
@@ -113,11 +162,22 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
   const saveRow = (form) => {
     const original = editor?.row ?? null
     // imported relationship outside the 4 values: not required to re-pick when editing
-    const cols = original && !RELATIONSHIPS.includes(original.relationship) ? COLUMNS.filter((c) => c.key !== "relationship") : COLUMNS
+    // stored row with a relationship outside the list (imported) isn't forced to re-pick it
+    // (nor a legal_status, which has no options until a listed relationship is picked)
+    // older rows without legal_status don't block onboarding — a title-only fix must still save
+    const keepOld = original && !RELATIONSHIPS.includes(original.relationship) && blank(form.relationship)
+    const optionalStatus = original && blank(original.legal_status) && original.relationship === form.relationship
+    const cols = COLUMNS.filter(
+      (c) => !(keepOld && c.key === "relationship") && !((keepOld || optionalStatus) && c.key === "legal_status"),
+    )
     const miss = missingKeys(cols, form, !original)
     if (miss.length) return setEditorErr({ message: "กรอกช่องที่มีเครื่องหมาย * ให้ครบ", missing: miss })
-    if (!prefixOf(form.first_name)) return setEditorErr({ message: "เลือกคำนำหน้าชื่อ", missing: ["first_name"] })
-    if (original?.hr_verified && Object.keys(buildBody(form, original)).length) return setPendingEdit({ form })
+    if (form.is_deceased && form.deceased_date > todayIso()) {
+      return setEditorErr({ message: "วันที่เสียชีวิตต้องไม่เป็นวันในอนาคต", missing: ["deceased_date"] })
+    }
+    // only name_title changed → the row stays verified, no warning
+    const changed = Object.keys(buildBody(form, original)).filter((k) => k !== "name_title")
+    if (original?.hr_verified && changed.length) return setPendingEdit({ form })
     commit(form)
   }
 
@@ -142,15 +202,13 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
 
   const headingId = "ob-family-title"
   const editRow = editor?.row
-  const editInitial = editRow
-    ? { ...editRow, relationship: RELATIONSHIPS.includes(editRow.relationship) ? editRow.relationship : "" }
-    : null
+  const editInitial = editRow ? toEditForm(editRow) : null
 
   return (
     <section aria-labelledby={headingId}>
       <StepHeader id={headingId} title={meta.label} purpose={meta.purpose} />
 
-      {(missing.includes("spouse_row") || missing.includes("children_count")) && (
+      {["spouse_row", "children_count", "ex_spouse_row", "family_details"].some((k) => missing.includes(k)) && (
         <div className="mb-4 space-y-3" aria-live="polite">
           {missing.includes("spouse_row") && (
             <RuleNotice
@@ -178,6 +236,24 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
               ข้อมูลส่วนตัวระบุบุตร {personal.children_number ?? 0} คน ในรายการมีบุตร {childRows} คน
             </RuleNotice>
           )}
+          {missing.includes("ex_spouse_row") && (
+            <RuleNotice
+              icon={HeartHandshake}
+              title={MISSING_MESSAGES.ex_spouse_row}
+              action={
+                <button type="button" className={linkCls} onClick={() => onGoStep("personal")}>
+                  สถานภาพไม่ถูกต้อง แก้ในข้อมูลส่วนตัว
+                </button>
+              }
+            >
+              ข้อมูลส่วนตัวระบุสถานภาพเป็น “หย่า” เพิ่มอดีตคู่สมรสโดยเลือกความสัมพันธ์ “อดีตคู่สมรส” (อดีตคู่สมรสไม่มีสิทธิ์สวัสดิการ)
+            </RuleNotice>
+          )}
+          {missing.includes("family_details") && (
+            <RuleNotice icon={FileWarning} title={MISSING_MESSAGES.family_details}>
+              แก้ไขรายการที่มีป้าย “ยังไม่ครบ” ({detailRows.length} รายการ) แล้วเลือกคำนำหน้าและสถานะทางกฎหมาย
+            </RuleNotice>
+          )}
         </div>
       )}
 
@@ -186,7 +262,7 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
           {rows.length > 0 ? (
             <ul className="mb-4 divide-y divide-gray-100 dark:divide-line">
               {rows.map((r) => {
-                const name = [r.first_name, r.last_name].filter(Boolean).join(" ") || "ไม่ระบุชื่อ"
+                const name = familyDisplayName(r) || "ไม่ระบุชื่อ"
                 return (
                   <RowItem
                     key={r.id}
@@ -194,6 +270,8 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
                     badge={
                       <>
                         <span className={badgeNeutral}>{r.relationship || "ไม่ระบุ"}</span>
+                        {r.is_deceased && <span className={badgeNeutral}>เสียชีวิต</span>}
+                        {missing.includes("family_details") && needsDetails(r) && <span className={badgePending}>ยังไม่ครบ</span>}
                         {r.hr_verified ? (
                           <span className={badgeSuccess}>HR ตรวจสอบแล้ว</span>
                         ) : (
@@ -202,7 +280,12 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
                       </>
                     }
                     lines={[
-                      [r.birthday ? `เกิด ${thaiDate(r.birthday)}` : "", r.is_twin ? "แฝด" : ""].filter(Boolean).join(" · "),
+                      `สถานะทางกฎหมาย: ${r.legal_status || "—"}`,
+                      [
+                        r.birthday ? `เกิด ${thaiDate(r.birthday)}` : "",
+                        r.is_twin ? "แฝด" : "",
+                        r.is_deceased && r.deceased_date ? `เสียชีวิต ${thaiDate(r.deceased_date)}` : "",
+                      ].filter(Boolean).join(" · "),
                     ]}
                     extra={
                       !r.can_delete ? (
@@ -282,7 +365,7 @@ export default function FamilyStep({ data, handlers, onBack, onGoStep, onReport,
       <ConfirmDialog
         open={Boolean(toDelete)}
         title="ลบสมาชิกครอบครัวนี้?"
-        description={toDelete ? [toDelete.relationship, toDelete.first_name, toDelete.last_name].filter(Boolean).join(" ") : ""}
+        description={toDelete ? [toDelete.relationship, familyDisplayName(toDelete)].filter(Boolean).join(" ") : ""}
         confirmLabel="ลบ"
         tone="danger"
         loading={deleting}

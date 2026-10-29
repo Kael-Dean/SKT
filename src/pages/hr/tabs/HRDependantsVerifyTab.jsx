@@ -22,7 +22,8 @@ const prefersReducedMotion = () =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false
 
 const nf = (n) => Number(n).toLocaleString("th-TH")
-const fullName = (d) => [d.first_name, d.last_name].filter(Boolean).join(" ") || "—"
+const fullName = (d) =>
+  d.display_name || [`${d.name_title ?? ""}${d.first_name ?? ""}`, d.last_name].filter(Boolean).join(" ") || "—"
 const byOldest = (a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? ""))
 const NOT_ENABLED_MSG = "ระบบตรวจข้อมูลครอบครัวยังไม่เปิดใช้บนเซิร์ฟเวอร์นี้ รอทีม backend อัปเดต"
 
@@ -232,7 +233,7 @@ export default function HRDependantsVerifyTab({ onCountChange }) {
                       {fullName(d)}
                     </p>
                     <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
-                      {d.relationship || "—"}{d.is_twin ? " · แฝด" : ""}
+                      {d.relationship || "—"} · {d.legal_status || "—"}{d.is_twin ? " · แฝด" : ""}
                     </p>
                   </div>
                   <dl className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">

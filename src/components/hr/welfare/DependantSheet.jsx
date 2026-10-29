@@ -6,16 +6,19 @@
 //
 // กฎ 1–3 คน / อายุ / แฝด backend คำนวณเอง — ฟอร์มนี้แค่เก็บข้อมูลที่กฎต้องใช้ให้ครบ
 // (บุตร: ลำดับการเกิด + วันเกิด เสมอ · แฝดต้องติ๊กทั้งสองคน)
+// name_title / legal_status / is_deceased: ไม่บังคับสำหรับ HR · legal_status กรองตามความสัมพันธ์
+// (เปลี่ยนความสัมพันธ์ต้องส่ง legal_status ที่เข้ากันด้วย) · first_name ไม่มีคำนำหน้า (แยกจากข้อมูลเก่าให้)
+// · legal_status "บุตรบุญธรรม" = is_adopted (backend ตั้งให้)
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useId, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
 import { cx, baseField, errorTextCls, helpTextCls, labelCls, neutralBtnCls, submitBtnCls } from "../../../lib/styles"
 import { RELATIONSHIP_OPTIONS, dependantName } from "../../../lib/welfare"
+import { FAMILY_TITLES, familyTitleOptions, legalStatusOptions } from "../../../lib/onboarding"
 import { Sheet, toast } from "../../ui"
-import PrefixedNameInput from "../../PrefixedNameInput"
 import SelectDropdown from "../../SelectDropdown"
-import { ADULT_PREFIX_OPTIONS, ALL_PREFIX_OPTIONS, prefixOf } from "../../../lib/namePrefix"
+import { splitPrefixedName } from "../../../lib/namePrefix"
 import ThaiDateField from "../../ThaiDateField"
 import StatusMsg from "../StatusMsg"
 
@@ -24,12 +27,21 @@ const btnCls = "h-12 md:h-10 md:!px-5 md:!py-0 md:!text-sm"
 const errBorder = "!border-red-500 dark:!border-red-400"
 
 const EMPTY = {
+  name_title: "", legal_status: "",
   first_name: "", last_name: "", relationship: "", birthday: "", child_order: "",
   is_twin: false, is_adopted: false, is_incapacitated: false, deceased_date: "", has_own_benefits: false, note: "",
 }
 
+/** older rows have the title typed into first_name → split it out for the form */
+const splitOld = (d) => {
+  if (d.name_title) return { name_title: d.name_title, first_name: d.first_name ?? "" }
+  const { prefix, name } = splitPrefixedName(d.first_name)
+  return prefix && FAMILY_TITLES.includes(prefix) ? { name_title: prefix, first_name: name } : { name_title: "", first_name: d.first_name ?? "" }
+}
+
 const fromRow = (d) => (d ? {
-  first_name: d.first_name ?? "", last_name: d.last_name ?? "", relationship: d.relationship ?? "",
+  ...splitOld(d), legal_status: d.legal_status ?? "",
+  last_name: d.last_name ?? "", relationship: d.relationship ?? "",
   birthday: d.birthday ?? "", child_order: d.child_order != null ? String(d.child_order) : "",
   is_twin: !!d.is_twin, is_adopted: !!d.is_adopted, is_incapacitated: !!d.is_incapacitated,
   deceased_date: d.deceased_date ?? "", has_own_benefits: !!d.has_own_benefits, note: d.note ?? "",
@@ -38,6 +50,8 @@ const fromRow = (d) => (d ? {
 function toBody(f) {
   const child = f.relationship === "บุตร"
   return {
+    name_title: f.name_title || null,
+    legal_status: f.legal_status || null,
     first_name: f.first_name.trim(),
     last_name: f.last_name.trim() || null,
     relationship: f.relationship,
@@ -47,16 +61,20 @@ function toBody(f) {
     is_adopted: child ? f.is_adopted : false,
     is_incapacitated: child ? f.is_incapacitated : false,
     deceased_date: f.deceased_date || null,
+    is_deceased: Boolean(f.deceased_date),
     has_own_benefits: child ? false : f.has_own_benefits,
     note: f.note.trim() || null,
   }
 }
 
-function validate(f) {
+function validate(f, original) {
   const e = {}
-  if (!f.first_name.trim()) e.first_name = "กรอกชื่อ"
-  else if (!prefixOf(f.first_name)) e.first_name = "เลือกคำนำหน้าชื่อ"
+  if (!f.first_name.trim()) e.first_name = "กรอกชื่อ (ไม่ต้องใส่คำนำหน้า)"
   if (!f.relationship) e.relationship = "เลือกความสัมพันธ์"
+  if (f.legal_status && !legalStatusOptions(f.relationship).includes(f.legal_status)) e.legal_status = "สถานะทางกฎหมายไม่ตรงกับความสัมพันธ์"
+  // relationship changed and the stored status no longer fits → backend needs a new one
+  if (original?.legal_status && f.relationship !== original.relationship && !f.legal_status) e.legal_status = "เลือกสถานะทางกฎหมายให้ตรงกับความสัมพันธ์ใหม่"
+  if (f.deceased_date && f.deceased_date > new Date().toISOString().slice(0, 10)) e.deceased_date = "วันที่เสียชีวิตต้องไม่เป็นวันในอนาคต"
   if (f.relationship === "บุตร") {
     if (f.child_order === "") e.child_order = "กรอกลำดับการเกิด — ใช้นับสิทธิ์บุตรคนที่ 1–3"
     else if (!Number.isInteger(Number(f.child_order)) || Number(f.child_order) < 1) e.child_order = "กรอกเป็นจำนวนเต็มตั้งแต่ 1"
@@ -104,12 +122,20 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
   }, [open, dependant])
 
   const set = (k) => (v) => {
-    setForm((p) => ({ ...p, [k]: v }))
+    setForm((p) => {
+      const next = { ...p, [k]: v }
+      if (k === "relationship") {
+        if (!legalStatusOptions(v).includes(p.legal_status)) next.legal_status = ""
+        if (p.name_title && !familyTitleOptions(v).includes(p.name_title)) next.name_title = ""
+      }
+      if (k === "legal_status" && next.relationship === "บุตร") next.is_adopted = v === "บุตรบุญธรรม"
+      return next
+    })
     if (errors[k]) setErrors((e) => ({ ...e, [k]: undefined }))
   }
 
   const save = async () => {
-    const errs = validate(form)
+    const errs = validate(form, dependant)
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
@@ -120,6 +146,8 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
     if (editing) {
       const before = toBody(fromRow(dependant))
       payload = Object.fromEntries(Object.entries(body).filter(([k, v]) => before[k] !== v))
+      // stored name still holds the typed title → save the clean name with the title
+      if (!dependant.name_title && payload.name_title && body.first_name !== dependant.first_name) payload.first_name = body.first_name
       if (!Object.keys(payload).length) { onClose(); return }
     }
     setSaving(true)
@@ -172,15 +200,35 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
           {err("relationship")}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <span id={`${id("ls")}-label`} className={cx(labelCls, "md:!text-sm")}>สถานะทางกฎหมาย</span>
+          <SelectDropdown
+            id={id("ls")} size="sm" showSwatch={false}
+            ariaLabelledby={`${id("ls")}-label`} ariaDescribedby={desc("legal_status", true)}
+            options={[{ value: "", label: "— ไม่ระบุ —" }, ...legalStatusOptions(form.relationship).map((v) => ({ value: v, label: v }))]}
+            value={form.legal_status} onChange={set("legal_status")}
+            placeholder={form.relationship ? "เลือกสถานะ" : "เลือกความสัมพันธ์ก่อน"} disabled={!legalStatusOptions(form.relationship).length}
+            error={!!errors.legal_status}
+          />
+          <p id={`${id("legal_status")}-hint`} className={cx(helpTextCls, "md:text-xs")}>ใช้พิจารณาสิทธิ์สวัสดิการ</p>
+          {err("legal_status")}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-[9rem_1fr_1fr]">
           <div>
-            <label htmlFor={id("fn")} className={cx(labelCls, "md:!text-sm")}>คำนำหน้าและชื่อ <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
-            <PrefixedNameInput id={id("fn")} size="sm" value={form.first_name} onChange={set("first_name")}
-              options={form.relationship === "บุตร" ? ALL_PREFIX_OPTIONS : ADULT_PREFIX_OPTIONS}
-              required invalid={!!errors.first_name} prefixInvalid={!!errors.first_name && !prefixOf(form.first_name)}
-              describedBy={desc("first_name")} placeholder="ชื่อ"
-              inputClassName={cx("!rounded-lg !px-3 !py-2 md:!text-sm", errors.first_name && errBorder)} />
-            {errors.first_name && <p id={`${id("first_name")}-err`} className={errorTextCls}>{errors.first_name}</p>}
+            <span id={`${id("nt")}-label`} className={cx(labelCls, "md:!text-sm")}>คำนำหน้า</span>
+            <SelectDropdown
+              id={id("nt")} size="sm" showSwatch={false} ariaLabelledby={`${id("nt")}-label`}
+              options={[{ value: "", label: "—" }, ...familyTitleOptions(form.relationship).map((v) => ({ value: v, label: v }))]}
+              value={form.name_title} onChange={set("name_title")} placeholder="เลือก"
+            />
+          </div>
+          <div>
+            <label htmlFor={id("fn")} className={cx(labelCls, "md:!text-sm")}>ชื่อ <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
+            <input id={id("fn")} value={form.first_name} onChange={(e) => set("first_name")(e.target.value)} autoComplete="off"
+              required aria-invalid={errors.first_name ? true : undefined} aria-describedby={desc("first_name")}
+              placeholder="ไม่ต้องใส่คำนำหน้า" className={cx(inputCls, errors.first_name && errBorder)} />
+            {err("first_name")}
           </div>
           <div>
             <label htmlFor={id("ln")} className={cx(labelCls, "md:!text-sm")}>นามสกุล</label>

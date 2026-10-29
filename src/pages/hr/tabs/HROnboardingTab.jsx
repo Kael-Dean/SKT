@@ -38,7 +38,7 @@ import {
   toast,
 } from "../../../components/ui"
 
-const TOTAL_SECTIONS = 7
+const TOTAL_SECTIONS = 8 // account … criminal + license
 
 const ONBOARDING_STATUS = {
   not_started: { label: "ยังไม่เริ่ม", tone: "pending" },
@@ -260,7 +260,7 @@ export default function HROnboardingTab() {
         ? { status: st, sections_confirmed: 0, tour_done: false, completed_at: null }
         : { status: st, sections_confirmed: 0, tour_done: false, completed_at: null, exempt_reason: null })
       setReopenRow(null)
-      toast.success("เปิดให้กรอกใหม่แล้ว", { description: `${r.name} ต้องยืนยันข้อมูลครบ 7 หัวข้ออีกครั้งก่อนใช้บริการตนเอง` })
+      toast.success("เปิดให้กรอกใหม่แล้ว", { description: `${r.name} ต้องยืนยันข้อมูลครบ 8 หัวข้ออีกครั้งก่อนใช้บริการตนเอง` })
       fetchRows({ quiet: true })
     } catch (e) {
       setActionErr(e.message || "ดำเนินการไม่สำเร็จ")
@@ -486,7 +486,7 @@ export default function HROnboardingTab() {
 
       {!loading && !error && rows.length > 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          แสดง {nf(visible.length)} จาก {nf(rows.length)} คน · ยืนยันครบ 7 หัวข้อแล้วจึงใช้บริการตนเองได้ แม้ยังไม่จบทัวร์
+          แสดง {nf(visible.length)} จาก {nf(rows.length)} คน · ยืนยันครบ 8 หัวข้อแล้วจึงใช้บริการตนเองได้ แม้ยังไม่จบทัวร์
         </p>
       )}
 
@@ -504,7 +504,7 @@ export default function HROnboardingTab() {
         onCancel={closeAll}
       >
         <ul className="list-disc space-y-1.5 pl-5 leading-relaxed">
-          <li>ล้างสถานะ “เสร็จแล้ว” ทัวร์ และการยืนยันทั้ง 7 หัวข้อ</li>
+          <li>ล้างสถานะ “เสร็จแล้ว” ทัวร์ และการยืนยันทั้ง 8 หัวข้อ</li>
           <li>เมนูบริการตนเอง (ลา สลิป เงินกู้ ฯลฯ) จะถูกล็อกอีกครั้ง จนกว่าเจ้าตัวจะยืนยันครบทุกหัวข้อ</li>
           <li>ข้อมูลที่กรอกไว้ยังอยู่ เจ้าตัวแก้ไขต่อจากเดิมได้</li>
         </ul>

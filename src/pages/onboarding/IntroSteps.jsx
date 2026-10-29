@@ -1,5 +1,5 @@
 // src/pages/onboarding/IntroSteps.jsx
-// Welcome (start / continue), Ready (all 7 confirmed → start the tour) and Done (completed).
+// Welcome (start / continue), Ready (all 8 confirmed → start the tour) and Done (completed).
 import { Check, Clock3, Compass, FilePenLine } from "lucide-react"
 import { Link } from "react-router-dom"
 import Celebration from "../../components/onboarding/Celebration"
@@ -57,7 +57,7 @@ export function WelcomeStep({ data, confirmedCount, onStart, onGoStep }) {
 
       {/* 7-topic checklist: overview + jump straight to any topic */}
       <nav aria-label="หัวข้อทั้งหมด" className="mt-10 border-t border-gray-200/70 pt-6 dark:border-line">
-        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400">หัวข้อทั้งหมด 7 หัวข้อ</h2>
+        <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400">หัวข้อทั้งหมด {SECTIONS.length} หัวข้อ</h2>
         <ol className="mt-2">
           {SECTIONS.map((s, i) => {
             const done = Boolean(sections[s.key]?.confirmed_at)

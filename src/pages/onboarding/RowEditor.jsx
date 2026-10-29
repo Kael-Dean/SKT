@@ -80,12 +80,13 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
             {c.type === "select" ? (
               <SelectDropdown
                 id={id}
-                options={toOptions(c.options, form[c.key])}
+                options={toOptions(typeof c.options === "function" ? c.options(form) : c.options, form[c.key])}
                 value={form[c.key] ?? ""}
-                onChange={(v) => setForm((p) => ({ ...p, [c.key]: v, ...(c.onChange?.(v) ?? {}) }))}
+                onChange={(v) => setForm((p) => ({ ...p, [c.key]: v, ...(c.onChange?.(v, p) ?? {}) }))}
                 placeholder={c.placeholder ?? "เลือก"}
                 showSwatch={false}
                 required={c.required}
+                error={flagged}
               />
             ) : c.type === "year" ? (
               <SelectDropdown

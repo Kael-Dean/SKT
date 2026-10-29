@@ -79,11 +79,13 @@ export const PAYOUT_LABEL = { separate: "จ่ายแยก", payroll: "จ�
 
 // ─── ผู้มีสิทธิ์ (dependants) ─────────────────────────────────────────────────
 
-export const RELATIONSHIPS = ["บิดา", "มารดา", "คู่สมรส", "บุตร"]
+// อดีตคู่สมรส ไม่มีสิทธิ์สวัสดิการเสมอ (backend medical_reason "อดีตคู่สมรสไม่มีสิทธิ")
+export const RELATIONSHIPS = ["บิดา", "มารดา", "คู่สมรส", "อดีตคู่สมรส", "บุตร"]
 export const RELATIONSHIP_OPTIONS = RELATIONSHIPS.map((r) => ({ value: r, label: r }))
 
+/** prefers backend display_name ("นางสมศรี ใจดี" — title + name) */
 export const dependantName = (d) =>
-  d ? [d.first_name, d.last_name].filter(Boolean).join(" ").trim() || `ผู้มีสิทธิ์ #${d.id}` : ""
+  d ? d.display_name || [`${d.name_title ?? ""}${d.first_name ?? ""}`, d.last_name].filter(Boolean).join(" ").trim() || `ผู้มีสิทธิ์ #${d.id}` : ""
 
 /** ลำดับแสดง: บิดา มารดา คู่สมรส แล้วบุตรตามลำดับการเกิด */
 export function sortDependants(list) {
@@ -99,10 +101,11 @@ export function sortDependants(list) {
 export function dependantMeta(d) {
   if (!d) return ""
   const parts = [d.relationship === "บุตร" && d.child_order ? `บุตรคนที่ ${d.child_order}` : d.relationship]
-  if (d.deceased_date) parts.push("เสียชีวิตแล้ว")
+  if (d.legal_status) parts.push(d.legal_status)
+  if (d.deceased_date || d.is_deceased) parts.push("เสียชีวิตแล้ว")
   else if (d.age != null) parts.push(`${d.age} ปี`)
   if (d.is_twin) parts.push("แฝด")
-  if (d.is_adopted) parts.push("บุตรบุญธรรม")
+  if (d.is_adopted && d.legal_status !== "บุตรบุญธรรม") parts.push("บุตรบุญธรรม")
   if (d.is_incapacitated) parts.push("ทุพพลภาพ/ไร้ความสามารถ")
   if (d.has_own_benefits) parts.push("มีสิทธิ์จากหน่วยงานอื่น")
   return parts.filter(Boolean).join(" · ")

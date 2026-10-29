@@ -74,10 +74,20 @@ export function firstNameOnly(thFirst) {
     .trim()
 }
 
-/** Only non-blank keys for a new row; only changed keys for an edit. */
+const hiddenIn = (c, form) => Boolean(c.showIf && !c.showIf(form))
+
+/**
+ * Only non-blank keys for a new row; only changed keys for an edit.
+ * A hidden (showIf false) non-checkbox column is left out — on an edit it is cleared (null)
+ * when the stored row still holds a value (e.g. lifetime license → no expiry date).
+ */
 export function rowBody(columns, form, original) {
   const out = {}
   for (const c of columns) {
+    if (c.type !== "checkbox" && hiddenIn(c, form)) {
+      if (original && !blank(original[c.key])) out[c.key] = null
+      continue
+    }
     let v = form[c.key]
     if (typeof v === "string") v = v.trim()
     if (c.type === "checkbox") v = Boolean(v)
@@ -92,4 +102,4 @@ export function rowBody(columns, form, original) {
 
 /** Client check for the key fields of a new row (backend rule §3.3). */
 export const missingKeys = (columns, form, isNew) =>
-  columns.filter((c) => c.required && (isNew || c.key in form) && blank(form[c.key])).map((c) => c.key)
+  columns.filter((c) => c.required && !hiddenIn(c, form) && (isNew || c.key in form) && blank(form[c.key])).map((c) => c.key)

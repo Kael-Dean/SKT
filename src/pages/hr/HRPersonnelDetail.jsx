@@ -230,6 +230,7 @@ export default function HRPersonnelDetail() {
   const relHist = data.relocation_history ?? []
   const workExp = data.work_experiences ?? []
   const crimeRec = data.criminal_records ?? []
+  const licenses = data.licenses ?? [] // read-only — the employee edits them (PUT /personnel/me/onboarding/license)
   const spouse = data.spouse ?? null
   const childrenList = data.children ?? []
   const parentsList = data.parents ?? []
@@ -428,6 +429,29 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      {/* ใบขับขี่ (อ่านอย่างเดียว — พนักงานแก้เองในโปรไฟล์) */}
+      <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
+        <SectionTitle>ใบขับขี่</SectionTitle>
+        {licenses.length > 0 ? (
+          licenses.map((l) => {
+            const expired = l.expiry_date && String(l.expiry_date).slice(0, 10) < new Date().toISOString().slice(0, 10)
+            return (
+              <div key={l.id} className="py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+                <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{l.license_type ?? "—"}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+                  เลขที่ {l.license_no || "—"} ·{" "}
+                  {l.expiry_date
+                    ? <span className={expired ? "font-medium text-red-600 dark:text-red-400" : undefined}>{expired ? "หมดอายุแล้ว" : "หมดอายุ"} {fmtDate(l.expiry_date)}</span>
+                    : "ตลอดชีพ"}
+                </p>
+              </div>
+            )
+          })
+        ) : (
+          <p className="text-xs text-gray-400 dark:text-gray-500 italic">ไม่มีข้อมูลใบขับขี่</p>
+        )}
+      </div>
 
       {/* ข้อมูลครอบครัวที่พนักงานเพิ่มเอง รอ HR ตรวจสอบ (แสดงเฉพาะเมื่อมี) */}
       <PendingFamilyCard userId={id} />

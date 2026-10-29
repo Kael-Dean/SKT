@@ -339,7 +339,7 @@ function TourRunner({ index, onFinished }) {
           : cx("top-0 left-0 flex max-h-[calc(100dvh-2rem)] flex-col rounded-2xl p-5", placed ? "ob-tour-card" : "opacity-0"),
       )}
     >
-      <div key={stop.key} className="animate-fade-in -mx-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-1">
+      <div className="-mx-1 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-1">
         <div className="flex items-center justify-between gap-3">
           <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
             {index + 1}/{TOUR_LENGTH}
@@ -355,33 +355,61 @@ function TourRunner({ index, onFinished }) {
             ข้าม
           </button>
         </div>
-        {/* First stop only: น้องหอมทอง waves, then points at the menu beside the card.
-            Every later stop stays text-only so the tour does not become a cartoon. */}
-        <div className={cx("mt-2", index === 0 && "flex items-center gap-3")}>
-          {index === 0 && <Mascot mood="onboard" size={80} className="-my-1 -ml-1" />}
-          <h2
-            id={titleId}
-            ref={headingRef}
-            tabIndex={-1}
-            className="min-w-0 text-xl font-bold leading-snug text-gray-900 text-balance focus:outline-none dark:text-gray-100"
-          >
-            {stop.title}
-          </h2>
+        {/* น้องหอมทอง guides every stop. It stays mounted across stops (outside the keyed
+            block) so the Rive state machine keeps running: wave once, then point; the last
+            stop switches to the success jump. */}
+        <div className="mt-2 flex items-start gap-3">
+          <Mascot mood={isLast ? "success" : "onboard"} size={isPhone ? 56 : 72} className="-ml-1 shrink-0" />
+          <div key={stop.key} className="animate-fade-in min-w-0 flex-1 pt-1">
+            <h2
+              id={titleId}
+              ref={headingRef}
+              tabIndex={-1}
+              className="text-xl font-bold leading-snug text-gray-900 text-balance focus:outline-none dark:text-gray-100"
+            >
+              {stop.title}
+            </h2>
+            <p id={descId} className="mt-1 text-[15px] leading-relaxed text-gray-700 dark:text-gray-200">
+              {stop.purpose}
+            </p>
+          </div>
         </div>
-        <p id={descId} className="mt-1 text-[15px] leading-relaxed text-gray-700 dark:text-gray-200">
-          {stop.purpose}
-        </p>
-        {stop.figures === "leave-balance" && <LeaveQuota />}
-        {stop.policy?.length > 0 && (
-          <ul className="mt-3 space-y-1.5 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[.04]">
-            {stop.policy.map((p) => (
-              <li key={p} className="flex gap-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-indigo-400 dark:bg-indigo-400/80" />
-                <span>{p}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div key={`${stop.key}-body`} className="animate-fade-in">
+          {stop.figures === "leave-balance" && <LeaveQuota />}
+          {stop.howTo?.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">วิธีใช้</p>
+              <ol className="mt-1.5 space-y-2">
+                {stop.howTo.map((s, i) => (
+                  <li key={s} className="flex gap-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-200">
+                    <span
+                      aria-hidden="true"
+                      className="mt-px flex size-5 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-semibold tabular-nums text-white dark:bg-indigo-500"
+                    >
+                      {i + 1}
+                    </span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {stop.policy?.length > 0 && (
+            <div className="mt-3 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/[.04]">
+              {stop.howTo?.length > 0 && (
+                <p className="mb-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">ควรรู้</p>
+              )}
+              <ul className="space-y-1.5">
+                {stop.policy.map((p) => (
+                  <li key={p} className="flex gap-2.5 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-indigo-400 dark:bg-indigo-400/80" />
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 shrink-0">

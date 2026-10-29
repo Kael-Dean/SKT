@@ -1,11 +1,11 @@
-# Handoff → Backend: แก้ชื่อประเภทการลาได้จากหน้า HR
+# Handoff → Backend: แก้ชื่อ + เพิ่มประเภทการลาจากหน้า HR
 
 **จาก:** Frontend (SKT) · **ถึง:** Backend (`FeatureRichDevelopment/um_backend`) · **วันที่:** 2026-10-29
 **หน้าที่เกี่ยว:** `/hr/dashboard?tab=leave-types` (`src/pages/hr/tabs/HRLeaveTypesTab.jsx`)
 
 ## ต้องการอะไร
 
-HR อยากแก้ชื่อประเภทการลาในหน้าตั้งค่าได้เอง (ตอนนี้แก้ได้แค่จำนวนวัน/ปี กับเปิด/ปิด)
+HR อยากแก้ชื่อ (ส่วนที่ 1) และเพิ่มประเภทการลาใหม่ (ส่วนที่ 2) ในหน้าตั้งค่าได้เอง — ตอนนี้แก้ได้แค่จำนวนวัน/ปี กับเปิด/ปิด
 
 ## สถานะ backend ตอนนี้ (main ล่าสุด)
 
@@ -30,7 +30,7 @@ HR อยากแก้ชื่อประเภทการลาในห�
 ตัวอย่าง: เปลี่ยน "ลาป่วย" → "ลาป่วย (มีใบแพทย์)" → `LEAVE_QUOTA_MAP.get()` คืน `None` → ประเภทนี้หายจากยอดคงเหลือ และยื่น/อนุมัติลาไม่หักโควตา
 ฝั่ง frontend ก็จับ "ลาคลอด" จากชื่อเหมือนกัน (`src/lib/leaveDays.js` → นับวันปฏิทิน)
 
-## ข้อเสนอ (แนะนำ): เพิ่ม `display_name` แยกจาก key
+## ส่วนที่ 1: แก้ชื่อ — ข้อเสนอ (แนะนำ): เพิ่ม `display_name` แยกจาก key
 
 ให้ `type` เป็น key คงที่ (ไม่ให้แก้) แล้วเพิ่มชื่อที่แสดงซึ่ง HR แก้ได้
 
@@ -80,13 +80,64 @@ class LeaveTypeUpdateRequest(BaseModel):
 
 เพิ่ม `Leaves.code` (= ชื่อคอลัมน์โควตา เช่น `sick_leave`), ย้าย `LEAVE_QUOTA_MAP` / `CALENDAR_DAY_LEAVE_TYPES` / `LeaveQuotaUpdateRequest.leave_type` ไปผูกกับ `code` แล้วให้แก้ `type` ได้ตรง ๆ — สะอาดกว่าระยะยาวแต่แตะหลายไฟล์และ contract ของ PATCH โควตารายคน
 
+## ส่วนที่ 2: เพิ่มประเภทการลาใหม่ (`POST /hr/leave-types`)
+
+ตอนนี้ไม่มี endpoint สร้าง (ไล่ทุกไฟล์ `.py` ใน main แล้ว — มี `Leaves(...)` แค่ใน `tests/hr_helpers.py`)
+
+### ปัญหาที่ต้องคิดก่อน: โควตาผูกกับคอลัมน์
+
+โควตารายคนเป็น **คอลัมน์ตายตัว** ใน `PersonnelLeaveQuota` (`sick_leave`, `business_leave`, … `other_leave`) และหาคอลัมน์ผ่าน `LEAVE_QUOTA_MAP.get(type)`
+ประเภทที่สร้างใหม่จะไม่อยู่ใน map → `col_name = None` → ตามโค้ดปัจจุบัน:
+
+- ยื่นลา (`personnel_route.py` ~853) / อนุมัติ (`hr_route.py` ~494): ข้ามการเช็ค/หักโควตา = **ลาได้ไม่จำกัด ไม่หักวัน ไม่คิด extra_leave_days**
+- ยอดคงเหลือ (`employee_router.py` ~1116, `personnel_route.py` ~726): `if not col_name: continue` = **ไม่โผล่ในยอดคงเหลือ**
+- รายงาน (`reports_router.py` ~354): มีหัวคอลัมน์ แต่ไม่มีโควตา
+
+### ข้อเสนอ (แนะนำ, เข้ากับ `display_name` ด้านบน)
+
+ให้ประเภทใหม่ **เลือกคอลัมน์โควตาที่จะใช้** (`quota_column`) จาก `QUOTA_COLUMNS` ที่มีอยู่ — ไม่ต้องเพิ่มคอลัมน์ใน DB
+
+1. เพิ่ม `Leaves.quota_column = Column(String, nullable=True)` — ถ้ามีค่า ใช้แทน `LEAVE_QUOTA_MAP.get(type)`
+   ทำ helper กลางที่เดียว แล้วแทนทุกจุดที่เรียก `LEAVE_QUOTA_MAP.get(x.type)`:
+   ```python
+   def quota_column_for(lt: Leaves) -> str | None:
+       return lt.quota_column or LEAVE_QUOTA_MAP.get(lt.type)
+   ```
+2. `POST /hr/leave-types` (`require_perm("leave.types.edit")`)
+   ```python
+   class LeaveTypeCreateRequest(BaseModel):
+       type: str = Field(..., min_length=1, max_length=100)   # strip แล้วห้ามว่าง
+       days: int = Field(0, ge=0)
+       max_days: int | None = Field(None, ge=1)
+       quota_column: str | None = None      # ต้องอยู่ใน QUOTA_COLUMNS ถ้าส่งมา, None = ไม่จำกัด/ไม่หักโควตา
+       is_active: bool = True
+   ```
+   - ชื่อซ้ำ (`type` หรือ `display_name` ของแถวอื่น) → 409 `"มีประเภทการลาชื่อนี้แล้ว"`
+   - `quota_column` ไม่อยู่ใน `QUOTA_COLUMNS` → 422
+   - AuditLog `CREATE_LEAVE_TYPE`
+   - Response = row ที่สร้าง `{ id, type, days, max_days, quota_column, is_active }`
+3. `GET /hr/leave-types` คืน `quota_column` ด้วย (ORM ได้อัตโนมัติ) + เพิ่ม endpoint หรือ field บอกรายการ `QUOTA_COLUMNS` พร้อมชื่อไทย ให้ FE ทำ dropdown
+   (เช่น `GET /hr/leave-types/quota-columns` → `[{ "key": "other_leave", "label": "อื่นๆ" }, …]`)
+4. ไม่ต้องมี DELETE — ใช้ toggle ปิดแทน (ใบลาเก่าอ้าง `leave_type` id อยู่)
+
+> ถ้าไม่อยากเพิ่ม `quota_column`: ทางเลือกเร็วคือให้ประเภทใหม่ทุกตัวใช้ `other_leave` โดย default — แต่จะแชร์โควตาเดียวกันหมด ต้องให้ลูกค้ายืนยันก่อน
+
+### Acceptance (ส่วนที่ 2)
+
+- [ ] `POST { "type": "ลาไปช่วยราชการ", "days": 5, "quota_column": "other_leave" }` → 201 และโผล่ใน `GET /hr/leave-types`
+- [ ] พนักงานเห็นประเภทใหม่ในฟอร์มยื่นลา (ถ้า `is_active`) · ยื่น+อนุมัติแล้วหัก `other_leave`
+- [ ] ประเภทใหม่โผล่ในยอดคงเหลือ
+- [ ] `POST` ชื่อซ้ำ → 409 · `quota_column: "foo"` → 422 · role ที่ไม่มี `leave.types.edit` → 403
+
 ## ฝั่ง Frontend จะทำเมื่อ backend deploy แล้ว
+
+- หน้า `leave-types`: ปุ่ม "เพิ่มประเภทการลา" → `<Sheet>` ฟอร์ม (ชื่อ, จำนวนวัน/ปี, ลาได้สูงสุด, คอลัมน์โควตา `SelectDropdown`) → `POST /hr/leave-types`
 
 - หน้า `leave-types`: ปุ่มดินสอข้างชื่อ → inline input → `PATCH { display_name }` · โชว์ `display_name ?? type`
 - PATCH จำนวนวันยังส่ง `{ days }` เหมือนเดิม
 - ฟอร์มยื่นลา / ยอดคงเหลือ / รายงาน: แสดง `display_name ?? type` (logic ลาคลอดยังจับจาก `type`)
 
-## Acceptance
+## Acceptance (ส่วนที่ 1)
 
 - [ ] `PATCH /hr/leave-types/2 { "display_name": "ลากิจส่วนตัว" }` → 200, `GET` คืน `display_name` ใหม่ · `type` ยังเป็น `"ลากิจ"`
 - [ ] ยื่น + อนุมัติลากิจหลังเปลี่ยนชื่อ → ยังหัก `business_leave` ถูก

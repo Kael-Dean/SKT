@@ -102,8 +102,11 @@ export const LEGAL_STATUS_BY_RELATIONSHIP = {
 export const legalStatusOptions = (relationship) => LEGAL_STATUS_BY_RELATIONSHIP[relationship] ?? []
 /** Family name titles (sent apart from first_name). Children may use เด็กชาย/เด็กหญิง. */
 export const FAMILY_TITLES = ["นาย", "นาง", "นางสาว", "เด็กชาย", "เด็กหญิง"]
+// children: child titles first (most are minors); adult titles stay for grown-up children
 export const familyTitleOptions = (relationship) =>
-  relationship === "บุตร" ? FAMILY_TITLES : FAMILY_TITLES.filter((t) => !t.startsWith("เด็ก"))
+  relationship === "บุตร"
+    ? ["เด็กชาย", "เด็กหญิง", "นาย", "นาง", "นางสาว"]
+    : FAMILY_TITLES.filter((t) => !t.startsWith("เด็ก"))
 /** "นาง สมศรี ใจดี" — prefers backend display_name; the title is joined without a space. */
 export const familyDisplayName = (r) =>
   r?.display_name || [`${r?.name_title ?? ""}${r?.first_name ?? ""}`, r?.last_name].filter(Boolean).join(" ") || ""

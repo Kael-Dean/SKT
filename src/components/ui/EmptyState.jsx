@@ -3,8 +3,11 @@
 // Empty state that teaches the next step (baseline-ui: one clear next action).
 // Muted slate, centered, line-art SVG (currentColor, no emoji). Pass `action`
 // (a node, e.g. a button) and an optional custom `icon`.
+// `mascot` (opt-in) swaps the line icon for น้องหอมทอง in her "searching" pose.
+// Keep it to a few high-traffic screens; a mascot on every empty list is noise.
 // ─────────────────────────────────────────────────────────────────────────────
 import { cx } from "../../lib/styles"
+import Mascot from "./Mascot"
 
 /** Default line-art "empty box" illustration. */
 function DefaultIcon() {
@@ -32,6 +35,7 @@ export default function EmptyState({
   description,
   action,
   icon,
+  mascot = false,
   className = "",
 }) {
   return (
@@ -41,9 +45,13 @@ export default function EmptyState({
         className,
       )}
     >
-      <div className="mb-4 text-slate-300 dark:text-slate-600">
-        {icon || <DefaultIcon />}
-      </div>
+      {mascot ? (
+        <Mascot mood="empty" size={96} className="mb-3" />
+      ) : (
+        <div className="mb-4 text-slate-300 dark:text-slate-600">
+          {icon || <DefaultIcon />}
+        </div>
+      )}
       <h3 className="text-base font-semibold text-slate-700 dark:text-slate-200 text-balance">
         {title}
       </h3>

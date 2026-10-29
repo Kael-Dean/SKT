@@ -16,9 +16,11 @@
 //             spec §3.6), error → "primary" (indigo — recovering is not saving).
 //             Pass primary.tone to override.
 // Built on <Sheet size="sm">; primary button takes initial focus.
+// Success shows the mascot (mood success); error keeps the plain icon.
 // ─────────────────────────────────────────────────────────────────────────────
 import { CircleCheck, CircleX } from "lucide-react"
 import Sheet from "./Sheet"
+import Mascot from "./Mascot"
 import { cx, neutralBtnCls, primaryBtnCls, submitBtnCls } from "../../lib/styles"
 
 const BTN_TONE = { submit: submitBtnCls, primary: primaryBtnCls }
@@ -43,9 +45,20 @@ export default function ResultSheet({
   return (
     <Sheet open={open} onClose={onClose} title={title} size="sm" initialFocus="[data-autofocus]" hideHandle>
       <div className="flex flex-col items-center text-center">
-        <span className={cx("flex size-14 items-center justify-center rounded-full", ring)} aria-hidden="true">
-          <Icon className="size-8" strokeWidth={1.75} />
-        </span>
+        {tone === "success" ? (
+          // น้องหอมทอง jumps once (mood 4 → SuccessHold, no loop). The small check
+          // keeps the emerald "saved" signal for anyone who reads color first.
+          <span className="relative" aria-hidden="true">
+            <Mascot mood="success" size={112} />
+            <span className={cx("absolute right-1 bottom-2 flex size-8 items-center justify-center rounded-full ring-4 ring-white dark:ring-surface", ring)}>
+              <Icon className="size-5" strokeWidth={2} />
+            </span>
+          </span>
+        ) : (
+          <span className={cx("flex size-14 items-center justify-center rounded-full", ring)} aria-hidden="true">
+            <Icon className="size-8" strokeWidth={1.75} />
+          </span>
+        )}
         {description && (
           <p
             role={tone === "error" ? "alert" : "status"}

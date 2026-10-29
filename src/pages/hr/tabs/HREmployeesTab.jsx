@@ -318,6 +318,7 @@ export default function HREmployeesTab() {
         onClearServerFilters={clearFilters}
         emptyState={
                     <EmptyState
+                      mascot
                       title="ไม่พบข้อมูลเจ้าหน้าที่"
                       description={hasActiveFilters
                         ? "ไม่มีเจ้าหน้าที่ที่ตรงกับเงื่อนไขการค้นหา ลองล้างตัวกรองเพื่อดูทั้งหมด"

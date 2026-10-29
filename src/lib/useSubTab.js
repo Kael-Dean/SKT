@@ -1,6 +1,6 @@
 // src/lib/useSubTab.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-tab state stored in the URL as `&sub=<value>` (HashRouter search params).
+// Sub-tab state stored in the URL as `&sub=<value>` (router search params).
 //
 //   const [sub, setSub] = useSubTab(["step", "ladder", "history"], "step")
 //

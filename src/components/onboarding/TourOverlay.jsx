@@ -18,6 +18,7 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { ArrowLeft, LoaderCircle } from "lucide-react"
 import Portal from "../Portal"
 import Celebration from "./Celebration"
+import Mascot from "../ui/Mascot"
 import { toast } from "../ui"
 import { apiAuth } from "../../lib/api"
 import { completeOnboarding, sectionMeta, tourComplete, useOnboarding } from "../../lib/onboarding"
@@ -354,14 +355,19 @@ function TourRunner({ index, onFinished }) {
             ข้าม
           </button>
         </div>
-        <h2
-          id={titleId}
-          ref={headingRef}
-          tabIndex={-1}
-          className="mt-2 text-xl font-bold leading-snug text-gray-900 focus:outline-none dark:text-gray-100"
-        >
-          {stop.title}
-        </h2>
+        {/* First stop only: น้องหอมทอง waves, then points at the menu beside the card.
+            Every later stop stays text-only so the tour does not become a cartoon. */}
+        <div className={cx("mt-2", index === 0 && "flex items-center gap-3")}>
+          {index === 0 && <Mascot mood="onboard" size={80} className="-my-1 -ml-1" />}
+          <h2
+            id={titleId}
+            ref={headingRef}
+            tabIndex={-1}
+            className="min-w-0 text-xl font-bold leading-snug text-gray-900 text-balance focus:outline-none dark:text-gray-100"
+          >
+            {stop.title}
+          </h2>
+        </div>
         <p id={descId} className="mt-1 text-[15px] leading-relaxed text-gray-700 dark:text-gray-200">
           {stop.purpose}
         </p>

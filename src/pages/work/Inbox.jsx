@@ -75,14 +75,6 @@ function IconOut({ className = "size-5" }) {
     </svg>
   )
 }
-function IconInbox({ className = "size-5" }) {
-  return (
-    <svg {...iconBase} className={className}>
-      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </svg>
-  )
-}
 function IconRefresh({ className = "size-4" }) {
   return (
     <svg {...iconBase} className={className}>
@@ -591,7 +583,7 @@ export default function Inbox() {
       {!approver ? (
         certQueueCount > 0 ? null : <div className={cardCls}>
           <EmptyState
-            icon={<IconInbox className="size-12" />}
+            mascot
             title="ไม่มีงานที่ต้องอนุมัติ"
             description={`บทบาท${ROLE_LABEL[roleId] ? ` "${ROLE_LABEL[roleId]}"` : "ของคุณ"} ไม่ได้อยู่ในสายอนุมัติใบลาหรือคำขอออกนอกสถานที่ ติดตามสถานะคำขอของคุณได้จากการแจ้งเตือนหรือหน้าใบลา`}
             action={
@@ -656,7 +648,7 @@ export default function Inbox() {
             bothFailed ? null : (
               <div className={cardCls}>
                 <EmptyState
-                  icon={<IconInbox className="size-12" />}
+                  mascot
                   title={tab === "all" ? "ไม่มีคำขอรอคุณอนุมัติหรือตรวจสอบ" : `ไม่มี${KIND_LABEL[tab]}รอคุณอนุมัติหรือตรวจสอบ`}
                   description="เมื่อมีคำขอใหม่ถึงขั้นของคุณ ระบบจะแจ้งเตือนที่กระดิ่งด้านบน"
                 />

@@ -342,7 +342,8 @@ export function installOnboardingMock({ demo = false } = {}) {
   window.fetch = (input, init) => {
     const url = typeof input === "string" ? input : input.url
     // same-origin static files (thai address json, vite assets) go to the real server
-    if (url.startsWith(location.origin) || url.startsWith("/data/") || url.startsWith("/src/") || url.startsWith("/@")) return real(input, init)
+    // (/mascot/ = Rive .riv, /node_modules/ = the Rive wasm served by Vite in dev)
+    if (url.startsWith(location.origin) || /^\/(data|src|@|mascot|node_modules|assets)\b/.test(url)) return real(input, init)
     return handle(url, init)
   }
   console.info("[mock] onboarding backend mock ON — ?mockOnboarding=0 to turn off")

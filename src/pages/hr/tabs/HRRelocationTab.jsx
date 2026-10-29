@@ -193,7 +193,7 @@ export default function HRRelocationTab() {
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
                 <path d="M7 7h11l-3-3M17 17H6l3 3" />
               </svg>
-              ย้ายสาขาโดยตรง
+              แก้ไขสาขาโดยตรง
             </button>
             <p className="text-xs text-gray-500 dark:text-gray-400">ถ้าลงวันที่ในอนาคต ระบบจะเปลี่ยนสาขาให้ในรอบประมวลผลรายวัน</p>
           </div>

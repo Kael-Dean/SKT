@@ -180,7 +180,7 @@ export default function RelocationTransferModal({ employee = null, onClose, onDo
         >
           <div className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
             <h3 id="relocation-transfer-title" className="text-lg font-bold text-gray-900 dark:text-gray-100">
-              ย้ายสาขาโดยตรง
+              แก้ไขสาขาโดยตรง
             </h3>
             <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
               บันทึกการย้ายตามคำสั่ง โดยไม่ต้องรอคำขอจากพนักงาน

@@ -2,7 +2,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // First-login onboarding (backend PR 59 — api-handoff "first-login onboarding" 2026-10-23)
 //
-//   GET  /personnel/me/onboarding                    status + prefill of the 7 sections
+//   GET  /personnel/me/onboarding                    status + prefill of the 8 sections
 //   PUT  /personnel/me/onboarding/{section}          save (writes live, returns the payload)
 //   POST /personnel/me/onboarding/{section}/confirm  mark done (422 { detail: { section, missing } })
 //   POST /personnel/me/onboarding/tour-complete      idempotent
@@ -29,6 +29,8 @@ export const SECTIONS = [
   { key: "education", label: "การศึกษา", short: "การศึกษา", purpose: "วุฒิการศึกษาอย่างน้อย 1 รายการ" },
   { key: "work", label: "ประวัติการทำงาน", short: "การทำงาน", purpose: "ที่ทำงานก่อนหน้า หรือเลือก “ไม่มีประวัติ”" },
   { key: "criminal", label: "ประวัติคดีความ", short: "คดีความ", purpose: "ระบุตามจริง หรือเลือก “ไม่มีประวัติ”" },
+  // section 8 (api-handoff licenses): stays editable after completion — PUT works, others 409
+  { key: "license", label: "ใบขับขี่", short: "ใบขับขี่", purpose: "ใบขับขี่ทุกใบที่มี หรือเลือก “ไม่มีใบขับขี่”" },
 ]
 export const SECTION_KEYS = SECTIONS.map((s) => s.key)
 export const sectionMeta = (key) => SECTIONS.find((s) => s.key === key)
@@ -68,6 +70,12 @@ export const FIELD_LABELS = {
   case_date: "วันที่",
   outcome: "ผลคดี",
   relationship: "ความสัมพันธ์",
+  name_title: "คำนำหน้า",
+  legal_status: "สถานะทางกฎหมาย",
+  deceased_date: "วันที่เสียชีวิต",
+  license_type: "ประเภทใบขับขี่",
+  license_no: "เลขที่ใบขับขี่",
+  expiry_date: "วันหมดอายุ",
   from_date: "ตั้งแต่",
   to_date: "ถึง",
 }
@@ -77,12 +85,42 @@ export const MISSING_MESSAGES = {
   spouse_row: "ระบุคู่สมรสอย่างน้อย 1 คน (สถานภาพเป็น “สมรส”)",
   children_count: "จำนวนบุตรที่กรอกต้องเท่ากับจำนวนบุตรที่ระบุในข้อมูลส่วนตัว",
   rows: "เพิ่มอย่างน้อย 1 รายการ",
+  ex_spouse_row: "ระบุอดีตคู่สมรสอย่างน้อย 1 คน (สถานภาพเป็น “หย่า”)",
+  family_details: "ระบุคำนำหน้าและสถานะทางกฎหมายของสมาชิกที่เพิ่มเอง",
 }
 export const missingLabel = (code) => MISSING_MESSAGES[code] ?? FIELD_LABELS[code] ?? code
 
-export const RELATIONSHIPS = ["บิดา", "มารดา", "คู่สมรส", "บุตร"]
+export const RELATIONSHIPS = ["บิดา", "มารดา", "คู่สมรส", "อดีตคู่สมรส", "บุตร"]
+/** Allowed legal_status per relationship — any other pairing is 422 on the backend. */
+export const LEGAL_STATUS_BY_RELATIONSHIP = {
+  บิดา: ["บิดาชอบด้วยกฎหมาย", "บิดาไม่ชอบด้วยกฎหมาย", "บิดาบุญธรรม"],
+  มารดา: ["มารดาชอบด้วยกฎหมาย", "มารดาบุญธรรม"],
+  คู่สมรส: ["จดทะเบียนสมรส", "ไม่ได้จดทะเบียนสมรส"],
+  อดีตคู่สมรส: ["จดทะเบียนหย่า", "แยกกันโดยไม่ได้จดทะเบียนหย่า"],
+  บุตร: ["บุตรชอบด้วยกฎหมาย", "บุตรบุญธรรม", "บุตรนอกสมรส"],
+}
+export const legalStatusOptions = (relationship) => LEGAL_STATUS_BY_RELATIONSHIP[relationship] ?? []
+/** Family name titles (sent apart from first_name). Children may use เด็กชาย/เด็กหญิง. */
+export const FAMILY_TITLES = ["นาย", "นาง", "นางสาว", "เด็กชาย", "เด็กหญิง"]
+export const familyTitleOptions = (relationship) =>
+  relationship === "บุตร" ? FAMILY_TITLES : FAMILY_TITLES.filter((t) => !t.startsWith("เด็ก"))
+/** "นาง สมศรี ใจดี" — prefers backend display_name; the title is joined without a space. */
+export const familyDisplayName = (r) =>
+  r?.display_name || [`${r?.name_title ?? ""}${r?.first_name ?? ""}`, r?.last_name].filter(Boolean).join(" ") || ""
+
+/** DLT driver's license types, grouped. The two …ตลอดชีพ types never have an expiry date. */
+export const LICENSE_TYPE_GROUPS = [
+  ["รถยนต์", ["รถยนต์ส่วนบุคคลชั่วคราว", "รถยนต์ส่วนบุคคล", "รถยนต์ส่วนบุคคลตลอดชีพ", "รถยนต์สาธารณะ"]],
+  ["รถจักรยานยนต์", ["รถจักรยานยนต์ส่วนบุคคลชั่วคราว", "รถจักรยานยนต์ส่วนบุคคล", "รถจักรยานยนต์ส่วนบุคคลตลอดชีพ", "รถจักรยานยนต์สาธารณะ"]],
+  ["รถสามล้อ", ["รถสามล้อส่วนบุคคล", "รถสามล้อสาธารณะ"]],
+  ["พ.ร.บ.การขนส่งทางบก", ["ท.1", "ท.2", "ท.3", "ท.4"]],
+]
+export const LICENSE_TYPE_OPTIONS = LICENSE_TYPE_GROUPS.flatMap(([group, types]) =>
+  types.map((t) => ({ value: t, label: t, sublabel: group })),
+)
+export const isLifetimeLicense = (type) => typeof type === "string" && type.endsWith("ตลอดชีพ")
 export const GENDERS = ["ชาย", "หญิง"]
-export const NONE_SECTIONS = ["work", "criminal"]
+export const NONE_SECTIONS = ["work", "criminal", "license"]
 /** Read-only in onboarding — changed only through a 3F request (category personal_info). */
 export const READ_ONLY_PERSONAL = ["cid", "hired"]
 

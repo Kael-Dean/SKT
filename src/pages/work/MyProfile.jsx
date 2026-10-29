@@ -25,6 +25,7 @@ import { fetchMyActivities } from "../../lib/activities"
 import { apiDetail } from "../../lib/apiErrors"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
 import { useOnboarding } from "../../lib/onboarding"
+import RowsStep from "../onboarding/RowsStep"
 
 // LeaveQuotaOut (backend v1.1.0) — ทุกค่าเป็นทศนิยม ส่งมาเป็น string
 // สิทธิ์เป็นค่าคงที่ ระบบคำนวณ "วันที่ใช้ไป" จากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
@@ -464,6 +465,15 @@ export default function MyProfile() {
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3 italic">ไม่มีประวัติอาชญากรรม</p>
         )}
       </div>
+
+      {/* ใบขับขี่ — แก้เองได้ตลอด แม้ onboarding เสร็จแล้ว (PUT /personnel/me/onboarding/license) */}
+      {onboarding.data && (
+        <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
+          <SectionTitle>ใบขับขี่</SectionTitle>
+          <p className="-mt-1 mb-3 text-xs text-gray-500 dark:text-gray-400">ต่ออายุหรือได้ใบใหม่ แก้ที่นี่ได้เลย ไม่ต้องแจ้ง HR</p>
+          <RowsStep sectionKey="license" data={onboarding.data} embedded />
+        </div>
+      )}
 
       {/* ประวัติกิจกรรม — ประชุม / สัมมนา / ฝึกอบรม / สอบ (3G) */}
       {can("self.history.view") && <MyActivitiesSection />}

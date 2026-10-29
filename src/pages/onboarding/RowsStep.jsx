@@ -1,12 +1,14 @@
 // src/pages/onboarding/RowsStep.jsx
-// Generic list section: education · work · criminal.
+// Generic list section: education · work · criminal · license.
+// `embedded` = the same list outside onboarding (license editor on MyProfile, allowed after
+// completion): no step header / confirm bar.
 // Every add / edit / delete is a PUT { rows, delete_ids } that writes immediately (the
 // payload comes back and re-renders the list). "ไม่มีประวัติ" (work + criminal) = PUT
 // { none }. "บันทึกและไปต่อ" only confirms.
 import { useState } from "react"
 import { Plus } from "lucide-react"
 import { ConfirmDialog, StickyActionBar, toast } from "../../components/ui"
-import { NONE_SECTIONS, readValidation, saveSection, sectionMeta } from "../../lib/onboarding"
+import { LICENSE_TYPE_OPTIONS, NONE_SECTIONS, isLifetimeLicense, readValidation, saveSection, sectionMeta } from "../../lib/onboarding"
 import { cx, focusRingCls } from "../../lib/styles"
 import { AddRowButton, RowEditorSheet, RowItem } from "./RowEditor"
 import { ED_LEVEL_OPTIONS } from "../../lib/education"
@@ -20,6 +22,17 @@ const range = (a, b) => {
   if (from && to) return `${from} ถึง ${to}`
   if (from) return `ตั้งแต่ ${from}`
   return to ? `ถึง ${to}` : ""
+}
+
+const todayIso = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+}
+const licenseExpiry = (r) => {
+  if (isLifetimeLicense(r.license_type)) return "ตลอดชีพ"
+  if (!r.expiry_date) return ""
+  const expired = String(r.expiry_date).slice(0, 10) < todayIso()
+  return `${expired ? "หมดอายุแล้ว" : "หมดอายุ"} ${thaiDate(r.expiry_date)}`
 }
 
 const ROW_SECTIONS = {
@@ -63,9 +76,27 @@ const ROW_SECTIONS = {
     noneLabel: "ไม่มีประวัติคดีความ",
     noneHelp: "ไม่เคยถูกดำเนินคดี",
   },
+  license: {
+    noun: "ใบขับขี่",
+    columns: [
+      {
+        key: "license_type", label: "ประเภทใบขับขี่", type: "select", options: LICENSE_TYPE_OPTIONS, required: true, wide: true,
+        placeholder: "เลือกประเภทตามกรมการขนส่งทางบก",
+        // lifetime licenses have no expiry date (backend 422s if one is sent)
+        onChange: (v) => (isLifetimeLicense(v) ? { expiry_date: "" } : null),
+      },
+      { key: "license_no", label: "เลขที่ใบขับขี่", required: true },
+      { key: "expiry_date", label: "วันหมดอายุ", type: "date", required: true, showIf: (f) => !isLifetimeLicense(f.license_type) },
+    ],
+    title: (r) => r.license_type || "ไม่ระบุประเภท",
+    lines: (r) => [[r.license_no && `เลขที่ ${r.license_no}`, licenseExpiry(r)].filter(Boolean).join(" · ")],
+    empty: "เพิ่มใบขับขี่ทุกใบที่มี หรือเลือก “ไม่มีใบขับขี่”",
+    noneLabel: "ไม่มีใบขับขี่",
+    noneHelp: "ไม่มีใบขับขี่ประเภทใดเลย",
+  },
 }
 
-export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload }) {
+export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload, embedded = false }) {
   const meta = sectionMeta(sectionKey)
   const cfg = ROW_SECTIONS[sectionKey]
   const rows = data?.values?.[sectionKey] ?? []
@@ -81,7 +112,7 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
   const [noneBusy, setNoneBusy] = useState(false)
 
   const serverMissing = data?.sections?.[sectionKey]?.missing ?? []
-  const listFlagged = (serverMissing.includes("rows") && rows.length === 0 && !none) || flow.problem?.missing?.includes("rows")
+  const listFlagged = !embedded && ((serverMissing.includes("rows") && rows.length === 0 && !none) || flow.problem?.missing?.includes("rows"))
 
   const put = async (body) => {
     const payload = await saveSection(sectionKey, body)
@@ -148,8 +179,8 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
   const headingId = `ob-${sectionKey}-title`
 
   return (
-    <section aria-labelledby={headingId}>
-      <StepHeader id={headingId} title={meta.label} purpose={meta.purpose} />
+    <section aria-labelledby={embedded ? undefined : headingId}>
+      {!embedded && <StepHeader id={headingId} title={meta.label} purpose={meta.purpose} />}
 
       <div className={flow.shake ? `animate-ob-shake-${flow.shake}` : undefined}>
         {hasNone && (
@@ -194,7 +225,7 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
 
         {!(hasNone && none && rows.length === 0) && (
           <Frame flagged={listFlagged}>
-            <SectionCard>
+            <SectionCard className={embedded ? "!bg-transparent !p-0 !shadow-none !ring-0" : ""}>
               {rows.length > 0 ? (
                 <ul className="mb-4 divide-y divide-gray-100 dark:divide-line">
                   {rows.map((r) => (
@@ -219,15 +250,19 @@ export default function RowsStep({ sectionKey, data, handlers, onBack, onPayload
             </SectionCard>
           </Frame>
         )}
-        {listFlagged && <MissingHint>{hasNone ? "เพิ่มอย่างน้อย 1 รายการ หรือเลือกไม่มีประวัติ" : "เพิ่มอย่างน้อย 1 รายการ"}</MissingHint>}
+        {listFlagged && <MissingHint>{hasNone ? `เพิ่มอย่างน้อย 1 รายการ หรือเลือก “${cfg.noneLabel}”` : "เพิ่มอย่างน้อย 1 รายการ"}</MissingHint>}
       </div>
 
-      <ProblemPanel problem={flow.problem} />
+      {!embedded && (
+        <>
+          <ProblemPanel problem={flow.problem} />
 
-      <StickyActionBar
-        secondary={onBack ? { label: "ย้อนกลับ", onClick: onBack, disabled: flow.busy } : undefined}
-        primary={{ label: "บันทึกและไปต่อ", tone: "primary", onClick: () => flow.submit(null), loading: flow.busy }}
-      />
+          <StickyActionBar
+            secondary={onBack ? { label: "ย้อนกลับ", onClick: onBack, disabled: flow.busy } : undefined}
+            primary={{ label: "บันทึกและไปต่อ", tone: "primary", onClick: () => flow.submit(null), loading: flow.busy }}
+          />
+        </>
+      )}
 
       <RowEditorSheet
         open={Boolean(editor)}

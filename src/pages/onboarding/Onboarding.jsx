@@ -2,11 +2,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // First-login onboarding (backend PR 59) — focused full-screen flow, outside AppLayout.
 //
-//   ?step=welcome | account | personal | address | family | education | work | criminal | ready | done
+//   ?step=welcome | account | personal | address | family | education | work | criminal | license | ready | done
 //   (pushes history, so the browser back button walks the steps)
 //
 // Status + prefill: useOnboarding() (src/lib/onboarding.js); every PUT/confirm returns the
-// full payload and the store re-renders this page. All 7 confirmed → `unlocked` → "ready"
+// full payload and the store re-renders this page. All 8 confirmed → `unlocked` → "ready"
 // → the self-service tour starts on /home (components/onboarding/TourOverlay.jsx), whose
 // last stop completes onboarding.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,7 +133,7 @@ export default function Onboarding() {
   useEffect(() => {
     if (!lockedFrom) return
     toast.info(`เมนู “${lockedFrom}” จะเปิดเมื่อกรอกข้อมูลครบ`, {
-      description: "กรอกให้ครบ 7 หัวข้อ แล้วดูทัวร์เมนูสั้น ๆ",
+      description: `กรอกให้ครบ ${SECTIONS.length} หัวข้อ แล้วดูทัวร์เมนูสั้น ๆ`,
       id: "onboarding-locked",
     })
   }, [lockedFrom])
@@ -235,7 +235,7 @@ export default function Onboarding() {
         {step === "family" && (
           <FamilyStep key="family" {...common} onGoStep={goStep} onReport={onReport} />
         )}
-        {["education", "work", "criminal"].includes(step) && <RowsStep key={step} sectionKey={step} {...common} />}
+        {["education", "work", "criminal", "license"].includes(step) && <RowsStep key={step} sectionKey={step} {...common} />}
       </>
     )
   }

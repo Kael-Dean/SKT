@@ -2,7 +2,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // สิทธิ์ของผู้ใช้ที่ล็อกอินอยู่ จาก GET /auth/me/permissions (backend PR #13 — RBAC matrix)
 //
-//   { role_id, role_name, scope: "all" | "own_branch", senior, permissions: string[] }
+//   { role_id, role_name, scope: "all" | "own_branch", senior, permissions: string[], acting, real_role_id }
 //
 // - เก็บในหน่วยความจำ + localStorage (ผูกกับ token ที่ใช้โหลด) — token เปลี่ยน (login / switch-branch /
 //   logout) = ค่าเก่าใช้ไม่ได้ทันที ไม่ต้องสั่งล้างเอง
@@ -61,12 +61,16 @@ function normalize(d) {
     scope: d.scope === "all" ? "all" : "own_branch",
     senior: Boolean(d.senior),
     permissions: Array.isArray(d.permissions) ? d.permissions.map(String) : [],
+    // Super Admin "act as role" (backend feat/admin-act-as-role) — role_id/permissions ด้านบนเป็นของ role ที่สวมอยู่
+    acting: Boolean(d.acting),
+    real_role_id: d.real_role_id == null ? null : Number(d.real_role_id),
   }
 }
 
 function sameData(a, b) {
   if (!a || !b) return false
   if (a.role_id !== b.role_id || a.scope !== b.scope || a.senior !== b.senior || a.role_name !== b.role_name) return false
+  if (a.acting !== b.acting || a.real_role_id !== b.real_role_id) return false
   if (a.permissions.length !== b.permissions.length) return false
   const set = new Set(a.permissions)
   return b.permissions.every((p) => set.has(p))

@@ -11,6 +11,7 @@ import { ALL_ITEMS } from "../lib/homeFunctions"
 import { ONBOARDING_REQUIRED_EVENT } from "../lib/api"
 import { ONBOARDING_PROMPTED_KEY, loadOnboarding, useOnboarding } from "../lib/onboarding"
 import TourOverlay from "./onboarding/TourOverlay"
+import { useAppUpdateCheck } from "../lib/appUpdate"
 import { TOUR_SIDEBAR_EVENT } from "../lib/tourState"
 
 export const SidebarContext = createContext(false)
@@ -40,6 +41,7 @@ const AppLayout = () => {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
+  useAppUpdateCheck()
   // หน้าตารางหนักอ่าน SidebarContext — defer เพื่อไม่ให้ re-render บล็อกเฟรมแรกของ drawer slide
   const deferredSidebarOpen = useDeferredValue(isSidebarOpen)
   // สิทธิ์จาก GET /auth/me/permissions — โหลดตอนเปิดแอป/reload; เปลี่ยนเมื่อไหร่ทั้ง layout re-render (เมนู/ปุ่ม)

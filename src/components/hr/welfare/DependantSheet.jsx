@@ -13,7 +13,9 @@ import { apiDetail } from "../../../lib/apiErrors"
 import { cx, baseField, errorTextCls, helpTextCls, labelCls, neutralBtnCls, submitBtnCls } from "../../../lib/styles"
 import { RELATIONSHIP_OPTIONS, dependantName } from "../../../lib/welfare"
 import { Sheet, toast } from "../../ui"
+import PrefixedNameInput from "../../PrefixedNameInput"
 import SelectDropdown from "../../SelectDropdown"
+import { ADULT_PREFIX_OPTIONS, ALL_PREFIX_OPTIONS, prefixOf } from "../../../lib/namePrefix"
 import ThaiDateField from "../../ThaiDateField"
 import StatusMsg from "../StatusMsg"
 
@@ -53,6 +55,7 @@ function toBody(f) {
 function validate(f) {
   const e = {}
   if (!f.first_name.trim()) e.first_name = "กรอกชื่อ"
+  else if (!prefixOf(f.first_name)) e.first_name = "เลือกคำนำหน้าชื่อ"
   if (!f.relationship) e.relationship = "เลือกความสัมพันธ์"
   if (f.relationship === "บุตร") {
     if (f.child_order === "") e.child_order = "กรอกลำดับการเกิด — ใช้นับสิทธิ์บุตรคนที่ 1–3"
@@ -171,10 +174,12 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor={id("fn")} className={cx(labelCls, "md:!text-sm")}>ชื่อ <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
-            <input id={id("fn")} value={form.first_name} onChange={(e) => set("first_name")(e.target.value)} autoComplete="off"
-              required aria-invalid={errors.first_name ? true : undefined} aria-describedby={desc("first_name")}
-              placeholder="เช่น ด.ช.สมชาย" className={cx(inputCls, errors.first_name && errBorder)} />
+            <label htmlFor={id("fn")} className={cx(labelCls, "md:!text-sm")}>คำนำหน้าและชื่อ <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span></label>
+            <PrefixedNameInput id={id("fn")} size="sm" value={form.first_name} onChange={set("first_name")}
+              options={form.relationship === "บุตร" ? ALL_PREFIX_OPTIONS : ADULT_PREFIX_OPTIONS}
+              required invalid={!!errors.first_name} prefixInvalid={!!errors.first_name && !prefixOf(form.first_name)}
+              describedBy={desc("first_name")} placeholder="ชื่อ"
+              inputClassName={cx("!rounded-lg !px-3 !py-2 md:!text-sm", errors.first_name && errBorder)} />
             {errors.first_name && <p id={`${id("first_name")}-err`} className={errorTextCls}>{errors.first_name}</p>}
           </div>
           <div>

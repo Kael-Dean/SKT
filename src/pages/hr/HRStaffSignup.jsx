@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
+import PrefixedNameInput from "../../components/PrefixedNameInput"
+import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../lib/namePrefix"
 import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
 import { assignableRoleOptions } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
@@ -14,6 +16,10 @@ const GENDER_OPTIONS = [
   { value: "F", label: "หญิง" },
   { value: "other", label: "อื่นๆ" },
 ]
+
+// เพศจากคำนำหน้า ("ชาย"/"หญิง" ใน namePrefix.js) → ค่าที่ /hr/signup ใช้
+const PREFIX_GENDER = { ชาย: "M", หญิง: "F" }
+const CHILD_PREFIX_GENDER = { ชาย: "male", หญิง: "female" }
 
 const MARITAL_OPTIONS = [
   { value: "single", label: "โสด" },
@@ -198,6 +204,16 @@ export default function HRStaffSignup() {
     e.preventDefault()
     setError("")
     setResult(null)
+    const names = [
+      form.first_name,
+      hasSpouse ? spouse.spouse_name : "",
+      ...children.map((c) => c.child_name),
+      ...parents.map((p) => p.parent_name),
+    ]
+    if (names.some((n) => n.trim() && !prefixOf(n))) {
+      setError("เลือกคำนำหน้าชื่อให้ครบทุกช่องที่กรอกชื่อ")
+      return
+    }
     setSubmitting(true)
 
     try {
@@ -391,8 +407,14 @@ export default function HRStaffSignup() {
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5 space-y-4">
           <SectionTitle>ข้อมูลพื้นฐาน</SectionTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="ชื่อ" required>
-              <input className={baseField} value={form.first_name} onChange={set("first_name")} required placeholder="ชื่อจริง" />
+            <Field label="คำนำหน้าและชื่อ" required>
+              <PrefixedNameInput
+                value={form.first_name}
+                onChange={setField("first_name")}
+                onPrefixChange={(p) => { const g = PREFIX_GENDER[genderOfPrefix(p)]; if (g) setField("gender")(g) }}
+                required
+                placeholder="ชื่อจริง"
+              />
             </Field>
             <Field label="นามสกุล" required>
               <input className={baseField} value={form.last_name} onChange={set("last_name")} required placeholder="นามสกุล" />
@@ -683,10 +705,10 @@ export default function HRStaffSignup() {
             {hasSpouse && (
               <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="ชื่อ-นามสกุลคู่สมรส" required>
-                  <input
-                    className={baseField}
+                  <PrefixedNameInput
                     value={spouse.spouse_name}
-                    onChange={(e) => setSpouse((p) => ({ ...p, spouse_name: e.target.value }))}
+                    onChange={(v) => setSpouse((p) => ({ ...p, spouse_name: v }))}
+                    label="คู่สมรส"
                     required
                     placeholder="ชื่อ-นามสกุล"
                   />
@@ -762,10 +784,15 @@ export default function HRStaffSignup() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="ชื่อ-นามสกุลบุตร" required>
-                    <input
-                      className={baseField}
+                    <PrefixedNameInput
                       value={child.child_name}
-                      onChange={(e) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_name: e.target.value }; return next })}
+                      options={ALL_PREFIX_OPTIONS}
+                      onChange={(v) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_name: v }; return next })}
+                      onPrefixChange={(p) => {
+                        const g = CHILD_PREFIX_GENDER[genderOfPrefix(p)]
+                        if (g) setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_gender: g }; return next })
+                      }}
+                      label="บุตร"
                       required
                       placeholder="ชื่อ-นามสกุล"
                     />
@@ -849,10 +876,10 @@ export default function HRStaffSignup() {
                       />
                     </Field>
                     <Field label="ชื่อ-นามสกุล" required>
-                      <input
-                        className={baseField}
+                      <PrefixedNameInput
                         value={parent.parent_name}
-                        onChange={(e) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_name: e.target.value }; return next })}
+                        onChange={(v) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_name: v }; return next })}
+                        label="บิดามารดา"
                         required
                         placeholder="ชื่อ-นามสกุล"
                       />

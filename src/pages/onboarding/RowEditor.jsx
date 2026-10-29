@@ -3,7 +3,9 @@
 // plus the row list item used by both list steps.
 import { useId, useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
+import PrefixedNameInput from "../../components/PrefixedNameInput"
 import SelectDropdown from "../../components/SelectDropdown"
+import { ALL_PREFIX_OPTIONS, prefixOf } from "../../lib/namePrefix"
 import DateInput from "../../components/ThaiDateField"
 import { Sheet } from "../../components/ui"
 import { baseField, cx, focusRingCls, helpTextCls, iconBtnCls, neutralBtnCls, submitBtnCls } from "../../lib/styles"
@@ -93,6 +95,16 @@ function EditorBody({ columns, initial, formId, onSubmit, error, missing }) {
                 onChange={(v) => set(c.key, yearToIso(v, c.edge))}
                 placeholder="เลือกปี"
                 showSwatch={false}
+              />
+            ) : c.type === "prefixedName" ? (
+              <PrefixedNameInput
+                id={id}
+                value={form[c.key] ?? ""}
+                onChange={(v) => set(c.key, v)}
+                options={c.prefixOptions?.(form) ?? ALL_PREFIX_OPTIONS}
+                placeholder={c.placeholder ?? "ชื่อ"}
+                invalid={flagged}
+                prefixInvalid={flagged && !prefixOf(form[c.key])}
               />
             ) : c.type === "date" ? (
               <DateInput id={id} value={form[c.key] ?? ""} onChange={(e) => set(c.key, e.target.value)} ariaLabel={c.label} />

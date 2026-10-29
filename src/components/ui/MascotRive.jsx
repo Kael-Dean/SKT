@@ -5,7 +5,8 @@
 //
 // Spec: handoff/mascot-homthong.md. Artboard + state machine are both "HomThong".
 // Control is via the artboard's VIEW MODEL (not legacy SM inputs):
-//   number  mood   0 idle · 1 onboard · 2 empty · 3 loading · 4 success
+//   number  mood      0 idle · 1 onboard · 2 empty · 3 loading · 4 success
+//   number  pointDir  0 side · 1 up · 2 down   (only used while pointing in onboard)
 // autoBind binds the default instance at load, so rive.viewModelInstance is the
 // live one by the time useRive hands us `rive`.
 //
@@ -29,14 +30,16 @@ RuntimeLoader.setWasmFallbackUrl(null)
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
-export default function MascotRive({ mood, cover, onReady, onError }) {
+export default function MascotRive({ mood, pointDir = 0, cover, onReady, onError }) {
   // Callbacks / first mood are read once by the Rive constructor; keep them in refs
   // so a parent re-render never re-creates the instance.
   const moodRef = useRef(mood)
+  const pointRef = useRef(pointDir)
   const readyRef = useRef(onReady)
   const errorRef = useRef(onError)
   useEffect(() => {
     moodRef.current = mood
+    pointRef.current = pointDir
     readyRef.current = onReady
     errorRef.current = onError
   })
@@ -58,6 +61,8 @@ export default function MascotRive({ mood, cover, onReady, onError }) {
         return
       }
       prop.value = moodRef.current
+      const point = r.viewModelInstance.number("pointDir")
+      if (point) point.value = pointRef.current
       readyRef.current?.()
     },
   })
@@ -66,6 +71,13 @@ export default function MascotRive({ mood, cover, onReady, onError }) {
   useEffect(() => {
     if (rive) setMood(mood)
   }, [rive, mood, setMood])
+
+  // pointDir is optional in the .riv (older files lack it), so set it directly
+  // instead of through the hook, which expects the property to exist.
+  useEffect(() => {
+    const point = rive?.viewModelInstance?.number("pointDir")
+    if (point) point.value = pointDir
+  }, [rive, pointDir])
 
   return <RiveComponent className="size-full" />
 }

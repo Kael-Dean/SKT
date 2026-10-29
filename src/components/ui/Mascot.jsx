@@ -6,6 +6,8 @@
 //
 //   mood       "idle" | "onboard" | "empty" | "loading" | "success"   (→ view model mood 0–4)
 //   size       px, the box is always square and reserved up front (no layout shift)
+//   point      "side" | "up" | "down" — where the onboard pose points (view model pointDir)
+//   mirror     true flips the character horizontally, so "side" points left
 //   deferMs    wait this long before fetching the Rive runtime (default: next idle
 //              moment). PageLoader uses it so quick loads never pull the wasm.
 //   className  extra classes on the box
@@ -27,6 +29,7 @@ import { cx } from "../../lib/styles"
 const MascotRive = lazy(() => import("./MascotRive"))
 
 const MASCOT_MOODS = { idle: 0, onboard: 1, empty: 2, loading: 3, success: 4 }
+const POINT_DIRS = { side: 0, up: 1, down: 2 }
 const REDUCED = "(prefers-reduced-motion: reduce)"
 const SMALL = 64
 const SMALL_ZOOM = 1.3
@@ -83,7 +86,7 @@ function useDeferred(enabled, ms) {
   return go
 }
 
-export default function Mascot({ mood = "idle", size = 96, deferMs, className = "" }) {
+export default function Mascot({ mood = "idle", size = 96, point = "side", mirror = false, deferMs, className = "" }) {
   const reduced = useMediaQuery(REDUCED)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
@@ -107,7 +110,10 @@ export default function Mascot({ mood = "idle", size = 96, deferMs, className = 
       className={cx("relative shrink-0 select-none overflow-hidden", className)}
       style={{ width: size, height: size }}
     >
-      <div className="absolute" style={stageStyle}>
+      <div
+        className="absolute transition-transform duration-300 ease-out"
+        style={{ ...stageStyle, transform: mirror ? "scaleX(-1)" : undefined }}
+      >
         <img
           src={asset("/mascot/homthong.svg")}
           alt=""
@@ -131,6 +137,7 @@ export default function Mascot({ mood = "idle", size = 96, deferMs, className = 
               <Suspense fallback={null}>
                 <MascotRive
                   mood={moodValue}
+                  pointDir={POINT_DIRS[point] ?? 0}
                   cover={small}
                   onReady={() => setReady(true)}
                   onError={() => setFailed(true)}

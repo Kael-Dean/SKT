@@ -16,6 +16,7 @@ import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
+import GuaranteeBankEditSheet from "../../components/hr/GuaranteeBankEditSheet"
 import Can from "../../components/Can"
 import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
@@ -94,6 +95,8 @@ export default function HRPersonnelDetail() {
 
   // Financial edit sheet (FinancialEditSheet — ใช้ร่วมกับ HRFinance)
   const [editModal, setEditModal] = useState(false)
+  // เลขบัญชีค้ำประกัน (GuaranteeBankEditSheet)
+  const [gbnOpen, setGbnOpen] = useState(false)
 
   // ออกจากงาน — popup ฟอร์มบันทึกการพ้นสภาพ (TerminationSheet)
   const [termOpen, setTermOpen] = useState(false)
@@ -328,7 +331,24 @@ export default function HRPersonnelDetail() {
           <InfoRow label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>} value={pi.line_id} />
           <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
           <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} />
-          <InfoRow label="เลขบัญชีค้ำประกัน" value={pi.guarantee_bank_no} />
+          <Can perm="hr.employees.editPersonal" fallback={<InfoRow label="เลขบัญชีค้ำประกัน" value={pi.guarantee_bank_no} />}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44 shrink-0">เลขบัญชีค้ำประกัน</span>
+              <span className="flex items-center justify-between gap-3 sm:flex-1">
+                <span className={cx("text-sm tabular-nums", pi.guarantee_bank_no ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500")}>
+                  {pi.guarantee_bank_no || "ยังไม่มีข้อมูล"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setGbnOpen(true)}
+                  aria-label="แก้ไขเลขบัญชีค้ำประกัน"
+                  className="min-h-touch md:min-h-0 px-2 rounded-lg text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-900/30 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                >
+                  แก้ไข
+                </button>
+              </span>
+            </div>
+          </Can>
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
           <InfoRow label="อายุงาน" value={getTenure(data) ? tenureText(data) : null} />
           <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
@@ -808,6 +828,14 @@ export default function HRPersonnelDetail() {
         employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()}
         financial={fin}
         onClose={() => setEditModal(false)}
+        onSaved={fetchDetail}
+      />
+      <GuaranteeBankEditSheet
+        open={gbnOpen}
+        employeeId={id}
+        employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()}
+        value={pi.guarantee_bank_no}
+        onClose={() => setGbnOpen(false)}
         onSaved={fetchDetail}
       />
     </div>

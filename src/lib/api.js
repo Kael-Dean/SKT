@@ -35,7 +35,9 @@ function joinUrl(base, path) {
 // --------------------------------------------------
 // internal fetch helper (JSON)
 // --------------------------------------------------
-async function _call(path, { method = "GET", body, headers } = {}) {
+// timeoutMs: opt-in — server ค้างไม่ตอบ (เช่น Cloud Run แฮงก์) จะได้ error แทนปุ่มหมุนค้างตลอดไป.
+// ไม่ตั้ง default ทั้งแอป เพราะรายงาน/คำนวณเงินเดือนบางตัวใช้เวลานานจริง
+async function _call(path, { method = "GET", body, headers, timeoutMs } = {}) {
   const isJsonBody = body != null && !(body instanceof FormData);
 
   let res;
@@ -47,8 +49,16 @@ async function _call(path, { method = "GET", body, headers } = {}) {
         ...(headers || {}),
       },
       body: isJsonBody ? JSON.stringify(body) : body,
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
     });
   } catch (e) {
+    if (e?.name === "TimeoutError") {
+      const error = new Error("เซิร์ฟเวอร์ไม่ตอบสนอง กรุณาลองใหม่อีกครั้งภายหลัง");
+      error.status = 0;
+      error.timeout = true;
+      error.cause = e;
+      throw error;
+    }
     // เน็ตหลุด / CORS / DNS — ไม่มี HTTP status (status 0) ให้หน้าเว็บแสดงข้อความไทยแทน "Failed to fetch"
     const error = new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
     error.status = 0;

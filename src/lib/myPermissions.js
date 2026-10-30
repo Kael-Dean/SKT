@@ -111,7 +111,7 @@ export function loadMyPermissions({ force = false } = {}) {
   if (inflight && inflight.token === token) return inflight.promise
 
   if (s.status !== "ready") setState({ token, status: "loading", data: null })
-  const promise = apiAuth("/auth/me/permissions")
+  const promise = apiAuth("/auth/me/permissions", { timeoutMs: 20000 })
     .then((d) => {
       if (getToken() !== token) return null // ผู้ใช้เปลี่ยน token ระหว่างรอ
       const data = normalize(d)

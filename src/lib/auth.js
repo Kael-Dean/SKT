@@ -11,6 +11,18 @@ export function decodeJwt(token) {
   }
 }
 
+// ตัวตนที่ JS context นี้โหลดข้อมูลไว้ใน module cache (useFormDefaults, personnelCache, salaryData ฯลฯ).
+// ถ้า saveAuth() ได้ผู้ใช้คนอื่นใน context เดิม (token หมดอายุแล้วคนถัดไป login โดยไม่ได้ logout)
+// cache พวกนั้นเป็นของคนก่อน → ต้อง reload ทั้งหน้า (bug 2026-10-30: ฟอร์ม OOO ขึ้นชื่อผู้ใช้คนก่อน)
+const userKey = (u) => (u ? String(u.id ?? u.username ?? '') || null : null);
+let contextUserKey = userKey(getUser());
+let contextStale = false;
+
+/** true เมื่อ login ล่าสุดเป็นคนละคนกับข้อมูลที่ค้างใน memory — ผู้เรียกต้อง full reload แทน navigate() */
+export function needsHardReload() {
+  return contextStale;
+}
+
 export function saveAuth(token) {
   const payload = decodeJwt(token) || {};
   // รองรับหลาย field name: role, role_id, roleId, position_id
@@ -28,6 +40,9 @@ export function saveAuth(token) {
   };
   localStorage.setItem('token', token);
   localStorage.setItem('user', JSON.stringify(user));
+  const key = userKey(user);
+  if (contextUserKey && key && key !== contextUserKey) contextStale = true;
+  contextUserKey = key;
   return user;
 }
 
@@ -75,6 +90,15 @@ export function logout() {
   } catch {
     // storage disabled — nothing to clear
   }
+}
+
+/**
+ * ออกจากระบบแล้วโหลดหน้าใหม่ทั้งหน้า — ล้าง module cache ของผู้ใช้คนนี้ (ชื่อ/ตำแหน่งในหัวฟอร์ม,
+ * รายชื่อพนักงาน ฯลฯ) ให้หมด ไม่ให้คนถัดไปบนเครื่องเดียวกันเห็น. ใช้แทน logout() + navigate("/")
+ */
+export function logoutAndReload(path = '/') {
+  logout();
+  window.location.assign(path);
 }
 
 // ─── Role reader (แหล่งเดียวของ role id ฝั่งหน้าเว็บ) ─────────────────────────

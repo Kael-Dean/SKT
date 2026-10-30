@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from "react"
 import { apiAuth } from "../lib/api"
+import { getToken } from "../lib/auth"
 import { currentPositionLabel } from "../components/hr/positionUtils"
 
 export const FORM_DEFAULTS_PATH = "/personnel/me/form-defaults"
@@ -59,12 +60,9 @@ async function fetchFormDefaults() {
   }
 }
 
-// โหลดครั้งเดียวต่อ session (ข้อมูลไม่เปลี่ยนระหว่างใช้งาน) — reset เมื่อ error เพื่อให้ลองใหม่รอบหน้า
-let cache = null
-function loadOnce() {
-  if (!cache) cache = fetchFormDefaults().catch((e) => { cache = null; throw e })
-  return cache
-}
+// ห้ามแคชระดับ module — เคยแคชไว้ทั้ง session แล้วผู้ใช้คนถัดไปบนเครื่องเดียวกันได้ชื่อคนก่อน
+// (bug 2026-10-30: OOO ของ 470300005 ขึ้นชื่อ 650300003, ไม่มี request form-defaults เลย).
+// ยิงใหม่ทุกครั้งที่ฟอร์มเปิด และทิ้งคำตอบถ้า token เปลี่ยนระหว่างรอ
 
 /**
  * @returns {{ defaults: {name:string, position:string, branch:string, department:string}, loading: boolean }}
@@ -74,9 +72,11 @@ export default function useFormDefaults() {
   const [state, setState] = useState({ defaults: EMPTY, loading: true })
   useEffect(() => {
     let alive = true
-    loadOnce()
-      .then((d) => alive && setState({ defaults: d, loading: false }))
-      .catch(() => alive && setState({ defaults: EMPTY, loading: false }))
+    const token = getToken()
+    const ok = () => alive && getToken() === token
+    fetchFormDefaults()
+      .then((d) => ok() && setState({ defaults: d, loading: false }))
+      .catch(() => ok() && setState({ defaults: EMPTY, loading: false }))
     return () => { alive = false }
   }, [])
   return state

@@ -62,6 +62,7 @@ const Login = () => {
       const resp = await api("/auth/login_json", {
         method: "POST",
         body: { username, password },
+        timeoutMs: 20000,
       });
       // resp = { access_token, token_type: "bearer", account_status? }
       const user = saveAuth(resp.access_token);

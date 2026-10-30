@@ -46,12 +46,14 @@
 - **Accent:** ประกาย 2 ดวงใน `success`, เครื่องหมาย "?" สีทองใน `search` (ตัวเอียงซ้าย-ขวา 6° พร้อมมองซ้าย-ขวา มือแตะแก้ม)
 
 API ของ runtime เหมือน v1–v7 ทุกอย่าง (artboard / state machine / view model / ชื่อ animation) โค้ดฝั่งแอปไม่ต้องแก้
+v7.3 เพิ่มแค่ค่า `mood` 5 / 6 + state/animation ใหม่ — ของเดิมไม่ถูกเปลี่ยนชื่อหรือลบ (backward compatible)
 
 ## ไฟล์
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
-| `public/mascot/homthong.riv` | runtime file v7.2 (26.2 KB, เพิ่ม pointDir + ท่าเต้น; รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
+| `public/mascot/homthong.riv` | runtime file v7.3 (33.7 KB, เพิ่ม mood 5 error + mood 6 offline; v7.2 เพิ่ม pointDir + ท่าเต้น; รวมภาพ grain 2 ไฟล์ ~10 KB, export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) |
+| `handoff/homthong.backup-before-mood56.riv` | สำเนา v7.2 (26.2 KB) ก่อนเพิ่ม mood 5/6 — ใช้ย้อนกลับได้ทันที |
 | `public/mascot/homthong.png` | fallback ภาพนิ่งท่า idle, 1024×1024, พื้นใส |
 | `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (geometry เดียวกัน), viewBox 512×512, grain ทำด้วย SVG `feTurbulence` (ใกล้เคียง ไม่ใช่ลายจุดเดียวกับ .riv) |
 
@@ -61,14 +63,15 @@ API ของ runtime เหมือน v1–v7 ทุกอย่าง (artbo
 
 - **Artboard:** `HomThong` — 512×512 พื้นใส ตัวละครยืนกลาง เท้าอยู่ที่ y≈452 เหลือพื้นที่ด้านบนไว้กระโดด
 - **State machine:** `HomThong` (เป็น default)
-  - layer `Main`: Idle / Wave / Point / Search / Loading / Success / SuccessHold
+  - layer `Main`: Idle (ชื่อ state ว่าง ใช้ animation `idle`) / Wave / Point / PointUp / PointDown / Search / Loading / Success / SuccessHold
+    / **Error / ErrorHold / Offline** (v7.3)
   - layer `Blink`: กะพริบตาวนตลอดทุก state (รอบละ 4.2 วิ) แยกจากท่าตัว
 - **Inputs = View Model `HomThong`** (data binding, instance `Default`, ผูกกับ artboard แล้ว)
   ไม่ได้ใช้ input แบบ legacy — ต้องใช้ API ฝั่ง view model ตามตัวอย่างด้านล่าง
 
 | property | type | ค่า |
 |---|---|---|
-| `mood` | number | `0` idle · `1` onboard (wave 1 ครั้ง แล้ว point วนต่อ) · `2` empty (search) · `3` loading · `4` success (กระโดดครั้งเดียว แล้วยืนนิ่ง) |
+| `mood` | number | `0` idle · `1` onboard (wave 1 ครั้ง แล้ว point วนต่อ) · `2` empty (search) · `3` loading · `4` success (กระโดดครั้งเดียว แล้วยืนนิ่ง) · `5` error "บันทึกไม่สำเร็จ" (สะดุ้งเบา ๆ ครั้งเดียว แล้วค้างหน้ากังวลมือแตะแก้ม) · `6` offline/timeout "ระบบไม่ตอบ / เน็ตหลุด" (หลับสัปหงก มี z ลอย วนต่อ) |
 | `wave` | trigger | โบกมือ 1 ครั้ง จบแล้วกลับไป state ตาม `mood` ปัจจุบัน |
 | `celebrate` | trigger | เล่น success (ท่าเต้นดีใจ) 1 ครั้ง จบแล้วกลับไป state ตาม `mood` |
 | `pointDir` | number (v7.2) | ทิศชี้ตอน `mood = 1` (onboard): `0` ชี้ข้าง (ขวาของตัวละคร, ค่าเริ่มต้น = ท่าเดิม) · `1` ชี้ขึ้น (แขนยกเฉียงขึ้น ตัวเอนหงายเล็กน้อย ตามองขึ้น) · `2` ชี้ลง (แขนเฉียงลง ตัวเอนไปทางที่ชี้ ตามองลง). เปลี่ยนระหว่างวนอยู่ได้ blend 200ms ไม่กระตุก. นอก mood 1 ไม่มีผล |
@@ -83,8 +86,19 @@ React: `const { setValue: setPointDir } = useViewModelInstanceNumber("pointDir",
 ลำดับการทำงาน (ทดสอบด้วย simulate และใน browser แล้ว):
 - เปลี่ยน `mood` → mix ไป state ใหม่ใน 220ms จากท่าวนได้ทุกท่า
 - trigger ยิงได้จากทุก state (เป็น transition จาก Any State) ถ้ายิงระหว่างท่า one-shot จะเริ่มท่าใหม่ ไม่หาย
-- `wave` / `success` เล่นจนจบ (exit time 100%) แล้วไปต่อตาม `mood`: 0→Idle, 1→Point, 2→Search, 3→Loading, 4→SuccessHold
+- `wave` / `success` เล่นจนจบ (exit time 100%) แล้วไปต่อตาม `mood`: 0→Idle, 1→Point, 2→Search, 3→Loading, 4→SuccessHold,
+  5→ErrorHold (ไม่เล่นสะดุ้งซ้ำ), 6→Offline
 - `mood = 4` เล่นกระโดดครั้งเดียวแล้วไปอยู่ที่ `SuccessHold` (ท่า idle) จะไม่วนกระโดดซ้ำ ถ้าอยากเล่นอีกให้ยิง `celebrate`
+- (v7.3) `mood = 5`: จากท่าวนทุกท่า (Idle/Point/PointUp/PointDown/Search/Loading/SuccessHold/Offline) mix 220ms → `Error`
+  (one-shot 1.2s) → จบแล้วไป `ErrorHold` (exit time 100%, mix 180ms) แล้ววนนิ่ง ๆ. ถ้าเปลี่ยน mood ระหว่าง `Error`
+  จะออกทันที (mix 220ms ไม่ต้องรอจบท่า) — ไปตาม mood ใหม่ (1 → Wave, 4 → Success เหมือน state อื่น)
+- (v7.3) `mood = 6`: จากทุก state ที่ฟัง mood → `Offline` (mix 220ms) วนต่อจนกว่า mood จะเปลี่ยน; ออกจาก Offline ไป
+  0/1/2/3/4/5 ด้วย mix 220ms (ตาเปิดกลับภายในช่วง mix)
+- ตั้ง `mood = 5` ซ้ำขณะอยู่ใน ErrorHold ไม่มีผล (ค่าไม่เปลี่ยน) — ถ้าอยากให้สะดุ้งใหม่ทุกครั้งที่ error ซ้ำ ให้ตั้ง mood เป็นค่าอื่น
+  (เช่น 3 ตอนกำลังบันทึก) ก่อน แล้วค่อยกลับมา 5
+- ทดสอบแล้วด้วย `simulateStateMachine` ใน editor และด้วย runtime `@rive-app/canvas@2.44.2` แบบ step ทีละเฟรม:
+  idle→Error→ErrorHold, ErrorHold+`wave`→Wave→ErrorHold, ErrorHold→Offline, Offline+`celebrate`→Success→Offline,
+  Offline→idle, idle→Error→(mood 2 กลางท่า)→Search
 
 ## Animations (60 fps)
 
@@ -100,12 +114,24 @@ React: `const { setValue: setPointDir } = useViewModelInstanceNumber("pointDir",
 | `pointDown` | 2.0 s | loop | (v7.2, `pointDir = 2`) แขนขวาชี้เฉียงลง, ตัวเอนไปทางที่ชี้ 5°, หน้า/ตาเลื่อนลง |
 | `success` | 2.2 s | one-shot | (v7.2 ท่าเต้นดีใจ) ย่อตัว → กระโดดชูสองแขน + ประกาย → ลง squash → กระโดดเอียงไปขวา (แขนขวาโบกขึ้น แขนซ้ายลง) → กระโดดไปซ้าย (สลับแขน) → กระโดดเล็กกลับกลาง → ท่า "ta-da" ชูแขน + ประกายเด้งอีกรอบ → แขนลงท่าพัก แล้วไป SuccessHold. กลีบเปลือก/ใบข้าว/รวงสะบัดตามหลัง (follow-through) ทุกครั้งที่กระโดด/ลง; เงาพื้นตามตัวไปด้านข้างและหด/จางตามความสูง |
 
+| `error` | 1.2 s | one-shot | (v7.3, `mood = 5`) สะดุ้งเบา ๆ: ตัวยืดขึ้น (scaleY 106% / X 96%) + เด้งจากพื้น 7px, ตาโตขึ้นชั่วครู่ (จุดตา 112×118%), คิ้วยก → เปลือก/กลีบ/ใบข้าว/รวงสะบัดตามหลัง 2–4 เฟรมแล้วนิ่ง → แขนขวา (ฝั่งขวาของจอ) ยกขึ้นแตะข้างแก้ม เกาเบา ๆ 2 ครั้ง, ตัวเอียงเข้าหามือ 4°, คิ้วเอียงแบบกังวล (ปลายในยก 12°), ปากเปลี่ยนเป็นเส้นหยักเล็ก ๆ จบในท่าที่ตรงกับเฟรมแรกของ `errorHold` |
+| `errorHold` | 3.0 s | loop | (v7.3) ค้างท่าเขิน/กังวล: มือแตะแก้ม ถูไปมาเบา ๆ, หายใจ (scaleY 101.6%), ตัวโยก 3–4°, คิ้วกังวลขยับนิดเดียว, ปากหยัก. ไม่มี "?" ไม่มีประกาย ไม่ร้องไห้ |
+| `sleep` | 3.6 s | loop | (v7.3, `mood = 6`) หลับตา (เส้นโค้งคว่ำ ◡ แทนจุดตา), หายใจลึกช้า (scaleY 103%), หัวเอียง/ก้มเล็กน้อย, ใบข้าวกับรวงตกลง (Sprout −69°, Panicle 96°), แขนห้อย, ปากยิ้มเล็ก, "z" สีทอง 3 ตัวลอยขึ้นเฉียงขวา ขยาย + จางหาย เหลื่อมกันทุก 1.2 s ต่อเนื่องไร้รอยต่อตอนวน |
+
 Rig: bones `ArmL_Bone`, `ArmR_Bone` (แขนเสื้อ + มือ), `Sprout_Bone1` (ใบ + ก้าน + รวง แกว่งทั้งชุด) และ group `Panicle`
 (เมล็ดในรวงแกว่งเบา ๆ ช้ากว่าโคน เป็น follow-through) ส่วน `Sprout_Bone2/3` ลบแล้ว
 `SparkleA/B` (ประกาย) ถูก key opacity 0 ในทุกท่า ยกเว้น `success` และ group `Question` ("?") ก็ key opacity 0 ในทุกท่า ยกเว้น `search`
 ลำตัวใช้ scale ของ group `Body` (pivot ที่ก้น) ทำ squash/stretch · ตาใช้ group `EyeL` / `EyeR` scaleY ทำ blink (เปลือกตาย่อตาม) · หน้าใช้ group `Face` ขยับ x เพื่อหันมอง
 group `Husk` (เสื้อเปลือก, pivot ที่ก้น) มี scaleY ของตัวเองที่ช้ากว่าตัว 2–4 เฟรม และเด้งเกินนิดหน่อยใน `loading` / `success` / `wave`
 ขอบเปลือกจึงขยับตามหลังตัว (follow-through) แล้วกลับมานิ่งที่ 100% ทุกท่า
+
+ชิ้นใหม่ v7.3 (key ค่าพักไว้ที่เฟรม 0 ของทุก animation ใน layer Main แล้ว ไม่ค้างข้ามท่า):
+- group `EyesClosed` (ใน `Face`) = `ClosedL` / `ClosedR` เส้นโค้ง ◡ หมึก `#2B2421` 3.4px ปลายมน — opacity 100 เฉพาะ `sleep`
+  ส่วน group `EyeL` / `EyeR` ถูก key **opacity** 0 ใน `sleep` (layer Blink key แค่ scaleY ของ EyeL/EyeR จึงไม่ชนกัน:
+  blink ยังวิ่งอยู่แต่ย่อตาที่มองไม่เห็น)
+- `MouthWavy` (ใน `Mouth`) ปากหยัก 3px — opacity 100 เฉพาะ `error`/`errorHold`; `Smile` ถูก key opacity 0 ในสองท่านี้
+- group `Zzz` (ใน `Character`, scale 145%, อยู่บนสุด) = `Z1` / `Z2` / `Z3` เส้น Z สี `#DDAA52` 3.2px — opacity 100 เฉพาะ `sleep`
+- key ใหม่บนชิ้นเดิม: `BrowL` / `BrowR` (r, y), `DotL` / `DotR` (scale) — ทุกท่าเดิมได้ค่าพัก r 0, y −34, scale 100%
 
 ## Palette
 
@@ -155,7 +181,7 @@ import {
   Layout, Fit, Alignment,
 } from "@rive-app/react-canvas"
 
-// mood: 0 idle · 1 onboard · 2 empty · 3 loading · 4 success
+// mood: 0 idle · 1 onboard · 2 empty · 3 loading · 4 success · 5 error · 6 offline
 export default function HomThong({ mood = 0, size = 160, className = "" }) {
   const { rive, RiveComponent } = useRive({
     src: "/mascot/homthong.riv",
@@ -203,3 +229,8 @@ export default function HomThong({ mood = 0, size = 160, className = "" }) {
 6. ยังไม่มี eye-follow (`look`) และ listener hover/tap — brief ไม่ได้ขอ
 7. (v7.2) แขนสั้นตามดีไซน์ ท่า "ชูแขน" ในท่าเต้นยกมือได้ถึงระดับแก้ม ไม่ถึงเหนือหัว; ชี้ขึ้นเป็นมุมเฉียง ~64° ไม่ตั้งตรง
 8. (v7.2) `pointDir` รับ 0/1/2 เท่านั้น (ค่าอื่น = ค้างทิศเดิม)
+9. (v7.3) แขนอยู่หลังหัว มือจึง "แตะข้างแก้ม" ได้แค่ที่ขอบหัว (ไม่ทับบนแก้ม) — เกาหัวจริง ๆ เหนือหัวทำไม่ได้ด้วย rig นี้
+10. (v7.3) ระหว่าง mix 220ms เข้า/ออก `Offline` ตาเปิดกับเส้นตาปิด cross-fade กัน (เห็นซ้อนจาง ๆ ราว 0.2 วิ อ่านเป็น "ค่อย ๆ หลับตา")
+11. (v7.3) ภาพนิ่ง fallback `homthong.svg` / `.png` ยังเป็นท่า idle — ตอน reduced-motion จะไม่เห็นหน้ากังวล/หลับ
+    ถ้าต้องการให้ข้อความ UI สื่อเอง หรือทำภาพนิ่งเพิ่มต่อ mood ภายหลัง
+12. (v7.3) `MascotRive.jsx` ส่ง mood เป็นตัวเลขตรง ๆ อยู่แล้ว ใช้ 5/6 ได้ทันที แต่คอมเมนต์หัวไฟล์ยังระบุแค่ 0–4 (ไม่ได้แก้ app code)

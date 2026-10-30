@@ -46,7 +46,7 @@ export default function EmptyState({
       )}
     >
       {mascot ? (
-        <Mascot mood="empty" size={96} className="mb-3" />
+        <Mascot mood="empty" size={96} tappable className="mb-3" />
       ) : (
         <div className="mb-4 text-slate-300 dark:text-slate-600">
           {icon || <DefaultIcon />}

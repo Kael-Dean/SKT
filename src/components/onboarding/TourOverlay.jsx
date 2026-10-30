@@ -379,6 +379,7 @@ function TourRunner({ index, onFinished }) {
             size={isPhone ? 84 : 112}
             point={mascotAim.point}
             mirror={mascotAim.mirror}
+            tappable
             className="-my-2 -ml-2 shrink-0"
           />
           <div key={stop.key} className="animate-fade-in min-w-0 flex-1">

@@ -4,7 +4,10 @@
 //
 //   <Mascot mood="empty" size={96} />
 //
-//   mood       "idle" | "onboard" | "empty" | "loading" | "success"   (→ view model mood 0–4)
+//   mood       "idle" | "onboard" | "empty" | "loading" | "success" | "error" | "offline"
+//              (→ view model mood 0–6)
+//   tappable   true: a tap/click on her plays one wave, then she returns to her mood.
+//              Decorative extra only — nothing depends on it, so no keyboard path.
 //   size       px, the box is always square and reserved up front (no layout shift)
 //   point      "side" | "up" | "down" — where the onboard pose points (view model pointDir)
 //   mirror     true flips the character horizontally, so "side" points left
@@ -22,13 +25,14 @@
 // - size ≤ 64: Fit.Cover on a 1.3× stage cropped by the box. The character only fills
 //   ~60% of its 512 artboard (head-room for the jump), so at avatar sizes we zoom in.
 // ─────────────────────────────────────────────────────────────────────────────
-import { Component, lazy, Suspense, useEffect, useState } from "react"
+import { Component, lazy, Suspense, useEffect, useRef, useState } from "react"
 import useMediaQuery from "../../hooks/useMediaQuery"
 import { cx } from "../../lib/styles"
 
 const MascotRive = lazy(() => import("./MascotRive"))
 
-const MASCOT_MOODS = { idle: 0, onboard: 1, empty: 2, loading: 3, success: 4 }
+const MASCOT_MOODS = { idle: 0, onboard: 1, empty: 2, loading: 3, success: 4, error: 5, offline: 6 }
+const WAVE_COOLDOWN_MS = 1200
 const POINT_DIRS = { side: 0, up: 1, down: 2 }
 const REDUCED = "(prefers-reduced-motion: reduce)"
 const SMALL = 64
@@ -86,10 +90,20 @@ function useDeferred(enabled, ms) {
   return go
 }
 
-export default function Mascot({ mood = "idle", size = 96, point = "side", mirror = false, deferMs, className = "" }) {
+export default function Mascot({
+  mood = "idle",
+  size = 96,
+  point = "side",
+  mirror = false,
+  tappable = false,
+  deferMs,
+  className = "",
+}) {
   const reduced = useMediaQuery(REDUCED)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
+  const [wave, setWave] = useState(0)
+  const lastWave = useRef(0)
   const animate = !reduced && !failed && canCompileWasm()
   const mount = useDeferred(animate, deferMs)
 
@@ -103,11 +117,26 @@ export default function Mascot({ mood = "idle", size = 96, point = "side", mirro
     : { inset: 0 }
 
   const showCanvas = animate && ready
+  const canWave = tappable && showCanvas
+
+  // Ignore taps while the previous wave is still playing, so mashing does not
+  // restart it every frame.
+  const onTap = () => {
+    const now = Date.now()
+    if (now - lastWave.current < WAVE_COOLDOWN_MS) return
+    lastWave.current = now
+    setWave((n) => n + 1)
+  }
 
   return (
     <div
       aria-hidden="true"
-      className={cx("relative shrink-0 select-none overflow-hidden", className)}
+      onClick={canWave ? onTap : undefined}
+      className={cx(
+        "relative shrink-0 select-none overflow-hidden",
+        canWave && "cursor-pointer [-webkit-tap-highlight-color:transparent]",
+        className,
+      )}
       style={{ width: size, height: size }}
     >
       <div
@@ -138,6 +167,7 @@ export default function Mascot({ mood = "idle", size = 96, point = "side", mirro
                 <MascotRive
                   mood={moodValue}
                   pointDir={POINT_DIRS[point] ?? 0}
+                  wave={wave}
                   cover={small}
                   onReady={() => setReady(true)}
                   onError={() => setFailed(true)}

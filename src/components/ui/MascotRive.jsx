@@ -5,8 +5,9 @@
 //
 // Spec: handoff/mascot-homthong.md. Artboard + state machine are both "HomThong".
 // Control is via the artboard's VIEW MODEL (not legacy SM inputs):
-//   number  mood      0 idle · 1 onboard · 2 empty · 3 loading · 4 success
+//   number  mood      0 idle · 1 onboard · 2 empty · 3 loading · 4 success · 5 error · 6 offline
 //   number  pointDir  0 side · 1 up · 2 down   (only used while pointing in onboard)
+//   trigger wave      one wave, then back to the current mood (fired by the `wave` counter)
 // autoBind binds the default instance at load, so rive.viewModelInstance is the
 // live one by the time useRive hands us `rive`.
 //
@@ -30,7 +31,7 @@ RuntimeLoader.setWasmFallbackUrl(null)
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 
-export default function MascotRive({ mood, pointDir = 0, cover, onReady, onError }) {
+export default function MascotRive({ mood, pointDir = 0, wave = 0, cover, onReady, onError }) {
   // Callbacks / first mood are read once by the Rive constructor; keep them in refs
   // so a parent re-render never re-creates the instance.
   const moodRef = useRef(mood)
@@ -78,6 +79,11 @@ export default function MascotRive({ mood, pointDir = 0, cover, onReady, onError
     const point = rive?.viewModelInstance?.number("pointDir")
     if (point) point.value = pointDir
   }, [rive, pointDir])
+
+  // `wave` is a counter: every bump fires the view-model trigger once (0 = never).
+  useEffect(() => {
+    if (wave > 0) rive?.viewModelInstance?.trigger("wave")?.trigger()
+  }, [rive, wave])
 
   return <RiveComponent className="size-full" />
 }

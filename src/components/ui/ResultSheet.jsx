@@ -47,10 +47,11 @@ export default function ResultSheet({
       <div className="flex flex-col items-center text-center">
         {tone === "success" ? (
           // น้องหอมทอง jumps once (mood 4 → SuccessHold, no loop). The small check
-          // keeps the emerald "saved" signal for anyone who reads color first.
+          // keeps the emerald "saved" signal for anyone who reads color first. It sits
+          // outside the mascot box (left-full) so it never covers her arms or body.
           <span className="relative" aria-hidden="true">
-            <Mascot mood="success" size={112} />
-            <span className={cx("absolute right-1 bottom-2 flex size-8 items-center justify-center rounded-full ring-4 ring-white dark:ring-surface", ring)}>
+            <Mascot mood="success" size={120} />
+            <span className={cx("absolute left-full bottom-3 -ml-4 flex size-8 items-center justify-center rounded-full", ring)}>
               <Icon className="size-5" strokeWidth={2} />
             </span>
           </span>

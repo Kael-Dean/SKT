@@ -3,8 +3,10 @@
 // Full-area loading state — replaces ad-hoc inline pageSpinnerCls spinners.
 // variant: "spinner" | "table" | "cards" | "dashboard". Carries the
 // role="status" + aria-busy so the structural skeletons inside stay decorative.
-// `mascot` (spinner variant only, opt-in): น้องหอมทอง bouncing instead of the ring.
-// Used once, by the app-wide route Suspense fallback. Never for inline/button spinners.
+// `mascot` (spinner variant, on by default): น้องหอมทอง bouncing instead of the ring.
+// `fullscreen`: center in the whole viewport — the app-wide route Suspense fallback,
+// which replaces the layout, so the loader would otherwise sit at the top of a blank page.
+// Never for inline/button spinners.
 // ─────────────────────────────────────────────────────────────────────────────
 import { cx, pageSpinnerCls } from "../../lib/styles"
 import Card from "./Card"
@@ -14,18 +16,23 @@ import { SkeletonTableRows, SkeletonCard, SkeletonStat } from "./Skeleton"
 const DEFAULT_MESSAGE = "กำลังโหลด…"
 
 /** Centered spinner with an optional Thai caption. */
-function SpinnerView({ message, mascot }) {
+function SpinnerView({ message, mascot, fullscreen }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16">
+    <div
+      className={cx(
+        "flex flex-col items-center justify-center gap-4",
+        fullscreen ? "min-h-dvh px-4" : "py-12",
+      )}
+    >
       {mascot ? (
         // Fast route loads finish before the runtime is even requested (deferMs);
         // the static pose covers that gap, so nothing pops in and out.
-        <Mascot mood="loading" size={96} deferMs={500} />
+        <Mascot mood="loading" size={fullscreen ? 240 : 140} deferMs={500} />
       ) : (
         <span className={pageSpinnerCls} aria-hidden="true" />
       )}
       {message ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">{message}</p>
+        <p className={cx("text-slate-500 dark:text-slate-400", fullscreen ? "text-base" : "text-sm")}>{message}</p>
       ) : null}
     </div>
   )
@@ -84,12 +91,12 @@ function DashboardView({ rows = 4 }) {
 }
 
 /** Full-area loading placeholder. Defaults to a centered spinner. */
-export default function PageLoader({ variant = "spinner", rows, message = DEFAULT_MESSAGE, mascot = false, className = "" }) {
+export default function PageLoader({ variant = "spinner", rows, message = DEFAULT_MESSAGE, mascot = true, fullscreen = false, className = "" }) {
   let view
   if (variant === "table") view = <TableView rows={rows} />
   else if (variant === "cards") view = <CardsView rows={rows} />
   else if (variant === "dashboard") view = <DashboardView rows={rows} />
-  else view = <SpinnerView message={message} mascot={mascot} />
+  else view = <SpinnerView message={message} mascot={mascot} fullscreen={fullscreen} />
 
   return (
     <div role="status" aria-busy="true" aria-live="polite" className={cx("w-full", className)}>

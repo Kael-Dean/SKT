@@ -96,7 +96,7 @@ function RequirePasswordChanged({ children }) {
 
 function App() {
   return (
-    <Suspense fallback={<PageLoader variant="spinner" mascot message="กำลังโหลดหน้า…" />}>
+    <Suspense fallback={<PageLoader variant="spinner" fullscreen message="กำลังโหลดหน้า…" />}>
     <Routes>
       <Route path="/index.html" element={<Navigate to="/" replace />} />
       <Route path="/" element={<Login />} />

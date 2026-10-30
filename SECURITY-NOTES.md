@@ -53,6 +53,10 @@ Header เหล่านี้ **ตั้งผ่าน `<meta>` ไม่ไ
 
 > GCS static hosting ตั้ง custom header ตรง ๆ ไม่ได้ — ต้องวาง **Cloud Load Balancer +
 > Cloud CDN** หรือ response header policy หน้า bucket.
+>
+> **คำสั่ง gcloud ครบชุด (SSL Labs B → A+: TLS 1.2+ RESTRICTED, HSTS, headers, HTTP→HTTPS, CAA):**
+> `handoff/ssl-labs-a-plus.md` — amcsurin.com อยู่หลัง External HTTPS LB อยู่แล้ว ใส่ header ผ่าน
+> `backend-buckets update --custom-response-header` ได้เลย. ยังไม่ใส่ `preload` จนกว่าจะมั่นใจ.
 
 ---
 

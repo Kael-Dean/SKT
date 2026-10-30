@@ -3,13 +3,21 @@
 // Centralized red error box (replaces the repeated inline alert across pages).
 // role="alert" announces the message; the icon is decorative. Pass onRetry to
 // surface a "ลองใหม่" button right where the failure happened.
+// Pass `error` (the caught Error) and a status-0 failure — timeout / offline,
+// no HTTP answer at all — swaps the warning icon for the sleepy mascot, so
+// "the server is down" reads differently from "you did something wrong".
 // ─────────────────────────────────────────────────────────────────────────────
+import Mascot from "./Mascot"
 import { cx, secondaryBtnCls } from "../../lib/styles"
 
 const DEFAULT_MESSAGE = "เกิดข้อผิดพลาด ไม่สามารถโหลดข้อมูลได้"
+// Most pages pass only err.message, so also recognise the two status-0 messages
+// that lib/api.js produces (offline/CORS/DNS and TimeoutError).
+const NETWORK_MSG = /^(เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ|เซิร์ฟเวอร์ไม่ตอบสนอง)/
 
 /** Refined red alert with message + optional retry. */
-export default function ErrorState({ message, onRetry, className = "" }) {
+export default function ErrorState({ message, error, onRetry, className = "" }) {
+  const offline = error?.status === 0 || NETWORK_MSG.test(message ?? "")
   return (
     <div
       role="alert"
@@ -20,6 +28,9 @@ export default function ErrorState({ message, onRetry, className = "" }) {
         className,
       )}
     >
+      {offline ? (
+        <Mascot mood="offline" size={56} className="-my-2 -ml-2" />
+      ) : (
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -34,6 +45,7 @@ export default function ErrorState({ message, onRetry, className = "" }) {
         <line x1="12" y1="9" x2="12" y2="13" />
         <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
+      )}
 
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium">{message || DEFAULT_MESSAGE}</p>

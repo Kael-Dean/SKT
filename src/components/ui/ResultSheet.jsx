@@ -17,7 +17,7 @@
 //             Pass primary.tone to override.
 // Built on <Sheet size="sm">; primary button takes initial focus.
 // Both tones show น้องหอมทอง on a tinted halo with a status badge pinned to her
-// hip (<ResultEmblem>): success = jump + sparks + check, error = search pose + X
+// hip (<ResultEmblem>): success = jump + sparks + check, error = startle/worried pose + X
 // that wobbles. Animations live in index.css (.animate-result-*), play once and
 // collapse to the final frame under prefers-reduced-motion.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ const TONE = {
     glyph: ["M5.5 10.5l3 3 6-6.5"],
   },
   error: {
-    mood: "empty",
+    mood: "error",
     halo: "bg-red-100/70 dark:bg-red-400/10",
     badge: "bg-red-600 dark:bg-red-500",
     ping: null,

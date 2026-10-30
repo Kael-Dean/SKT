@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 import { saveAuth, getToken, isTokenExpired, needsHardReload } from "../../lib/auth";
 import { loadMyPermissions } from "../../lib/myPermissions";
 import sktBg from "../../assets/skt_bg.webp";
+import Mascot from "../../components/ui/Mascot";
 
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
@@ -13,6 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+  const [offline, setOffline]   = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   // friction กัน brute-force ฝั่ง client: นับครั้งที่ล้มเหลว + คูลดาวน์แบบเพิ่มขึ้น
@@ -91,6 +93,8 @@ const Login = () => {
       }
     } catch (err) {
       setError(err?.message || `เข้าสู่ระบบไม่สำเร็จ`);
+      // status 0 = no HTTP answer at all (timeout / offline) → sleepy mascot, not "wrong password"
+      setOffline(err?.status === 0);
       // คูลดาวน์แบบเพิ่มขึ้น: 2s, 4s, 6s … จำกัดสูงสุด 30 วินาที
       const next = failCount + 1;
       setFailCount(next);
@@ -156,7 +160,16 @@ const Login = () => {
             </div>
           )}
 
-          {error && (
+          {error && offline && (
+            <div
+              role="alert"
+              className="animate-fade-in mb-5 flex items-center gap-3 rounded-xl bg-amber-50 py-2 pl-2 pr-4 text-sm text-amber-800 ring-1 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-200 dark:ring-amber-800/40"
+            >
+              <Mascot mood="offline" size={56} />
+              <span>{error}</span>
+            </div>
+          )}
+          {error && !offline && (
             <div className="animate-fade-in mb-5 flex items-start gap-2.5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200 dark:bg-red-900/25 dark:text-red-300 dark:ring-red-800/40">
               <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />

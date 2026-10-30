@@ -1,6 +1,6 @@
 // src/components/OOOWorkDetails.jsx
 // 3O work details + attachments for one request (section28A1).
-// Work rows: ในจังหวัด/นอกจังหวัด · ตามแผน/ปรับแผน · แผน · การเดินทาง (ทะเบียน · ระยะทาง).
+// Work rows: ในจังหวัด/ต่างจังหวัด · ตามแผน/ปรับแผน · แผน · การเดินทาง (ทะเบียน · ระยะทาง).
 // Older work requests have every work field null → "—". Personal rows show attachments only.
 //
 //   <OOOWorkDetails req={r} />                     // list/detail

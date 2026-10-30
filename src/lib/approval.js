@@ -194,7 +194,7 @@ export const OOO_TYPE_LABEL = {
 }
 
 // 3O work details (section28A1) — only on request_type "work"; older work rows have them all null
-export const OOO_WORK_AREA_LABEL = { in_province: "ในจังหวัด", out_province: "นอกจังหวัด" }
+export const OOO_WORK_AREA_LABEL = { in_province: "ในจังหวัด", out_province: "ต่างจังหวัด" }
 export const OOO_PLAN_STATUS_LABEL = { planned: "ตามแผน", adjusted: "ปรับแผน" }
 // transport is free text on the backend — the frontend owns this list; "อื่นๆ" sends the typed text
 export const OOO_TRANSPORT_OPTIONS = ["รถยนต์", "จักรยานยนต์", "เครื่องบิน", "เรือ", "รถไฟ"]

@@ -596,7 +596,7 @@ export default function OutOfOffice() {
                   legend="พื้นที่ปฏิบัติงาน"
                   name="work_area"
                   value={form.work_area}
-                  options={[{ value: "in_province", label: "ในจังหวัด" }, { value: "out_province", label: "นอกจังหวัด" }]}
+                  options={[{ value: "in_province", label: "ในจังหวัด" }, { value: "out_province", label: "ต่างจังหวัด" }]}
                   onChange={set("work_area")}
                   error={errors.work_area}
                 />

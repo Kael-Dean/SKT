@@ -50,6 +50,7 @@ export const FIELD_LABELS = {
   e_contact: "เบอร์ติดต่อฉุกเฉิน",
   children_number: "จำนวนบุตร",
   bank_no: "เลขบัญชีธนาคาร",
+  guarantee_bank_no: "เลขบัญชีค้ำประกัน",
   underlying_disease: "โรคประจำตัว",
   cid: "เลขบัตรประชาชน",
   hired: "วันเริ่มงาน",
@@ -244,7 +245,8 @@ export function diffBody(original = {}, form = {}, allowed = Object.keys(form)) 
     if (a === b) continue
     // account names: explicit null → 422, so leave the key out instead
     if (b === null && ["first_name", "last_name", "th_first_name", "th_last_name"].includes(k)) continue
-    body[k] = b
+    // guarantee_bank_no is cleared with "" (backend contract), not null
+    body[k] = b === null && k === "guarantee_bank_no" ? "" : b
   }
   return body
 }

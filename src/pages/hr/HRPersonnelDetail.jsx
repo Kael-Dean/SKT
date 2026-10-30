@@ -328,6 +328,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>} value={pi.line_id} />
           <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
           <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} />
+          <InfoRow label="เลขบัญชีค้ำประกัน" value={pi.guarantee_bank_no} />
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
           <InfoRow label="อายุงาน" value={getTenure(data) ? tenureText(data) : null} />
           <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />

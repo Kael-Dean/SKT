@@ -10,14 +10,14 @@
 //   pay_basis                  "monthly" | "daily" (3C daily-paid) — รายวัน: payroll ไม่ใช้ current_salary
 //                              แสดง/ส่งเฉพาะเมื่อ GET คืน field นี้ (backend ที่ยังไม่ migrate จะไม่มี)
 // ─────────────────────────────────────────────────────────────────────────────
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { PAY_BASIS_OPTIONS } from "../../lib/payroll"
 import {
   cx, baseField, errorTextCls, fieldDisabled, helpTextCls, labelCls, neutralBtnCls, segmentedCls, segmentedItemActiveCls,
-  segmentedItemCls, submitBtnCls,
+  segmentedItemCls,
 } from "../../lib/styles"
-import { Sheet, toast } from "../ui"
+import { SaveButton, SHEET_SAVED_MS, Sheet, revealFirstInvalid, toast, useSaveStatus } from "../ui"
 import StatusMsg from "./StatusMsg"
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm tabular-nums")
@@ -63,7 +63,9 @@ export default function FinancialEditSheet({ open, employeeId, employeeName, fin
   const [form, setForm] = useState(() => formFrom(financial))
   const [loadingLatest, setLoadingLatest] = useState(false)
   const [errors, setErrors] = useState({})
-  const [saving, setSaving] = useState(false)
+  const saveState = useSaveStatus()
+  const saving = saveState.saving
+  const formRef = useRef(null)
   const [msg, setMsg] = useState(null)
   // null = backend ไม่ส่ง pay_basis มา → ซ่อนตัวเลือก
   const [payBasis, setPayBasis] = useState(financial?.pay_basis ?? null)
@@ -100,6 +102,7 @@ export default function FinancialEditSheet({ open, employeeId, employeeName, fin
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
+      revealFirstInvalid(formRef)
       return
     }
     const body = {}
@@ -110,17 +113,15 @@ export default function FinancialEditSheet({ open, employeeId, employeeName, fin
       else if (f.key === "current_reserve" || f.key === "tax_extra_allowance") body[f.key] = 0
     }
     if (payBasis) body.pay_basis = payBasis
-    setSaving(true)
+    saveState.start()
     setMsg(null)
     try {
       await apiAuth(`/hr/financial/${employeeId}`, { method: "POST", body })
       toast.success("บันทึกข้อมูลการเงินแล้ว", { description: employeeName || undefined })
-      onSaved?.()
-      onClose()
+      saveState.succeed(() => { onSaved?.(); onClose() }, SHEET_SAVED_MS)
     } catch (err) {
+      saveState.fail()
       setMsg({ tone: "error", text: err.message || "บันทึกไม่สำเร็จ" })
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -135,13 +136,12 @@ export default function FinancialEditSheet({ open, employeeId, employeeName, fin
       footer={
         <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
           <button type="button" onClick={onClose} disabled={saving} className={cx(neutralBtnCls, btnCls)}>ยกเลิก</button>
-          <button type="button" onClick={save} disabled={saving} className={cx(submitBtnCls, btnCls, "!rounded-xl")}>
-            {saving ? "กำลังบันทึก…" : "บันทึก"}
-          </button>
+          <SaveButton status={saveState.status} onClick={save} className={cx(btnCls, "!rounded-xl")}>บันทึก</SaveButton>
         </div>
       }
     >
       <form
+        ref={formRef}
         className="space-y-5"
         aria-busy={loadingLatest || undefined}
         onSubmit={(e) => { e.preventDefault(); save() }}

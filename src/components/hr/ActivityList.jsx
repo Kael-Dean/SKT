@@ -29,7 +29,7 @@ function Meta({ icon, label, children }) {
   )
 }
 
-function ActivityRow({ a, actions }) {
+function ActivityRow({ a, actions, fresh = false, leaving = false, onFreshEnd }) {
   // Keep each date on one line; only break at the dash.
   const range = activityDateRange(a).split(" – ").flatMap((d, i) => [
     i > 0 ? " – " : null,
@@ -39,49 +39,58 @@ function ActivityRow({ a, actions }) {
   const files = Array.isArray(a.attachments) ? a.attachments : []
   const action = actions?.(a)
   return (
-    <li className="grid gap-x-5 gap-y-1.5 py-4 first:pt-1 last:pb-1 md:grid-cols-[8.5rem_minmax(0,1fr)_auto]">
-      {/* ≥md: วันที่เป็นคอลัมน์ลำดับเวลา */}
-      <p className="hidden pt-0.5 text-sm tabular-nums text-gray-600 dark:text-gray-400 md:block">
-        <time dateTime={a.start_date}>{range}</time>
-      </p>
+    <li
+      className={cx("group/row", fresh && "hr-expand", leaving && "hr-collapse")}
+      inert={leaving || undefined}
+      onAnimationEnd={fresh ? (e) => { if (e.animationName === "hr-fresh-tint") onFreshEnd?.() } : undefined}
+    >
+      <div className={cx(
+        "grid gap-x-5 gap-y-1.5 py-4 group-first/row:pt-1 group-last/row:pb-1 md:grid-cols-[8.5rem_minmax(0,1fr)_auto]",
+        fresh && "hr-fresh-tint -mx-2 rounded-lg px-2",
+      )}>
+        {/* ≥md: วันที่เป็นคอลัมน์ลำดับเวลา */}
+        <p className="hidden pt-0.5 text-sm tabular-nums text-gray-600 dark:text-gray-400 md:block">
+          <time dateTime={a.start_date}>{range}</time>
+        </p>
 
-      <div className="min-w-0 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Badge tone={activityTypeTone(a)}>{activityTypeLabel(a)}</Badge>
-          <span className="text-xs tabular-nums text-gray-600 dark:text-gray-400 md:hidden">
-            <time dateTime={a.start_date}>{range}</time>
-          </span>
-        </div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 break-words">{a.title || "—"}</h3>
-
-        {(a.organizer || a.location || hours) && (
-          <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-            <Meta icon={Building2} label="ผู้จัด">{a.organizer}</Meta>
-            <Meta icon={MapPin} label="สถานที่">{a.location}</Meta>
-            <Meta icon={Clock} label="จำนวนชั่วโมง">{hours}</Meta>
-          </p>
-        )}
-
-        {a.detail && (
-          <p className="max-w-prose whitespace-pre-line text-sm text-gray-700 dark:text-gray-300 text-pretty break-words">{a.detail}</p>
-        )}
-
-        {a.result && (
-          <p className="text-sm text-gray-700 dark:text-gray-300 break-words">
-            <span className="text-gray-500 dark:text-gray-400">ผล </span>
-            <span className="font-semibold text-gray-900 dark:text-gray-100">{a.result}</span>
-          </p>
-        )}
-
-        {files.length > 0 && (
-          <div className="pt-1">
-            <p className="sr-only">ใบประกาศ / ไฟล์แนบ</p>
-            <AttachmentList attachments={files} variant="compact" />
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Badge tone={activityTypeTone(a)}>{activityTypeLabel(a)}</Badge>
+            <span className="text-xs tabular-nums text-gray-600 dark:text-gray-400 md:hidden">
+              <time dateTime={a.start_date}>{range}</time>
+            </span>
           </div>
-        )}
-      </div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 break-words">{a.title || "—"}</h3>
 
-      {action && <div className="flex items-start gap-1 md:justify-end">{action}</div>}
+          {(a.organizer || a.location || hours) && (
+            <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+              <Meta icon={Building2} label="ผู้จัด">{a.organizer}</Meta>
+              <Meta icon={MapPin} label="สถานที่">{a.location}</Meta>
+              <Meta icon={Clock} label="จำนวนชั่วโมง">{hours}</Meta>
+            </p>
+          )}
+
+          {a.detail && (
+            <p className="max-w-prose whitespace-pre-line text-sm text-gray-700 dark:text-gray-300 text-pretty break-words">{a.detail}</p>
+          )}
+
+          {a.result && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 break-words">
+              <span className="text-gray-500 dark:text-gray-400">ผล </span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">{a.result}</span>
+            </p>
+          )}
+
+          {files.length > 0 && (
+            <div className="pt-1">
+              <p className="sr-only">ใบประกาศ / ไฟล์แนบ</p>
+              <AttachmentList attachments={files} variant="compact" />
+            </div>
+          )}
+        </div>
+
+        {action && <div className="flex items-start gap-1 md:justify-end">{action}</div>}
+      </div>
     </li>
   )
 }
@@ -89,7 +98,9 @@ function ActivityRow({ a, actions }) {
 /**
  * @param {{ items?: object[], loading?: boolean, error?: string, onRetry?: () => void,
  *           actions?: (a: object) => import("react").ReactNode, emptyTitle?: string,
- *           emptyDescription?: string, emptyAction?: import("react").ReactNode, className?: string }} props
+ *           emptyDescription?: string, emptyAction?: import("react").ReactNode, className?: string,
+ *           freshId?: number|null, leavingId?: number|null, onFreshEnd?: () => void }} props
+ *   freshId = แถวที่เพิ่งเพิ่ม (เปิดออก + tint) · leavingId = แถวที่เพิ่งลบ (ยุบหาย)
  */
 export default function ActivityList({
   items = [],
@@ -101,6 +112,9 @@ export default function ActivityList({
   emptyDescription = "",
   emptyAction = null,
   className = "",
+  freshId = null,
+  leavingId = null,
+  onFreshEnd,
 }) {
   if (error) return <ErrorState message={error} onRetry={onRetry} />
   if (loading && items.length === 0) {
@@ -124,7 +138,10 @@ export default function ActivityList({
   }
   return (
     <ul className={cx("divide-y divide-gray-100 dark:divide-line", className)} aria-label={`ประวัติกิจกรรม ${items.length} รายการ`}>
-      {items.map((a) => <ActivityRow key={a.id} a={a} actions={actions} />)}
+      {items.map((a) => (
+        <ActivityRow key={a.id} a={a} actions={actions} onFreshEnd={onFreshEnd}
+          fresh={freshId != null && a.id === freshId} leaving={leavingId != null && a.id === leavingId} />
+      ))}
     </ul>
   )
 }

@@ -14,13 +14,13 @@ import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { TriangleAlert } from "lucide-react"
 import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
-import { cx, baseField, errorTextCls, helpTextCls, labelCls, neutralBtnCls, submitBtnCls } from "../../../lib/styles"
+import { cx, baseField, errorTextCls, helpTextCls, labelCls, neutralBtnCls } from "../../../lib/styles"
 import {
   CLAIM_TYPES, EMPTY_CLAIM, FACILITY_TYPES, INSTITUTION_TYPES, PATIENT_TYPES,
   buildClaimBody, claimReadyForPreview, currentAcademicYearBE, dependantMeta, dependantName,
   educationLevelLabel, money, requestedOf, sortDependants, validateClaim,
 } from "../../../lib/welfare"
-import { Sheet, toast } from "../../ui"
+import { SaveButton, SHEET_SAVED_MS, Sheet, revealFirstInvalid, toast, useSaveStatus } from "../../ui"
 import SelectDropdown from "../../SelectDropdown"
 import ThaiDateField from "../../ThaiDateField"
 import EmployeePicker from "../EmployeePicker"
@@ -97,7 +97,9 @@ export default function ClaimEntrySheet({ open, onClose, onSaved, initialUserId 
   const [errors, setErrors] = useState({})
   const [deps, setDeps] = useState({ userId: null, rows: [], error: "" })
   const [preview, setPreview] = useState({ state: "idle", data: null, error: "" })
-  const [saving, setSaving] = useState(false)
+  const saveState = useSaveStatus()
+  const saving = saveState.saving
+  const formRef = useRef(null)
   const [msg, setMsg] = useState(null)
   const seq = useRef(0)
 
@@ -147,9 +149,10 @@ export default function ClaimEntrySheet({ open, onClose, onSaved, initialUserId 
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
+      revealFirstInvalid(formRef)
       return
     }
-    setSaving(true)
+    saveState.start()
     setMsg(null)
     try {
       const res = await apiAuth("/hr/welfare/claims", { method: "POST", body })
@@ -157,12 +160,10 @@ export default function ClaimEntrySheet({ open, onClose, onSaved, initialUserId 
       toast.success("บันทึกคำขอเบิกแล้ว", {
         description: `${personName || "เจ้าหน้าที่"} · ตามสิทธิ์ ${money(res?.eligible_amount)} บาท${capped ? " (ต่ำกว่าที่ขอ)" : ""} · รอผู้จัดการอนุมัติ`,
       })
-      onSaved?.(res)
-      onClose()
+      saveState.succeed(() => { onSaved?.(res); onClose() }, SHEET_SAVED_MS)
     } catch (err) {
+      saveState.fail()
       setMsg({ tone: "error", text: apiDetail(err) || "บันทึกไม่สำเร็จ" })
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -225,15 +226,13 @@ export default function ClaimEntrySheet({ open, onClose, onSaved, initialUserId 
           <div className="min-w-0 md:flex-1"><PreviewLine preview={preview} requested={requestedOf(form)} /></div>
           <div className="grid grid-cols-2 gap-3 md:flex md:shrink-0 md:gap-2">
             <button type="button" onClick={onClose} disabled={saving} className={cx(neutralBtnCls, btnCls)}>ยกเลิก</button>
-            <button type="button" onClick={save} disabled={saving} className={cx(submitBtnCls, btnCls, "!rounded-xl")}>
-              {saving ? "กำลังบันทึก…" : "บันทึกคำขอ"}
-            </button>
+            <SaveButton status={saveState.status} onClick={save} className={cx(btnCls, "!rounded-xl")}>บันทึกคำขอ</SaveButton>
           </div>
         </div>
       }
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <form className="min-w-0 space-y-5" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
+        <form ref={formRef} className="min-w-0 space-y-5" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
           <div>
             <EmployeePicker
               id={id("emp")}

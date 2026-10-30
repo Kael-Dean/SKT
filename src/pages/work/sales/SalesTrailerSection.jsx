@@ -294,7 +294,15 @@ export default function SalesTrailerSection({ form }) {
           const errKeys = Object.keys(terr).filter((k) => k !== "_net")
           const titleId = `sales-t${idx}-title`
           return (
-            <div key={idx} role="group" aria-labelledby={titleId} className="rounded-xl bg-gray-50 p-3 lg:p-4 dark:bg-gray-900/40">
+            // Rows after the first only ever mount via "เพิ่มคัน" / the count
+            // picker → they ease in so the eye lands on the new car. Row 0 never
+            // remounts (min 1 trailer), so it never animates. Removal is instant.
+            <div
+              key={idx}
+              role="group"
+              aria-labelledby={titleId}
+              className={cx("rounded-xl bg-gray-50 p-3 lg:p-4 dark:bg-gray-900/40", idx > 0 && "animate-work-row-in")}
+            >
               <div className="flex items-center justify-between gap-3">
                 <h3 id={titleId} className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">รถคันที่ {idx + 1}</h3>
                 <div className="flex items-center gap-2">

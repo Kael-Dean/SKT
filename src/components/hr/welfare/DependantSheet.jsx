@@ -10,13 +10,13 @@
 // (เปลี่ยนความสัมพันธ์ต้องส่ง legal_status ที่เข้ากันด้วย) · first_name ไม่มีคำนำหน้า (แยกจากข้อมูลเก่าให้)
 // · legal_status "บุตรบุญธรรม" = is_adopted (backend ตั้งให้)
 // ─────────────────────────────────────────────────────────────────────────────
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
-import { cx, baseField, errorTextCls, helpTextCls, labelCls, neutralBtnCls, submitBtnCls } from "../../../lib/styles"
+import { cx, baseField, errorTextCls, helpTextCls, labelCls, neutralBtnCls } from "../../../lib/styles"
 import { RELATIONSHIP_OPTIONS, dependantName } from "../../../lib/welfare"
 import { FAMILY_TITLES, familyTitleOptions, legalStatusOptions } from "../../../lib/onboarding"
-import { Sheet, toast } from "../../ui"
+import { SaveButton, SHEET_SAVED_MS, Sheet, revealFirstInvalid, toast, useSaveStatus } from "../../ui"
 import SelectDropdown from "../../SelectDropdown"
 import { splitPrefixedName } from "../../../lib/namePrefix"
 import ThaiDateField from "../../ThaiDateField"
@@ -111,7 +111,9 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
   const editing = !!dependant?.id
   const [form, setForm] = useState(() => fromRow(dependant))
   const [errors, setErrors] = useState({})
-  const [saving, setSaving] = useState(false)
+  const saveState = useSaveStatus()
+  const saving = saveState.saving
+  const formRef = useRef(null)
   const [msg, setMsg] = useState(null)
 
   useEffect(() => {
@@ -139,6 +141,7 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
+      revealFirstInvalid(formRef)
       return
     }
     const body = toBody(form)
@@ -150,19 +153,17 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
       if (!dependant.name_title && payload.name_title && body.first_name !== dependant.first_name) payload.first_name = body.first_name
       if (!Object.keys(payload).length) { onClose(); return }
     }
-    setSaving(true)
+    saveState.start()
     setMsg(null)
     try {
       const row = editing
         ? await apiAuth(`/hr/dependants/${dependant.id}`, { method: "PATCH", body: payload })
         : await apiAuth(`/hr/employees/${encodeURIComponent(employeeId)}/dependants`, { method: "POST", body: payload })
       toast.success(editing ? "บันทึกการแก้ไขแล้ว" : "เพิ่มผู้มีสิทธิ์แล้ว", { description: dependantName(row) || undefined })
-      onSaved?.(row)
-      onClose()
+      saveState.succeed(() => { onSaved?.(row); onClose() }, SHEET_SAVED_MS)
     } catch (err) {
+      saveState.fail()
       setMsg({ tone: "error", text: apiDetail(err) || "บันทึกไม่สำเร็จ" })
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -182,13 +183,14 @@ export default function DependantSheet({ open, employeeId, employeeName, dependa
       footer={
         <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
           <button type="button" onClick={onClose} disabled={saving} className={cx(neutralBtnCls, btnCls)}>ยกเลิก</button>
-          <button type="button" onClick={save} disabled={saving} className={cx(submitBtnCls, btnCls, "!rounded-xl")}>
-            {saving ? "กำลังบันทึก…" : editing ? "บันทึก" : "เพิ่ม"}
-          </button>
+          <SaveButton status={saveState.status} onClick={save} className={cx(btnCls, "!rounded-xl")}
+            savedLabel={editing ? "บันทึกแล้ว" : "เพิ่มแล้ว"}>
+            {editing ? "บันทึก" : "เพิ่ม"}
+          </SaveButton>
         </div>
       }
     >
-      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
+      <form ref={formRef} className="space-y-4" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
         <div>
           <span id={`${id("rel")}-label`} className={cx(labelCls, "md:!text-sm")}>ความสัมพันธ์ <span className="text-red-600 dark:text-red-400" aria-hidden="true">*</span></span>
           <SelectDropdown

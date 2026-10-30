@@ -4,6 +4,8 @@
 // ใช้ทั้งโปรไฟล์พนักงาน (มีปุ่มแก้ไข/ลบ) และหน้า "สวัสดิการของฉัน" (อ่านอย่างเดียว)
 //
 //   <DependantsList items={rows} actions={(d) => …} />
+//   freshId   = แถวที่เพิ่งเพิ่ม → เปิดออก + tint จาง ๆ (onFreshEnd เรียกเมื่อจบ ให้หน้าแม่ล้าง id)
+//   leavingId = แถวที่เพิ่งลบ → ยุบหาย (หน้าแม่เอาออกจาก state หลัง ~300ms)
 //
 // มือถือ: แต่ละคนเป็นบล็อกเรียงลง · ≥md: ตาราง 4 คอลัมน์ (ใช้ grid เดียว ไม่ render ซ้ำ)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,7 +39,7 @@ export function Eligibility({ label, eligible, reason, notApplicable = false }) 
   )
 }
 
-export default function DependantsList({ items, actions, className = "" }) {
+export default function DependantsList({ items, actions, className = "", freshId = null, leavingId = null, onFreshEnd }) {
   return (
     <div className={cx("text-sm", className)}>
       <div className={cx("hidden border-b border-gray-100 pb-2 text-xs font-semibold text-gray-500 dark:border-line dark:text-gray-400", COLS)} aria-hidden="true">
@@ -50,19 +52,28 @@ export default function DependantsList({ items, actions, className = "" }) {
         {items.map((d) => {
           const child = d.relationship === "บุตร"
           const gone = !!d.deceased_date
+          const fresh = freshId != null && d.id === freshId
+          const leaving = leavingId != null && d.id === leavingId
           return (
-            <li key={d.id} className={cx("space-y-2 py-3 md:space-y-0", COLS)}>
-              <div className="flex items-start justify-between gap-2 md:block">
-                <div className="min-w-0">
-                  <p className={cx("font-medium", gone ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-gray-100")}>{dependantName(d)}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{dependantMeta(d)}</p>
-                  {d.note && <p className="mt-0.5 text-xs italic text-gray-500 dark:text-gray-400">{d.note}</p>}
+            <li
+              key={d.id}
+              className={cx(fresh && "hr-expand", leaving && "hr-collapse")}
+              inert={leaving || undefined}
+              onAnimationEnd={fresh ? (e) => { if (e.animationName === "hr-fresh-tint") onFreshEnd?.() } : undefined}
+            >
+              <div className={cx("space-y-2 py-3 md:space-y-0", COLS, fresh && "hr-fresh-tint -mx-2 rounded-lg px-2")}>
+                <div className="flex items-start justify-between gap-2 md:block">
+                  <div className="min-w-0">
+                    <p className={cx("font-medium", gone ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-gray-100")}>{dependantName(d)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{dependantMeta(d)}</p>
+                    {d.note && <p className="mt-0.5 text-xs italic text-gray-500 dark:text-gray-400">{d.note}</p>}
+                  </div>
+                  {actions && <div className="shrink-0 md:hidden">{actions(d)}</div>}
                 </div>
-                {actions && <div className="shrink-0 md:hidden">{actions(d)}</div>}
+                <Eligibility label="ค่ารักษาพยาบาล" eligible={d.medical_eligible} reason={d.medical_reason} />
+                <Eligibility label="ค่าการศึกษาบุตร" eligible={d.education_eligible} reason={d.education_reason} notApplicable={!child} />
+                {actions ? <div className="hidden md:block">{actions(d)}</div> : <span className="hidden md:block md:w-px" />}
               </div>
-              <Eligibility label="ค่ารักษาพยาบาล" eligible={d.medical_eligible} reason={d.medical_reason} />
-              <Eligibility label="ค่าการศึกษาบุตร" eligible={d.education_eligible} reason={d.education_reason} notApplicable={!child} />
-              {actions ? <div className="hidden md:block">{actions(d)}</div> : <span className="hidden md:block md:w-px" />}
             </li>
           )
         })}

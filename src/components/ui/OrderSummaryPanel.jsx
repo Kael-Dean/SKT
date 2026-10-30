@@ -19,7 +19,7 @@
 //   />
 //
 //   title       string — panel heading (h2)
-//   rows        [{ label, value, emphasis?: "total" | "muted", hidden? }]
+//   rows        [{ label, value, emphasis?: "total" | "muted", hidden?, flash?, flashKey? }]
 //               value = ReactNode; "total" = large bold figure, separated by a rule
 //               (put it last); "muted" = placeholder-ish grey ("ยังไม่ได้เลือก")
 //   primary     { label, onClick, loading, disabled, type = "button", form? }
@@ -31,11 +31,46 @@
 //   hint        ReactNode under the buttons (keyboard hints — use <Kbd>)
 //   footer      ReactNode rendered last (optional)
 //
-// Desktop only — phones use <Stepper> + <StickyActionBar>. Pure presentation:
-// no state, no effects.
+// Change highlight: "total" rows (and any row with `flash: true`) get a faint
+// emerald tint that fades out (~0.7s) whenever their value changes after the
+// first render, so the cashier notices the figure moved. Compared by the value
+// itself when it is a string/number, otherwise pass `flashKey`. Reduced motion:
+// nothing plays (see index.css "Work-page feedback").
+//
+// Desktop only — phones use <Stepper> + <StickyActionBar>. Presentation only;
+// the one bit of state is the flash counter below (no effects).
 // ─────────────────────────────────────────────────────────────────────────────
+import { useState } from "react"
 import { LoaderCircle } from "lucide-react"
 import { cardCls, cx, neutralBtnCls, submitBtnCls } from "../../lib/styles"
+
+const flashKeyOf = (r) =>
+  r.flashKey !== undefined ? String(r.flashKey)
+    : typeof r.value === "string" || typeof r.value === "number" ? String(r.value)
+      : null
+
+/** Row wrapper that restarts a one-shot tint each time `flashKey` changes.
+ *  Derived-state pattern (no effect): first render never flashes. The a/b
+ *  class toggle restarts the CSS animation without remounting the row. */
+function FlashRow({ flashKey, className, children }) {
+  const [prevKey, setPrevKey] = useState(flashKey)
+  const [count, setCount] = useState(0)
+  if (flashKey !== prevKey) {
+    setPrevKey(flashKey)
+    setCount((c) => c + 1)
+  }
+  return (
+    <div
+      className={cx(
+        "-mx-2 rounded-md px-2",
+        count > 0 && (count % 2 ? "animate-work-flash-a" : "animate-work-flash-b"),
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
 
 /** Keyboard key chip for hints: <Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> */
 export function Kbd({ children }) {
@@ -66,33 +101,42 @@ export default function OrderSummaryPanel({
 
       {body.length > 0 && (
         <dl className="mt-3 space-y-2.5 text-sm">
-          {body.map((r) => (
-            <div key={r.label} className="flex items-baseline justify-between gap-3">
-              <dt className="shrink-0 text-gray-500 dark:text-gray-400">{r.label}</dt>
-              <dd
-                className={cx(
-                  "min-w-0 text-right tabular-nums break-words",
-                  r.emphasis === "muted"
-                    ? "text-gray-500 dark:text-gray-400"
-                    : "font-medium text-gray-900 dark:text-gray-100",
-                )}
-              >
-                {r.value}
-              </dd>
-            </div>
-          ))}
+          {body.map((r) => {
+            const content = (
+              <>
+                <dt className="shrink-0 text-gray-500 dark:text-gray-400">{r.label}</dt>
+                <dd
+                  className={cx(
+                    "min-w-0 text-right tabular-nums break-words",
+                    r.emphasis === "muted"
+                      ? "text-gray-500 dark:text-gray-400"
+                      : "font-medium text-gray-900 dark:text-gray-100",
+                  )}
+                >
+                  {r.value}
+                </dd>
+              </>
+            )
+            return r.flash ? (
+              <FlashRow key={r.label} flashKey={flashKeyOf(r)} className="flex items-baseline justify-between gap-3">
+                {content}
+              </FlashRow>
+            ) : (
+              <div key={r.label} className="flex items-baseline justify-between gap-3">{content}</div>
+            )
+          })}
         </dl>
       )}
 
       {totals.length > 0 && (
         <dl className="mt-4 space-y-1 border-t border-gray-200 pt-4 dark:border-gray-700">
           {totals.map((r) => (
-            <div key={r.label}>
+            <FlashRow key={r.label} flashKey={flashKeyOf(r)} className="py-1">
               <dt className="text-sm text-gray-500 dark:text-gray-400">{r.label}</dt>
               <dd className="mt-0.5 text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-50 break-words">
                 {r.value}
               </dd>
-            </div>
+            </FlashRow>
           ))}
         </dl>
       )}

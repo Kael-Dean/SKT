@@ -148,6 +148,14 @@ jobs:
             gsutil -m -h "Cache-Control:public, max-age=86400, must-revalidate" cp -r "dist/logo/*" "gs://$BUCKET/logo/"
           fi
 
+          # mascot (homthong.svg / .png / .riv) — ใช้ใน index.html boot loader + <Mascot>
+          # ไม่อัปโหลด = GCS ตอบ index.html (404) แทน → รูปน้องหาย
+          if [ -d "dist/mascot" ]; then
+            gsutil -m -h "Cache-Control:public, max-age=86400, must-revalidate" cp -r "dist/mascot/*" "gs://$BUCKET/mascot/"
+          else
+            echo "WARN: dist/mascot not found"
+          fi
+
       # --- Optional: Invalidate Cloud CDN ---
       - name: Invalidate Cloud CDN (optional)
         if: ${{ env.GCP_CDN_URL_MAP != '' }}

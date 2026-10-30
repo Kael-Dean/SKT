@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { api } from "../../lib/api";
-import { saveAuth, getToken, isTokenExpired } from "../../lib/auth";
+import { saveAuth, getToken, isTokenExpired, needsHardReload } from "../../lib/auth";
 import { loadMyPermissions } from "../../lib/myPermissions";
 import sktBg from "../../assets/skt_bg.webp";
 
@@ -79,7 +79,11 @@ const Login = () => {
         localStorage.setItem("account_status", backendStatus);
       }
       localStorage.setItem("account_status_user", String(username));
-      if (backendStatus === "new" && !alreadyRegistered) {
+      const target = backendStatus === "new" && !alreadyRegistered ? "/change-password" : "/home";
+      if (needsHardReload()) {
+        // คนละผู้ใช้กับที่ค้างใน memory (token หมดอายุโดยไม่ได้ logout) → reload ทิ้ง cache ของคนก่อน
+        window.location.replace(target);
+      } else if (target === "/change-password") {
         navigate("/change-password", { replace: true });
       } else {
         navigate("/home", { replace: true, state: { user } });

@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { apiAuth, post } from "../../lib/api" // ✅ helper แนบโทเคนอัตโนมัติ
-import { logout } from "../../lib/auth"
+import { logoutAndReload } from "../../lib/auth"
 import { useCan } from "../../lib/permissions"
 import { ResultSheet, ConfirmDialog, OrderSummaryPanel, Kbd, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
@@ -1946,7 +1946,7 @@ if (buyerType === "person") {
     const close = { label: "ปิด", onClick: closeResult }
     switch (result.primary) {
       case "edit": return { primary: { label: "แก้ไขข้อมูล", onClick: closeResult }, secondary: close }
-      case "login": return { primary: { label: "เข้าสู่ระบบใหม่", onClick: () => { logout(); navigate("/") } }, secondary: close }
+      case "login": return { primary: { label: "เข้าสู่ระบบใหม่", onClick: () => logoutAndReload("/") }, secondary: close }
       case "orders": return { primary: { label: "ดูออเดอร์", onClick: () => { closeResult(); navigate("/order", { state: backState() }) } }, secondary: close }
       default: return { primary: retry, secondary: close }
     }

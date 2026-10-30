@@ -25,7 +25,7 @@ import {
   UserRound,
   X,
 } from "lucide-react"
-import { logout as authLogout, getRoleId } from "../lib/auth"
+import { logoutAndReload, getRoleId } from "../lib/auth"
 import { HR_HUB_PERMS, useCan } from "../lib/permissions"
 import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
 import { useOnboarding } from "../lib/onboarding"
@@ -135,9 +135,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
   }, [isOpen])
 
   const handleLogout = () => {
-    authLogout()
-    ;["userdata", "profile", "account"].forEach((k) => localStorage.removeItem(k))
-    navigate("/")
+    // full reload — module cache ของผู้ใช้คนนี้ต้องไม่ตกไปถึงคนถัดไปบนเครื่องเดียวกัน
+    logoutAndReload("/")
   }
 
   const isActive = (p) => location.pathname === p

@@ -8,7 +8,7 @@
 //   GET    /hr/employees/{id}/welfare-balance      (hr.welfare.view) — สิทธิ์คงเหลือใต้รายชื่อ
 // props: { employeeId, employeeName }
 // ─────────────────────────────────────────────────────────────────────────────
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
@@ -33,6 +33,10 @@ export default function PersonnelDependantsTab({ employeeId, employeeName }) {
   const [deleting, setDeleting] = useState(false)
   const [deleteErr, setDeleteErr] = useState("")
   const [version, setVersion] = useState(0)       // รีโหลดยอดคงเหลือเมื่อรายชื่อเปลี่ยน
+  const [freshId, setFreshId] = useState(null)     // แถวที่เพิ่งเพิ่ม → เปิดออก + tint
+  const [leavingId, setLeavingId] = useState(null) // แถวที่เพิ่งลบ → ยุบหายก่อนโหลดใหม่
+  const leaveTimer = useRef(0)
+  useEffect(() => () => clearTimeout(leaveTimer.current), [])
 
   const load = useCallback(async () => {
     if (employeeId == null) return
@@ -51,6 +55,10 @@ export default function PersonnelDependantsTab({ employeeId, employeeName }) {
   useEffect(() => { load() }, [load])
 
   const afterChange = () => { load(); setVersion((v) => v + 1) }
+  const afterSave = (row) => {
+    if (!sheet?.dependant && row?.id != null) setFreshId(row.id)
+    afterChange()
+  }
 
   const confirmDelete = async () => {
     if (!removing) return
@@ -59,8 +67,16 @@ export default function PersonnelDependantsTab({ employeeId, employeeName }) {
     try {
       await apiAuth(`/hr/dependants/${removing.id}`, { method: "DELETE" })
       toast.success("ลบผู้มีสิทธิ์แล้ว", { description: `${dependantName(removing)} — คำขอเบิกเดิมยังผูกกับบุคคลนี้ตามเดิม` })
+      const goneId = removing.id
       setRemoving(null)
-      afterChange()
+      setLeavingId(goneId)
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      clearTimeout(leaveTimer.current)
+      leaveTimer.current = setTimeout(() => {
+        setRows((list) => list.filter((x) => x.id !== goneId))
+        setLeavingId(null)
+        afterChange()
+      }, reduce ? 0 : 300)
     } catch (err) {
       setDeleteErr(apiDetail(err) || "ลบไม่สำเร็จ")
     } finally {
@@ -103,7 +119,7 @@ export default function PersonnelDependantsTab({ employeeId, employeeName }) {
 
       {error ? (
         <ErrorState message={error} onRetry={load} />
-      ) : loading ? (
+      ) : loading && rows.length === 0 ? (
         <div aria-busy="true"><SkeletonText lines={3} /></div>
       ) : rows.length === 0 ? (
         <EmptyState
@@ -114,7 +130,7 @@ export default function PersonnelDependantsTab({ employeeId, employeeName }) {
             : "ยังไม่ได้บันทึกบิดา มารดา คู่สมรส หรือบุตรของเจ้าหน้าที่คนนี้"}
         />
       ) : (
-        <DependantsList items={rows} actions={rowActions} />
+        <DependantsList items={rows} actions={rowActions} freshId={freshId} leavingId={leavingId} onFreshEnd={() => setFreshId(null)} />
       )}
 
       {canBalance && employeeId != null && (
@@ -130,7 +146,7 @@ export default function PersonnelDependantsTab({ employeeId, employeeName }) {
           employeeName={employeeName}
           dependant={sheet.dependant}
           onClose={() => setSheet(null)}
-          onSaved={afterChange}
+          onSaved={afterSave}
         />
       )}
 

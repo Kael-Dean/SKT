@@ -9,18 +9,18 @@
 //
 // props: { open, employeeId, employeeName, activity (null = เพิ่มใหม่), onClose, onSaved(activity), onFilesChanged() }
 // ─────────────────────────────────────────────────────────────────────────────
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { FileText, Image as ImageIcon, Trash2 } from "lucide-react"
 import SelectDropdown from "../SelectDropdown"
 import ThaiDateField from "../ThaiDateField"
 import FileUploader from "../FileUploader"
 import useFileUploads from "../../hooks/useFileUploads"
-import { ConfirmDialog, Sheet, toast } from "../ui"
+import { ConfirmDialog, SaveButton, SHEET_SAVED_MS, Sheet, revealFirstInvalid, toast, useSaveStatus } from "../ui"
 import StatusMsg from "./StatusMsg"
 import { ACTIVITY_TYPES, createActivity, updateActivity } from "../../lib/activities"
 import { FILE_MAX_COUNT, deleteFile, formatBytes, isImageType } from "../../lib/files"
 import { apiDetail } from "../../lib/apiErrors"
-import { cx, baseField, errorTextCls, helpTextCls, iconBtnCls, labelCls, neutralBtnCls, submitBtnCls } from "../../lib/styles"
+import { cx, baseField, errorTextCls, helpTextCls, iconBtnCls, labelCls, neutralBtnCls } from "../../lib/styles"
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const dateCls = "!rounded-lg !px-3 !py-2 md:!text-sm"
@@ -86,7 +86,9 @@ export default function ActivityEditSheet({ open, employeeId, employeeName, acti
   const [form, setForm] = useState(() => formFrom(activity))
   const [errors, setErrors] = useState({})
   const [msg, setMsg] = useState(null)
-  const [saving, setSaving] = useState(false)
+  const saveState = useSaveStatus()
+  const saving = saveState.saving
+  const formRef = useRef(null)
   const [existing, setExisting] = useState(() => activity?.attachments ?? [])
   const [removeTarget, setRemoveTarget] = useState(null)
   const [removing, setRemoving] = useState(false)
@@ -139,13 +141,14 @@ export default function ActivityEditSheet({ open, employeeId, employeeName, acti
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
+      revealFirstInvalid(formRef)
       return
     }
     if (uploads.busy) {
       setMsg({ tone: "warning", text: "รอให้อัปโหลดไฟล์เสร็จก่อนบันทึก" })
       return
     }
-    setSaving(true)
+    saveState.start()
     setMsg(null)
     try {
       const body = buildBody()
@@ -154,14 +157,15 @@ export default function ActivityEditSheet({ open, employeeId, employeeName, acti
         : await createActivity(employeeId, body)
       uploads.reset()
       toast.success(isEdit ? "บันทึกการแก้ไขกิจกรรมแล้ว" : "เพิ่มกิจกรรมแล้ว", { description: form.title.trim() })
-      onSaved?.(saved)
-      onClose()
+      saveState.succeed(() => { onSaved?.(saved); onClose() }, SHEET_SAVED_MS)
     } catch (err) {
+      saveState.fail()
       const fe = fieldErrorsFrom(err)
-      if (Object.keys(fe).length) setErrors((e) => ({ ...e, ...fe }))
+      if (Object.keys(fe).length) {
+        setErrors((e) => ({ ...e, ...fe }))
+        revealFirstInvalid(formRef)
+      }
       setMsg({ tone: "error", text: apiDetail(err) || "บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง" })
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -208,13 +212,14 @@ export default function ActivityEditSheet({ open, employeeId, employeeName, acti
         footer={
           <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
             <button type="button" onClick={close} disabled={saving} className={cx(neutralBtnCls, btnCls)}>ยกเลิก</button>
-            <button type="button" onClick={save} disabled={saving || uploads.busy} className={cx(submitBtnCls, btnCls, "!rounded-xl")}>
-              {saving ? "กำลังบันทึก…" : uploads.busy ? "กำลังอัปโหลด…" : isEdit ? "บันทึกการแก้ไข" : "เพิ่มกิจกรรม"}
-            </button>
+            <SaveButton status={saveState.status} onClick={save} disabled={uploads.busy} className={cx(btnCls, "!rounded-xl")}
+              savedLabel={isEdit ? "บันทึกแล้ว" : "เพิ่มแล้ว"} reserve={["กำลังอัปโหลด…"]}>
+              {uploads.busy ? "กำลังอัปโหลด…" : isEdit ? "บันทึกการแก้ไข" : "เพิ่มกิจกรรม"}
+            </SaveButton>
           </div>
         }
       >
-        <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
+        <form ref={formRef} className="space-y-5" onSubmit={(e) => { e.preventDefault(); save() }} noValidate>
           <div className="grid gap-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
             <div>
               <span id={id("type-label")} className={cx(labelCls, "md:!text-sm")}>ประเภท<Req /></span>

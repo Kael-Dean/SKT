@@ -324,6 +324,62 @@
 /* Summary rows rise in one after another (delay set inline per row). */
 .animate-result-row   { animation: fade-up 0.35s var(--ease-out-quart) both; }
 
+/* ─── Work-page feedback (Buy/Sales) ────────────────────────────────────────
+   OrderSummaryPanel: a changed total/net-weight row gets a faint emerald tint
+   that holds briefly and fades (a/b names restart it on every change).
+   Sales trailer rows added after the first ease in from just above.
+   Failed submit reuses .animate-ob-shake-a/-b (pages/work/buy/fieldFeedback.js).
+   All one-shot; end states are transparent / `transform: none`. */
+:root { --work-flash: oklch(95.5% 0.045 164); }
+.dark { --work-flash: oklch(76.5% 0.177 163.2 / 0.12); }
+@keyframes work-flash {
+  0%, 40% { background-color: var(--work-flash); }
+  100%    { background-color: transparent; }
+}
+@keyframes work-flash-b {
+  0%, 40% { background-color: var(--work-flash); }
+  100%    { background-color: transparent; }
+}
+.animate-work-flash-a { animation: work-flash 0.7s var(--ease-out-quart); }
+.animate-work-flash-b { animation: work-flash-b 0.7s var(--ease-out-quart); }
+@keyframes work-row-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-work-row-in { animation: work-row-in 0.25s var(--ease-out-quart) both; }
+
+/* ─── HR / Inbox feedback ───────────────────────────────────────────────────
+   .hr-collapse  Inbox card that was just decided (and a removed HR row): the
+                 card holds its tint for --hr-delay, then fades while its grid
+                 row closes 1fr → 0fr. The child carries the list gap as
+                 padding, so neighbours slide up with no jump at the end.
+   .hr-expand    newly added HR row opens 0fr → 1fr and fades in; its child
+                 holds a faint emerald tint (.hr-fresh-tint) so the eye finds
+                 where it landed. Parent clears the class on animationend.
+   .hr-check-draw SaveButton check stroke (pathLength=1), drawn once.
+   Invalid-field shake reuses .animate-ob-shake-a/-b (ui/SaveButton.jsx).
+   All one-shot; reduced-motion overrides are in the block below. */
+:root { --hr-fresh: oklch(95.5% 0.045 164); }
+.dark { --hr-fresh: oklch(76.5% 0.177 163.2 / 0.12); }
+@keyframes hr-collapse {
+  from { grid-template-rows: 1fr; opacity: 1; }
+  to   { grid-template-rows: 0fr; opacity: 0; }
+}
+.hr-collapse { display: grid; animation: hr-collapse 0.28s var(--ease-out-quart) var(--hr-delay, 0s) both; }
+.hr-collapse > * { min-height: 0; overflow: hidden; }
+@keyframes hr-expand {
+  from { grid-template-rows: 0fr; opacity: 0; }
+  to   { grid-template-rows: 1fr; opacity: 1; }
+}
+.hr-expand { display: grid; animation: hr-expand 0.25s var(--ease-out-quart) backwards; }
+.hr-expand > * { min-height: 0; overflow: hidden; }
+@keyframes hr-fresh-tint {
+  0%, 45% { background-color: var(--hr-fresh); }
+  100%    { background-color: transparent; }
+}
+.hr-fresh-tint { animation: hr-fresh-tint 1.4s var(--ease-out-quart) both; }
+.hr-check-draw { stroke-dasharray: 1; animation: ob-draw 0.32s var(--ease-out-expo) 0.04s both; }
+
 /* Tour spotlight: one box that glides between targets (geometry is the one
    intentional non-transform animation here). */
 .ob-spotlight {
@@ -359,6 +415,14 @@
   .animate-result-halo, .animate-result-pop, .animate-result-wobble, .animate-result-row { animation: none !important; }
   .animate-result-spark, .animate-result-ping { animation: none !important; opacity: 0; }
   .animate-result-draw { animation: none !important; stroke-dashoffset: 0; }
+  /* Work pages (Buy/Sales): no flash, no row slide; shake already off above. */
+  .animate-work-flash-a, .animate-work-flash-b, .animate-work-row-in { animation: none !important; }
+  /* HR / Inbox: decided cards and removed rows vanish at once; added rows and
+     the save check appear in place with no tint, clip or draw. */
+  .hr-collapse { animation: none !important; display: none; }
+  .hr-expand, .hr-fresh-tint { animation: none !important; }
+  .hr-expand > * { overflow: visible; }
+  .hr-check-draw { animation: none !important; stroke-dashoffset: 0; }
 }
 
 /* ─── Hardening: Text & Overflow ──────────────────────────────────────────── */

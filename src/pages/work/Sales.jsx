@@ -22,6 +22,7 @@ import SalesCustomerSection from "./sales/SalesCustomerSection"
 import SalesSpecSection from "./sales/SalesSpecSection"
 import SalesTrailerSection from "./sales/SalesTrailerSection"
 import SalesMobileStepper from "./sales/SalesMobileStepper"
+import { revealInvalidField } from "./buy/fieldFeedback"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
 
@@ -56,7 +57,7 @@ function Sales() {
   // ⭐ จุดยึดบนสุด + ฟังก์ชันเลื่อนขึ้นบน (เหมือนหน้า Buy)
   const pageTopRef = useRef(null)
   const scrollToPageTop = () => {
-    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch {}
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch { /* ignore */ }
     const root = document.scrollingElement || document.documentElement || document.body
     try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
@@ -334,9 +335,9 @@ function Sales() {
     if (!el) return false
     beforeFocusTrailerRef.current?.(i)
     const doFocus = () => {
-      try { el.scrollIntoView({ block: "center" }) } catch {}
+      try { el.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
       el.focus?.()
-      try { el.select?.() } catch {}
+      try { el.select?.() } catch { /* ignore */ }
     }
     // If the card was hidden the element has no layout yet — focus after paint.
     if (!el.offsetParent && beforeFocusTrailerRef.current) requestAnimationFrame(doFocus)
@@ -350,7 +351,7 @@ function Sales() {
     if (idx < trailerOrder.length - 1) return focusTrailerField(i, trailerOrder[idx + 1])
     if (i < trailers.length - 1) return focusFirstOfTrailer(i + 1)
     const sb = refs.submitBtn?.current
-    if (sb) { try { sb.scrollIntoView({ block: "center" }) } catch {}; sb.focus?.(); return true }
+    if (sb) { try { sb.scrollIntoView({ block: "center" }) } catch { /* ignore */ }; sb.focus?.(); return true }
     return false
   }
   const onEnterTrailer = (i, key) => (e) => {
@@ -374,7 +375,7 @@ function Sales() {
         const data = await apiAuth(p)
         if (Array.isArray(data)) return data
         if (data && typeof data === "object") return data
-      } catch (_) {}
+      } catch { /* ignore */ }
     }
     return Array.isArray(paths) ? [] : {}
   }
@@ -531,7 +532,7 @@ function Sales() {
             const saved = localStorage.getItem("sales.formTemplate")
             if (saved && mapped.some(m => String(m.id) === String(saved))) nextId = String(saved)
           }
-        } catch {}
+        } catch { /* ignore */ }
         if (!nextId) nextId = String(mapped[0]?.id || "")
         if (nextId) {
           setFormTemplate(nextId)
@@ -541,7 +542,7 @@ function Sales() {
           try {
             localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
             localStorage.setItem("sales.formTemplate", nextId)
-          } catch {}
+          } catch { /* ignore */ }
         }
       } catch (e) {
         console.error("load form templates error:", e)
@@ -636,7 +637,7 @@ function Sales() {
 
   // ---------- แชร์ template id ปัจจุบัน ----------
   useEffect(() => {
-    try { if (formTemplate) localStorage.setItem("sales.formTemplate", String(formTemplate)) } catch {}
+    try { if (formTemplate) localStorage.setItem("sales.formTemplate", String(formTemplate)) } catch { /* ignore */ }
   }, [formTemplate])
 
   // ---------- แผงค้นหาบุคคล/บริษัท ----------
@@ -785,7 +786,7 @@ function Sales() {
     const itemEl = itemRefs.current[index]
     const listEl = listContainerRef.current
     if (!itemEl || !listEl) return
-    try { itemEl.scrollIntoView({ block: "nearest", inline: "nearest" }) } catch {}
+    try { itemEl.scrollIntoView({ block: "nearest", inline: "nearest" }) } catch { /* ignore */ }
   }
   const pickNameResult = async (rec) => {
     // กันลูป: เลือกจากชื่อแล้วจะไม่ไปค้นต่อด้วย citizen/member
@@ -932,8 +933,8 @@ function Sales() {
   }, [debouncedTaxId, buyerType, autoSearchEnabled])
   const handleCompanyKeyDown = async (e) => {
     if (!showCompanyList || companyResults.length === 0) return
-    if (e.key === "ArrowDown") { e.preventDefault(); const next = companyHighlighted < companyResults.length - 1 ? companyHighlighted + 1 : 0; setCompanyHighlighted(next); requestAnimationFrame(() => { try { companyItemRefs.current[next]?.scrollIntoView({ block: "nearest" }) } catch {} }) }
-    else if (e.key === "ArrowUp") { e.preventDefault(); const prev = companyHighlighted > 0 ? companyHighlighted - 1 : companyResults.length - 1; setCompanyHighlighted(prev); requestAnimationFrame(() => { try { companyItemRefs.current[prev]?.scrollIntoView({ block: "nearest" }) } catch {} }) }
+    if (e.key === "ArrowDown") { e.preventDefault(); const next = companyHighlighted < companyResults.length - 1 ? companyHighlighted + 1 : 0; setCompanyHighlighted(next); requestAnimationFrame(() => { try { companyItemRefs.current[next]?.scrollIntoView({ block: "nearest" }) } catch { /* ignore */ } }) }
+    else if (e.key === "ArrowUp") { e.preventDefault(); const prev = companyHighlighted > 0 ? companyHighlighted - 1 : companyResults.length - 1; setCompanyHighlighted(prev); requestAnimationFrame(() => { try { companyItemRefs.current[prev]?.scrollIntoView({ block: "nearest" }) } catch { /* ignore */ } }) }
     else if (e.key === "Enter") { e.preventDefault(); if (companyHighlighted >= 0 && companyHighlighted < companyResults.length) await pickCompanyResult(companyResults[companyHighlighted]) }
     else if (e.key === "Escape") { e.preventDefault(); setShowCompanyList(false); setCompanyHighlighted(-1) }
   }
@@ -995,12 +996,22 @@ function Sales() {
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => k in eObj)
     if (firstKey) {
-      const el = fieldElFor(firstKey)
-      if (el && typeof el.focus === "function") { try { el.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} el.focus() }
+      revealInvalidField(fieldElFor(firstKey), { select: false })
       return
     }
+    // รถพ่วง: ช่องแรกที่ผิดของคันแรกที่มีปัญหา (ไม่เจอ → เลื่อนไปทั้งกล่องรถพ่วง)
+    const tIdx = Array.isArray(eObj.trailers)
+      ? eObj.trailers.findIndex((te) => te && Object.keys(te).some((k) => trailerOrder.includes(k)))
+      : -1
+    if (tIdx >= 0) {
+      const tKey = trailerOrder.find((k) => k in eObj.trailers[tIdx])
+      if (revealInvalidField(getTRef(tIdx, tKey)?.current)) return
+    }
     const tmp = document.getElementById("trailers-block")
-    if (tmp) { try { tmp.scrollIntoView({ behavior: "smooth", block: "center" }) } catch {} }
+    if (tmp) {
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      try { tmp.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" }) } catch { /* ignore */ }
+    }
   }
 
   const scrollToFirstMissing = (hintsObj) => {
@@ -1010,11 +1021,7 @@ function Sales() {
     const keys = (buyerType === "person" ? personKeys : companyKeys).concat(commonOrderKeys)
     const firstKey = keys.find((k) => hintsObj[k])
     if (!firstKey) return
-    const el = fieldElFor(firstKey)
-    if (el && typeof el.focus === "function") {
-      try { el.focus({ preventScroll: true }) } catch { el.focus() }
-      try { el.select?.() } catch {}
-    }
+    revealInvalidField(fieldElFor(firstKey))
   }
 
   // ---------- Branch lock (หลังโหลดรายการสาขา) ----------
@@ -1266,13 +1273,13 @@ function Sales() {
           const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
           localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
           localStorage.setItem("sales.formTemplate", String(formTemplate))
-        } catch {}
+        } catch { /* ignore */ }
         // S4 → ResultSheet (copy §4.2 ok)
         setSaveResult({ kind: "ok", results, rows: rowsSnap, ok, n: trailers.length })
         handleReset()
         stepApiRef.current?.reset()
         requestAnimationFrame(() => scrollToPageTop())
-        try { refs.submitBtn?.current?.blur?.() } catch {}
+        try { refs.submitBtn?.current?.blur?.() } catch { /* ignore */ }
       } else {
         // S5 / S6 → ResultSheet (copy §4.2 partial / allfail). The loop above
         // re-sends EVERY trailer on the next submit (no "already saved" mark),
@@ -1446,7 +1453,7 @@ function Sales() {
     { label: "สินค้า", value: productLabel || "ยังไม่ได้เลือก", emphasis: productLabel ? undefined : "muted" },
     { label: "คลัง", value: order.klangName || "ยังไม่ได้เลือก", emphasis: order.klangName ? undefined : "muted" },
     { label: "จำนวนรถ", value: `${trailers.length} คัน` },
-    { label: "น้ำหนักสุทธิรวม", value: `${nf(totals.net)} กก.`, emphasis: totals.net > 0 ? undefined : "muted" },
+    { label: "น้ำหนักสุทธิรวม", value: `${nf(totals.net)} กก.`, emphasis: totals.net > 0 ? undefined : "muted", flash: true },
     { label: "ราคาเฉลี่ย/กก.", value: totals.weightedUnit > 0 ? `${thb(totals.weightedUnit)}/กก.` : "—", emphasis: totals.weightedUnit > 0 ? undefined : "muted" },
     { label: "ยอดเงินรวม", value: thb(totals.amount), emphasis: "total" },
   ]

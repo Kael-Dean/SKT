@@ -38,6 +38,7 @@ import {
   SPEC_LOCKED_KEYS,
 } from "./buy/buyShared"
 import { validateAllErrors } from "./buy/buyValidation"
+import { revealInvalidField } from "./buy/fieldFeedback"
 import BuyCustomerSection from "./buy/BuyCustomerSection"
 import BuySpecSection from "./buy/BuySpecSection"
 import BuyWeighSection from "./buy/BuyWeighSection"
@@ -108,7 +109,7 @@ const Buy = () => {
   const [templatesStatus, setTemplatesStatus] = useState("loading")
   const [formTemplate, setFormTemplate] = useState("") // ต้องเลือกเสมอ
   const [selectedTemplateLabel, setSelectedTemplateLabel] = useState("") // เก็บ label ที่เลือกไว้
-  const [pendingTemplateLabel, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
+  const [, setPendingTemplateLabel] = useState("") // ใช้ดักเติม species หลังโหลด riceOptions
   const [variantLookup, setVariantLookup] = useState({})
   useEffect(() => {
     const speciesIds = Array.from(
@@ -255,7 +256,6 @@ const Buy = () => {
     postpone: false,
     postponePeriod: 0,
   })
-  const updateDept = (k, v) => setDept((p) => ({ ...p, [k]: v }))
 
   /** ---------- Refs ---------- */
   const refs = {
@@ -357,12 +357,12 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       }
       const saved = localStorage.getItem("buy.formTemplate")
       if (saved) setFormTemplate(saved)
-    } catch (_e) {}
+    } catch { /* ignore */ }
   }, [])
 
   /** scrollToTop */
   const scrollToPageTop = () => {
-    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch (_e) {}
+    try { pageTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }) } catch { /* ignore */ }
     const root = document.scrollingElement || document.documentElement || document.body
     try { root.scrollTo({ top: 0, behavior: "smooth" }) } catch { root.scrollTop = 0 }
   }
@@ -381,7 +381,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
         const data = await apiAuth(p)
         if (Array.isArray(data)) return data
         if (data && typeof data === "object") return data
-      } catch (_) {}
+      } catch { /* ignore */ }
     }
     return Array.isArray(paths) ? [] : {}
   }
@@ -648,7 +648,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
             const saved = localStorage.getItem("buy.formTemplate")
             if (saved && mapped.some(m => String(m.id) === String(saved))) nextId = String(saved)
           }
-        } catch (_e) {}
+        } catch { /* ignore */ }
         if (!nextId) nextId = String(mapped[0]?.id || "")
 
         if (nextId) {
@@ -659,7 +659,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
           try {
             localStorage.setItem("shared.formTemplate", JSON.stringify({ id: nextId, label: found?.label || "" }))
             localStorage.setItem("buy.formTemplate", nextId)
-          } catch (_e) {}
+          } catch { /* ignore */ }
         }
       } catch (e) {
         console.error("load form templates error:", e)
@@ -791,7 +791,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       setCompanyHighlighted(next)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[next]
-        try { el?.scrollIntoView({ block: "nearest" }) } catch (_e) {}
+        try { el?.scrollIntoView({ block: "nearest" }) } catch { /* ignore */ }
       })
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
@@ -799,7 +799,7 @@ const { onEnter, focusNext } = useEnterNavigation(refs, buyerType, order)
       setCompanyHighlighted(prev)
       requestAnimationFrame(() => {
         const el = companyItemRefs.current[prev]
-        try { el?.scrollIntoView({ block: "nearest" }) } catch (_e) {}
+        try { el?.scrollIntoView({ block: "nearest" }) } catch { /* ignore */ }
       })
     } else if (e.key === "Enter") {
       e.preventDefault()
@@ -1153,9 +1153,9 @@ if (!mid) return
     const tryFocusRef = (r) => {
       const el = r?.current
       if (el && isEnabledInput(el)) {
-        try { el.scrollIntoView({ block: "center" }) } catch (_e) {}
+        try { el.scrollIntoView({ block: "center" }) } catch { /* ignore */ }
         el.focus?.()
-        try { el.select?.() } catch (_e) {}
+        try { el.select?.() } catch { /* ignore */ }
         return true
       }
       return false
@@ -1467,7 +1467,7 @@ const pickNameResult = async (rec) => {
         businessTypeId: order.businessTypeId || null,
       }
       localStorage.setItem("shared.specPrefill", JSON.stringify(sharedSpec))
-    } catch (_e) {}
+    } catch { /* ignore */ }
   }, [
     order.productId,
     order.riceId,
@@ -1486,30 +1486,22 @@ const pickNameResult = async (rec) => {
     return e
   }
 
-  // ✅ เลื่อนโฟกัสไป "ช่องที่ขาดตัวบนสุด"
+  // ✅ เลื่อนไป "ช่องที่ขาดตัวบนสุด" กลางจอ + โฟกัส + สั่นกรอบช่องนั้นหนึ่งครั้ง
   const scrollToFirstError = (eObj) => {
     const keys = ERROR_SCAN_ORDER(buyerType)
     const firstKey = keys.find((k) => k in eObj)
     if (!firstKey) return
-    const keyToFocus = firstKey
-
-    const el = refs[keyToFocus]?.current || (SPEC_LOCKED_KEYS.includes(firstKey) ? refs.formTemplate?.current : null)
-    if (el && typeof el.focus === "function") {
-      try { el.focus({ preventScroll: true }) } catch { el.focus() }
-      try { el.select?.() } catch (_e) {}
-    }
+    const el = refs[firstKey]?.current || (SPEC_LOCKED_KEYS.includes(firstKey) ? refs.formTemplate?.current : null)
+    revealInvalidField(el)
   }
 
-  // ✅ โฟกัสตัวแรกตาม missing hints
+  // ✅ ช่องแรกตาม missing hints (เลื่อน + โฟกัส + สั่น เหมือนด้านบน)
   const scrollToFirstMissing = (hintsObj) => {
     const keys = ERROR_SCAN_ORDER(buyerType)
     const firstKey = keys.find((k) => hintsObj[k])
     if (!firstKey) return
     const el = refs[firstKey]?.current || (SPEC_LOCKED_KEYS.includes(firstKey) ? refs.formTemplate?.current : null)
-    if (el && typeof el.focus === "function") {
-      try { el.focus({ preventScroll: true }) } catch { el.focus() }
-      try { el.select?.() } catch (_e) {}
-    }
+    revealInvalidField(el)
   }
 
   /** ---------- Helpers สำหรับรูปแบบวันที่ ---------- */
@@ -1696,7 +1688,7 @@ if (buyerType === "person") {
         const saveTpl = { id: String(formTemplate), label: currentTpl?.label || selectedTemplateLabel || "" }
         localStorage.setItem("shared.formTemplate", JSON.stringify(saveTpl))
         localStorage.setItem("buy.formTemplate", String(formTemplate))
-      } catch (_e) {}
+      } catch { /* ignore */ }
       // Snapshot for the ResultSheet (copy §4.1) — taken before the form is cleared
       const orderNo = res?.order_no ?? res?.order_serial ?? res?.order_id ?? res?.id ?? null
       const lines = [
@@ -1725,13 +1717,13 @@ if (buyerType === "person") {
   const handleReset = () => {
   // ปิดระบบ auto-search ชั่วคราวระหว่างรีเซ็ตเพื่อไม่ให้มี auto-fill
   setAutoSearchEnabled(false)
-  try { suppressNameSearchRef.current = true; } catch (_e) {}
-  try { companySuppressSearchRef.current = true; } catch (_e) {}
+  try { suppressNameSearchRef.current = true; } catch { /* ignore */ }
+  try { companySuppressSearchRef.current = true; } catch { /* ignore */ }
 
   // ปิดออโต้ฟิลและยกเลิกผล async เก่าทันที
   bumpSearchEpoch()
-  try { suppressNameSearchRef.current = true } catch (_e) {}
-  try { companySuppressSearchRef.current = true } catch (_e) {}
+  try { suppressNameSearchRef.current = true } catch { /* ignore */ }
+  try { companySuppressSearchRef.current = true } catch { /* ignore */ }
   setErrors({})
   setMissingHints({})
   setCustomerFound(null)
@@ -1850,7 +1842,7 @@ if (buyerType === "person") {
     try {
       localStorage.setItem("shared.formTemplate", JSON.stringify({ id: idStr, label }))
       localStorage.setItem("buy.formTemplate", idStr)
-    } catch (_e) {}
+    } catch { /* ignore */ }
     if (found?.spec) applyTemplateBySpec(found.spec)
   }
 
@@ -1988,7 +1980,7 @@ if (buyerType === "person") {
     { label: "ลูกค้า", value: customerName || "ยังไม่ได้เลือก", emphasis: customerName ? undefined : "muted" },
     { label: "สินค้า", value: templateLabel || "ยังไม่ได้เลือก", emphasis: templateLabel ? undefined : "muted" },
     { label: "คลัง", value: order.klangName || "ยังไม่ได้เลือก", emphasis: order.klangName ? undefined : "muted" },
-    { label: "น้ำหนักสุทธิ", value: `${nf(netWeight)} กก.` },
+    { label: "น้ำหนักสุทธิ", value: `${nf(netWeight)} กก.`, flash: true },
     { label: "ราคา/กก.", value: hasUnitPrice ? `${thb(unitPriceNum)}/กก.` : "—", emphasis: hasUnitPrice ? undefined : "muted" },
     { label: "ยอดเงิน", value: thb(moneyToNumber(order.amountTHB)), emphasis: "total" },
   ]

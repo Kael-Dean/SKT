@@ -10,14 +10,14 @@
 // detail ภาษาไทยจาก backend แสดงตามที่ส่งมา
 // ขั้นที่ผู้ใช้ทำได้ = workflowActions() ใน lib/welfare.js
 // ─────────────────────────────────────────────────────────────────────────────
-import { useId, useMemo, useState } from "react"
+import { useId, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
 import { cx, baseField, dangerBtnCls, errorTextCls, helpTextCls, labelCls, neutralBtnCls, primaryBtnCls, submitBtnCls } from "../../../lib/styles"
 import { fmtPayMonth } from "../../../lib/payroll"
 import { todayIso } from "../../../lib/loans"
 import { claimTypeLabel, money, payrollMonthOptions } from "../../../lib/welfare"
-import { Sheet, toast } from "../../ui"
+import { Sheet, revealFirstInvalid, toast } from "../../ui"
 import SelectDropdown from "../../SelectDropdown"
 import ThaiDateField from "../../ThaiDateField"
 import StatusMsg from "../StatusMsg"
@@ -48,6 +48,7 @@ export default function ClaimActionSheet({ claim, mode, personName, payoutRoute 
   const [paidOn, setPaidOn] = useState(todayIso())
   const [errors, setErrors] = useState({})
   const [saving, setSaving] = useState(false)
+  const formRef = useRef(null)
   const [msg, setMsg] = useState(null)
 
   const eligible = Number(claim?.eligible_amount ?? 0)
@@ -75,7 +76,7 @@ export default function ClaimActionSheet({ claim, mode, personName, payoutRoute 
   const submit = async () => {
     const e = validate()
     setErrors(e)
-    if (Object.keys(e).length) return
+    if (Object.keys(e).length) { revealFirstInvalid(formRef); return }
     let path = ""
     let body = {}
     if (mode === "approve") {
@@ -133,7 +134,7 @@ export default function ClaimActionSheet({ claim, mode, personName, payoutRoute 
         </div>
       }
     >
-      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit() }} noValidate>
+      <form ref={formRef} className="space-y-4" onSubmit={(e) => { e.preventDefault(); submit() }} noValidate>
         <dl className="grid grid-cols-3 gap-2 rounded-xl bg-gray-50 p-3 text-center dark:bg-white/[.03]">
           <div>
             <dt className="text-xs text-gray-500 dark:text-gray-400">ขอเบิก</dt>

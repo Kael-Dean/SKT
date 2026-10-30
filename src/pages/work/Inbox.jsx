@@ -8,7 +8,7 @@
 // be stale). One source failing (e.g. 403 for the role) never hides the other.
 // + 3M หนังสือรับรองเงินเดือน: คิวความเห็นผู้บังคับบัญชา (SalaryCertSupervisorQueue) — ทุก role
 //   (หัวหน้าตามสายบังคับบัญชา ไม่ผูกกับ role) จึงวางนอกเงื่อนไข approver
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import Portal from "../../components/Portal"
 import DecisionModal from "../../components/DecisionModal"
@@ -165,10 +165,20 @@ function Notice({ tone = "info", children, onDismiss }) {
   )
 }
 
-function InboxCard({ item, onView, onDecide }) {
+// การ์ดที่เพิ่งตัดสินใจ: tint ตามผล ค้างไว้แวบหนึ่ง แล้วจางพร้อมยุบแถว (.hr-collapse ใน index.css)
+const EXIT_TINT = {
+  approve: "!bg-emerald-50 !ring-emerald-300 dark:!bg-emerald-500/10 dark:!ring-emerald-500/40",
+  justified: "!bg-emerald-50 !ring-emerald-300 dark:!bg-emerald-500/10 dark:!ring-emerald-500/40",
+  reject: "!bg-red-50 !ring-red-300 dark:!bg-red-500/10 dark:!ring-red-500/40",
+  unjust: "!bg-amber-50 !ring-amber-300 dark:!bg-amber-500/10 dark:!ring-amber-500/40",
+}
+const EXIT_HOLD_MS = 120 // tint อ่านออกก่อนเริ่มยุบ
+const EXIT_TOTAL_MS = EXIT_HOLD_MS + 280
+
+function InboxCard({ item, onView, onDecide, exitMode }) {
   const { req } = item
   return (
-    <article className={`${cardCls} space-y-3`}>
+    <article className={`${cardCls} space-y-3 transition-[background-color,box-shadow] duration-150 ${exitMode ? EXIT_TINT[exitMode] || EXIT_TINT.approve : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-gray-500 dark:text-gray-400">
@@ -436,6 +446,13 @@ export default function Inbox() {
   const [certQueueCount, setCertQueueCount] = useState(0) // คิวความเห็นหนังสือรับรองเงินเดือน
   const [detail, setDetail] = useState(null) // {kind, id, loading, item?, error?, fromLink}
   const [decision, setDecision] = useState(null) // {item, mode}
+  const [hasLoaded, setHasLoaded] = useState(false)
+  // การ์ดที่กำลังออก: key → { item, mode, done, settled }
+  //   done    = ยุบเสร็จแล้ว (ซ่อนไว้จนกว่า refetch จะตอบ)
+  //   settled = refetch ตอบแล้วระหว่างยุบ → ยุบเสร็จเมื่อไหร่ลบทิ้งเลย (ถ้ายังอยู่ในข้อมูลใหม่ก็กลับมาแสดง)
+  const [exits, setExits] = useState({})
+  const exitTimers = useRef([])
+  useEffect(() => () => exitTimers.current.forEach(clearTimeout), [])
 
   const refetch = useCallback(async () => {
     if (!approver) return
@@ -452,6 +469,12 @@ export default function Inbox() {
     setItems(nextItems)
     setSrcError(nextErr)
     setLoading(false)
+    setHasLoaded(true)
+    setExits((prev) => {
+      const next = {}
+      for (const [k, e] of Object.entries(prev)) if (!e.done) next[k] = { ...e, settled: true }
+      return next
+    })
   }, [approver])
 
   useEffect(() => {
@@ -518,9 +541,27 @@ export default function Inbox() {
     setDecision({ item, mode })
   }
 
+  const startExit = (item, mode) => {
+    const key = item.key
+    setExits((prev) => ({ ...prev, [key]: { item, mode, done: false, settled: false } }))
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = setTimeout(() => {
+      setExits((prev) => {
+        const e = prev[key]
+        if (!e) return prev
+        const next = { ...prev }
+        if (e.settled) delete next[key]
+        else next[key] = { ...e, done: true }
+        return next
+      })
+    }, reduce ? 0 : EXIT_TOTAL_MS)
+    exitTimers.current.push(t)
+  }
+
   const onDecisionDone = (mode) => {
     const { item } = decision
     setDecision(null)
+    startExit(item, mode)
     const text = {
       approve: `${STAGE_APPROVE_LABEL[stageOf(item.req)] || "อนุมัติ"}คำขอของ ${item.name} แล้ว`,
       reject: `ไม่อนุมัติคำขอของ ${item.name} แล้ว`,
@@ -538,17 +579,27 @@ export default function Inbox() {
     refetch()
   }
 
+  // งานที่ยังรออยู่จริง (ไม่นับการ์ดที่กำลังออก/ออกไปแล้ว)
+  const live = useMemo(() => {
+    const keep = (list) => list.filter((it) => !exits[it.key])
+    return { [KIND.LEAVE]: keep(items[KIND.LEAVE]), [KIND.OOO]: keep(items[KIND.OOO]) }
+  }, [items, exits])
   const counts = {
-    all: items[KIND.LEAVE].length + items[KIND.OOO].length,
-    [KIND.LEAVE]: items[KIND.LEAVE].length,
-    [KIND.OOO]: items[KIND.OOO].length,
+    all: live[KIND.LEAVE].length + live[KIND.OOO].length,
+    [KIND.LEAVE]: live[KIND.LEAVE].length,
+    [KIND.OOO]: live[KIND.OOO].length,
   }
 
+  // รายการที่แสดง = งานที่รอ + การ์ดที่กำลังยุบ (แม้ refetch จะเอาออกไปแล้วก็ค้างไว้จนจบแอนิเมชัน)
   const visible = useMemo(() => {
-    const list = tab === "all" ? [...items[KIND.LEAVE], ...items[KIND.OOO]] : items[tab] || []
+    const inTab = (it) => tab === "all" || it.kind === tab
+    const list = [
+      ...live[KIND.LEAVE], ...live[KIND.OOO],
+      ...Object.values(exits).filter((e) => !e.done).map((e) => e.item),
+    ].filter(inTab)
     // oldest first — whoever has waited longest is decided first
-    return [...list].sort((a, b) => String(a.submittedAt || "").localeCompare(String(b.submittedAt || "")))
-  }, [items, tab])
+    return list.sort((a, b) => String(a.submittedAt || "").localeCompare(String(b.submittedAt || "")))
+  }, [live, exits, tab])
 
   // ใครอนุมัติ/ตรวจสอบขึ้นกับตำแหน่งของผู้ยื่น (backend เป็นคนจัด) — แสดงเฉพาะงานที่รอคุณตอนนี้
   const roleLine = can("approval.anyStage", roleId)
@@ -643,7 +694,7 @@ export default function Inbox() {
             ))}
           </div>
 
-          {loading && visible.length === 0 ? (
+          {loading && !hasLoaded && visible.length === 0 ? (
             <div className="space-y-3" aria-busy="true" aria-label="กำลังโหลดคำขอ">
               {[0, 1, 2].map((i) => (
                 <div key={i} className={`${cardCls} space-y-3`}>
@@ -664,10 +715,24 @@ export default function Inbox() {
               </div>
             )
           ) : (
-            <div className="space-y-3">
-              {visible.map((item) => (
-                <InboxCard key={item.key} item={item} onView={openDetail} onDecide={openDecision} />
-              ))}
+            // ระยะห่างระหว่างการ์ดอยู่ใน pb ของแต่ละแถว → แถวที่ยุบปิดช่องว่างของตัวเองไปด้วย
+            <div className="-mb-3">
+              {visible.map((item) => {
+                const exit = exits[item.key]
+                return (
+                  <div
+                    key={item.key}
+                    className={exit ? "hr-collapse" : undefined}
+                    style={exit ? { "--hr-delay": `${EXIT_HOLD_MS}ms` } : undefined}
+                    inert={exit ? true : undefined}
+                    aria-hidden={exit ? true : undefined}
+                  >
+                    <div className="pb-3">
+                      <InboxCard item={item} onView={openDetail} onDecide={openDecision} exitMode={exit?.mode} />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </>

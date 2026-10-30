@@ -4,7 +4,7 @@
 //   POST / PATCH / DELETE …/activities[/{aid}]        (hr.employee.activities.edit → hr.employee.edit_personal)
 // props: { employeeId, employeeName }
 // รายการใช้ <ActivityList> ตัวเดียวกับหน้า "ข้อมูลส่วนตัว" ของพนักงาน (อ่านอย่างเดียว)
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Pencil, Plus, Trash2 } from "lucide-react"
 import { apiDetail } from "../../../lib/apiErrors"
 import { deleteActivity, fetchEmployeeActivities } from "../../../lib/activities"
@@ -25,6 +25,10 @@ export default function PersonnelActivitiesTab({ employeeId, employeeName }) {
   const [delTarget, setDelTarget] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [delErr, setDelErr] = useState("")
+  const [freshId, setFreshId] = useState(null)     // กิจกรรมที่เพิ่งเพิ่ม → เปิดออก + tint
+  const [leavingId, setLeavingId] = useState(null) // กิจกรรมที่เพิ่งลบ → ยุบหายก่อนเอาออก
+  const leaveTimer = useRef(0)
+  useEffect(() => () => clearTimeout(leaveTimer.current), [])
 
   const load = useCallback(() => {
     if (employeeId == null) return undefined
@@ -46,7 +50,14 @@ export default function PersonnelActivitiesTab({ employeeId, employeeName }) {
     setDelErr("")
     try {
       await deleteActivity(employeeId, delTarget.id)
-      setRows((list) => list.filter((a) => a.id !== delTarget.id))
+      const goneId = delTarget.id
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      setLeavingId(goneId)
+      clearTimeout(leaveTimer.current)
+      leaveTimer.current = setTimeout(() => {
+        setRows((list) => list.filter((a) => a.id !== goneId))
+        setLeavingId(null)
+      }, reduce ? 0 : 300)
       toast.success("ลบกิจกรรมแล้ว", { description: delTarget.title })
       setDelTarget(null)
     } catch (e) {
@@ -97,6 +108,9 @@ export default function PersonnelActivitiesTab({ employeeId, employeeName }) {
         error={error}
         onRetry={load}
         actions={rowActions}
+        freshId={freshId}
+        leavingId={leavingId}
+        onFreshEnd={() => setFreshId(null)}
         emptyTitle="ยังไม่มีประวัติกิจกรรม"
         emptyDescription={`บันทึกการประชุม สัมมนา ฝึกอบรม หรือการสอบของ${employeeName || "พนักงานคนนี้"} พร้อมใบประกาศ`}
         emptyAction={canEdit ? addBtn : null}
@@ -109,7 +123,10 @@ export default function PersonnelActivitiesTab({ employeeId, employeeName }) {
           employeeName={employeeName}
           activity={editing ?? null}
           onClose={() => setEditing(undefined)}
-          onSaved={() => load()}
+          onSaved={(saved) => {
+            if (!editing && saved?.id != null) setFreshId(saved.id)
+            load()
+          }}
           onFilesChanged={() => load()}
         />
       )}

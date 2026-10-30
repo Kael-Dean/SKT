@@ -1,10 +1,10 @@
 // src/components/hr/ReturnPeriodSheet.jsx
 // ผู้จัดการส่งงวดเงินเดือนกลับเป็น "ร่าง" — POST /hr/payroll/periods/{y}/{m}/return { reason } (ต้องระบุเหตุผล)
-import { useEffect, useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api"
 import { fmtPayMonth } from "../../lib/payroll"
 import { cx, baseField, dangerBtnCls, errorTextCls, helpTextCls, labelCls, neutralBtnCls } from "../../lib/styles"
-import { Sheet, toast } from "../ui"
+import { Sheet, revealFirstInvalid, toast } from "../ui"
 import StatusMsg from "./StatusMsg"
 
 const btnCls = "h-12 md:h-10"
@@ -16,6 +16,7 @@ export default function ReturnPeriodSheet({ period, onClose, onDone }) {
   const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const bodyRef = useRef(null)
 
   useEffect(() => {
     if (period) { setReason(""); setTouched(false); setMsg(null) }
@@ -26,7 +27,7 @@ export default function ReturnPeriodSheet({ period, onClose, onDone }) {
 
   const submit = async () => {
     setTouched(true)
-    if (empty) return
+    if (empty) { revealFirstInvalid(bodyRef); return }
     setSaving(true)
     setMsg(null)
     try {
@@ -58,7 +59,7 @@ export default function ReturnPeriodSheet({ period, onClose, onDone }) {
         </div>
       }
     >
-      <div className="space-y-3">
+      <div ref={bodyRef} className="space-y-3">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           งวดจะกลับเป็น <span className="font-medium text-gray-900 dark:text-gray-100">ร่าง</span> เพื่อให้ฝ่ายบุคคลแก้ไขแล้วส่งตรวจสอบใหม่
         </p>

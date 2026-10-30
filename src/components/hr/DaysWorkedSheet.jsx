@@ -12,8 +12,8 @@ import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { Info } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { fmtPayMonth, fmtWorkDays, money, validWorkDays } from "../../lib/payroll"
-import { cx, baseField, neutralBtnCls, submitBtnCls } from "../../lib/styles"
-import { EmptyState, ErrorState, Sheet, SkeletonTableRows, toast } from "../ui"
+import { cx, baseField, neutralBtnCls } from "../../lib/styles"
+import { EmptyState, ErrorState, SaveButton, Sheet, SkeletonTableRows, revealFirstInvalid, toast, useSaveStatus } from "../ui"
 import StatusMsg from "./StatusMsg"
 
 const btnCls = "h-12 md:h-10"
@@ -36,7 +36,9 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
   const [loadError, setLoadError] = useState("")
   const [unsupported, setUnsupported] = useState(false)
   const [errors, setErrors] = useState({})
-  const [saving, setSaving] = useState(false)
+  const saveState = useSaveStatus()
+  const saving = saveState.saving
+  const formRef = useRef(null)
   const [msg, setMsg] = useState(null)
   const [fillValue, setFillValue] = useState("")
   const inputs = useRef([])
@@ -117,12 +119,11 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
-      const first = rows.findIndex((r) => errs[r.employee_id])
-      inputs.current[first]?.focus()
+      revealFirstInvalid(formRef)
       return
     }
     if (entries.length === 0) return
-    setSaving(true)
+    saveState.start()
     setMsg(null)
     try {
       const res = await apiAuth(`/hr/payroll/days-worked/${ym.year}/${ym.month}`, { method: "PUT", body: { entries } })
@@ -133,13 +134,13 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
         description: hasPayouts ? `สร้างเงินเดือน ${label} ไปแล้ว — กด "คำนวณใหม่" เพื่อใช้จำนวนวันใหม่` : label,
       })
       onSaved?.(list)
+      saveState.succeed()
     } catch (err) {
+      saveState.fail()
       setMsg({
         tone: "error",
         text: err.status === 409 ? err.message || `งวด ${label} ไม่ใช่ร่างแล้ว แก้จำนวนวันไม่ได้` : err.message || "บันทึกไม่สำเร็จ",
       })
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -150,9 +151,10 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
       </p>
       <div className="grid grid-cols-2 gap-3 md:flex md:gap-2">
         <button type="button" onClick={onClose} disabled={saving} className={cx(neutralBtnCls, btnCls)}>ปิด</button>
-        <button type="button" onClick={save} disabled={saving || changed.length === 0} className={cx(submitBtnCls, btnCls, "!rounded-xl !px-4 !py-0 md:!text-sm")}>
-          {saving ? "กำลังบันทึก…" : "บันทึกจำนวนวัน"}
-        </button>
+        <SaveButton status={saveState.status} onClick={save} disabled={changed.length === 0 && saveState.status === "idle"}
+          className={cx(btnCls, "!rounded-xl !px-4 !py-0 md:!text-sm")}>
+          บันทึกจำนวนวัน
+        </SaveButton>
       </div>
     </div>
   ) : (
@@ -303,7 +305,7 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
       busy={saving}
       footer={footer}
     >
-      <form noValidate onSubmit={(e) => { e.preventDefault(); if (editable) save() }}>
+      <form ref={formRef} noValidate onSubmit={(e) => { e.preventDefault(); if (editable) save() }}>
         {body}
         <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
       </form>

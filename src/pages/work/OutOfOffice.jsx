@@ -10,7 +10,6 @@ import { apiAuth } from "../../lib/api"
 import {
   OOO_TYPE_LABEL,
   OOO_TRANSPORT_OPTIONS,
-  OOO_ROAD_TRANSPORT,
   STATUS_LABEL,
   statusTone,
   isPendingStatus,
@@ -309,8 +308,6 @@ export default function OutOfOffice() {
   }
 
   const isWork = form.request_type === "work"
-  // plate only for road vehicles (and free-text "อื่นๆ" — could be a van/truck)
-  const showPlate = isWork && (OOO_ROAD_TRANSPORT.includes(form.transport) || form.transport === TRANSPORT_OTHER)
 
   const openAttach = (r) => {
     laterUploads.discard()
@@ -414,7 +411,7 @@ export default function OutOfOffice() {
       body.plan_name = form.plan_name.trim()
       body.plan_status = form.plan_status
       body.transport = form.transport === TRANSPORT_OTHER ? form.transport_other.trim() : form.transport
-      body.vehicle_plate = showPlate ? form.vehicle_plate.trim() || null : null
+      body.vehicle_plate = form.vehicle_plate.trim() || null
       body.distance_km = form.distance_km.trim() ? Number(form.distance_km) : null
     }
     if (uploads.ids.length) body.attachment_ids = uploads.ids
@@ -678,21 +675,19 @@ export default function OutOfOffice() {
                     />
                   </Field>
                 )}
-                <div className={`grid gap-3 ${showPlate ? "grid-cols-2" : "grid-cols-1"}`}>
-                  {showPlate && (
-                    <Field id="ooo-vehicle_plate" label="ทะเบียนรถ" hint="ไม่บังคับ">
-                      <input
-                        id="ooo-vehicle_plate"
-                        type="text"
-                        maxLength={20}
-                        className={inputCls}
-                        value={form.vehicle_plate}
-                        onChange={set("vehicle_plate")}
-                        placeholder="เช่น บน6810"
-                        aria-describedby="ooo-vehicle_plate-hint"
-                      />
-                    </Field>
-                  )}
+                <div className="grid grid-cols-2 gap-3">
+                  <Field id="ooo-vehicle_plate" label="ทะเบียนรถ" hint="ไม่บังคับ">
+                    <input
+                      id="ooo-vehicle_plate"
+                      type="text"
+                      maxLength={20}
+                      className={inputCls}
+                      value={form.vehicle_plate}
+                      onChange={set("vehicle_plate")}
+                      placeholder="เช่น บน6810"
+                      aria-describedby="ooo-vehicle_plate-hint"
+                    />
+                  </Field>
                   <Field id="ooo-distance_km" label="ระยะทาง (กม.)" error={errors.distance_km} hint="ไม่บังคับ">
                     <input
                       id="ooo-distance_km"

@@ -198,8 +198,6 @@ export const OOO_WORK_AREA_LABEL = { in_province: "ในจังหวัด",
 export const OOO_PLAN_STATUS_LABEL = { planned: "ตามแผน", adjusted: "ปรับแผน" }
 // transport is free text on the backend — the frontend owns this list; "อื่นๆ" sends the typed text
 export const OOO_TRANSPORT_OPTIONS = ["รถยนต์", "จักรยานยนต์", "เครื่องบิน", "เรือ", "รถไฟ"]
-// road vehicles carry a plate number; the plate field is hidden for the rest
-export const OOO_ROAD_TRANSPORT = ["รถยนต์", "จักรยานยนต์"]
 
 /** "25.0" → "25" · "12.5" → "12.5" */
 export function fmtOooKm(v) {

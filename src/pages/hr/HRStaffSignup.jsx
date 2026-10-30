@@ -98,6 +98,7 @@ export default function HRStaffSignup() {
     email: "",
     hired: "",
     bank_no: "",
+    guarantee_bank_no: "",
     p_number: "",
     e_contact: "",
     birthday: "",
@@ -228,6 +229,7 @@ export default function HRStaffSignup() {
         ...(form.email && { email: form.email.trim() }),
         ...(form.hired && { hired: form.hired }),
         ...(form.bank_no && { bank_no: form.bank_no.trim() }),
+        ...(form.guarantee_bank_no.trim() && { guarantee_bank_no: form.guarantee_bank_no.trim() }),
         ...(form.p_number && { p_number: form.p_number.trim() }),
         ...(form.e_contact && { e_contact: form.e_contact.trim() }),
         ...(form.birthday && { birthday: form.birthday }),
@@ -320,7 +322,7 @@ export default function HRStaffSignup() {
     setError("")
     setForm({
       first_name: "", last_name: "", cid: "", role_id: "", branch_location: "",
-      position: "", employment_type: "officer", email: "", hired: "", bank_no: "", p_number: "",
+      position: "", employment_type: "officer", email: "", hired: "", bank_no: "", guarantee_bank_no: "", p_number: "",
       e_contact: "", birthday: "", age: "", gender: "", m_status: "",
       children_number: "0", h_address: "", mhoo: "", soi: "", road: "",
       district: "", sub_district: "", province: "", postal_code: "", current_salary: "",
@@ -512,6 +514,9 @@ export default function HRStaffSignup() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="เลขบัญชีธนาคาร">
               <input className={baseField} value={form.bank_no} onChange={set("bank_no")} placeholder="XXX-X-XXXXX-X" />
+            </Field>
+            <Field label="เลขบัญชีค้ำประกัน">
+              <input className={baseField} inputMode="numeric" value={form.guarantee_bank_no} onChange={set("guarantee_bank_no")} placeholder="ถ้ามี" />
             </Field>
             <Field label="เงินเดือนเริ่มต้น (บาท)">
               <input type="number" min="0" step="0.01" className={baseField} value={form.current_salary} onChange={set("current_salary")} placeholder="0.00" />

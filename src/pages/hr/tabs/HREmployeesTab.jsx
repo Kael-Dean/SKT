@@ -82,7 +82,7 @@ const EMPLOYMENT_TYPE_OPTIONS = [
 const emptyForm = () => ({
   first_name: "", last_name: "", cid: "", role_id: "", branch_location: "", position: "",
   employment_type: "officer",
-  email: "", hired: "", bank_no: "", p_number: "", e_contact: "", birthday: "", age: "",
+  email: "", hired: "", bank_no: "", guarantee_bank_no: "", p_number: "", e_contact: "", birthday: "", age: "",
   gender: "", m_status: "", children_number: "0", underlying_disease: "",
   h_address: "", mhoo: "", soi: "", road: "", sub_district: "", district: "", province: "", postal_code: "",
 })
@@ -395,6 +395,9 @@ export default function HREmployeesTab() {
               </Field>
               <Field label="เลขบัญชีธนาคาร">
                 <input type="text" value={form.bank_no} onChange={set("bank_no")} className={inputCls} placeholder="เลขบัญชี" />
+              </Field>
+              <Field label="เลขบัญชีค้ำประกัน">
+                <input type="text" inputMode="numeric" value={form.guarantee_bank_no} onChange={set("guarantee_bank_no")} className={inputCls} placeholder="เลขบัญชี (ถ้ามี)" />
               </Field>
               <Field label="ผู้ติดต่อฉุกเฉิน">
                 <input type="text" value={form.e_contact} onChange={set("e_contact")} className={inputCls} placeholder="ชื่อ-เบอร์ผู้ติดต่อ" />

@@ -392,6 +392,7 @@ export default function MyProfile() {
         <InfoRow label={<span className="flex items-center gap-1"><img src={lineIcon} alt="LINE" className="h-3.5 w-3.5 object-contain" />Line ID</span>} value={pi.line_id} />
         <InfoRow label="เบอร์ฉุกเฉิน" value={pi.e_contact} />
         <InfoRow label="เลขบัญชีธนาคาร" value={pi.bank_no} mono />
+        <InfoRow label="เลขบัญชีค้ำประกัน" value={pi.guarantee_bank_no} mono />
         <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
         {!pi.hired && !pi.cid && !pi.p_number && (
           <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-3 italic">ยังไม่มีข้อมูลส่วนบุคคล — กรุณาติดต่อฝ่าย HR</p>

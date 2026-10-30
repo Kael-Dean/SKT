@@ -171,6 +171,7 @@ const PERSONAL_KEYS = [
   "e_contact",
   "line_id",
   "bank_no",
+  "guarantee_bank_no",
   "underlying_disease",
 ]
 
@@ -415,6 +416,9 @@ export function PersonalStep({ data, handlers, onBack, onReport }) {
           help={<p className={helpTextCls}>บัญชีที่ใช้รับเงินเดือน</p>}
         >
           {text("bank_no", { inputMode: "numeric", inputClassName: "tabular-nums" })}
+        </Field>
+        <Field id="ob-guarantee_bank_no" label="เลขบัญชีค้ำประกัน" optional {...field("guarantee_bank_no")}>
+          {text("guarantee_bank_no", { inputMode: "numeric", inputClassName: "tabular-nums" })}
         </Field>
       </div>
 

@@ -11,8 +11,8 @@ import EmployeePositionCard from "../../components/hr/EmployeePositionCard"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
 import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
-import { fmtDaysUnit } from "../../lib/leaveDays"
-import { isAnnualLeave, isPrescribedLeave, useLeaveBalance } from "../../lib/leaveTypes"
+import { useLeaveBalance } from "../../lib/leaveTypes"
+import LeaveBalancePanel from "../../components/hr/LeaveBalancePanel"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
@@ -405,17 +405,7 @@ export default function HRPersonnelDetail() {
       {Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
           <SectionTitle>สิทธิ์การลา (ปีงบประมาณ {quota.year})</SectionTitle>
-          <InfoRow label={leaveRows?.find((r) => isAnnualLeave(r.name))?.name ?? "ลาพักผ่อน"} value={fmtDaysUnit(quota.annual_leave)} />
-          <InfoRow label="ยกมาจากปีก่อน" value={fmtDaysUnit(quota.annual_leave_carried_over)} />
-          {leaveRows === null && <Skeleton className="mt-2 h-24 rounded-xl" />}
-          {leaveRows?.filter((r) => !isAnnualLeave(r.name)).map((r) => (
-            <InfoRow
-              key={r.id ?? r.name}
-              label={r.name}
-              value={isPrescribedLeave(r.name) ? "ตามแพทย์สั่ง (ไม่จำกัดวัน)" : fmtDaysUnit(r.quota)}
-            />
-          ))}
-          {leaveRowsError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">โหลดสิทธิ์การลาแต่ละประเภทไม่สำเร็จ ลองเปิดหน้านี้ใหม่</p>}
+          <LeaveBalancePanel quota={quota} rows={leaveRows} error={leaveRowsError} />
         </div>
       )}
 

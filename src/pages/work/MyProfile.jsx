@@ -13,8 +13,8 @@ import AttachmentList from "../../components/AttachmentList"
 import useFileUploads from "../../hooks/useFileUploads"
 import { hasNewValue, isResolvedStatus } from "../../lib/issueReports"
 import DateInput from "../../components/ThaiDateField"
-import { fmtDays, parseDays } from "../../lib/leaveDays"
-import { isAnnualLeave, isPrescribedLeave, useLeaveBalance } from "../../lib/leaveTypes"
+import { useLeaveBalance } from "../../lib/leaveTypes"
+import LeaveBalancePanel from "../../components/hr/LeaveBalancePanel"
 import lineIcon from "../../assets/line-icon.png"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
@@ -498,58 +498,15 @@ export default function MyProfile() {
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
           <SectionTitle>สิทธิ์การลา ปีงบประมาณ {quota.year}</SectionTitle>
 
-          {/* ลาพักผ่อน: สิทธิ์ปีนี้ + ยกมาจากปีก่อน = สิทธิ์รวม — อ่านแบบเดียวกับงบดุลของสหกรณ์ */}
-          <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 p-4 mb-3">
-            <p className="text-xs font-semibold text-indigo-900 dark:text-indigo-200 mb-2">
-              {leaveRows?.find((r) => isAnnualLeave(r.name))?.name ?? "ลาพักผ่อน"}
-            </p>
-            <div className="space-y-1 text-sm">
-              <div className="flex items-baseline justify-between">
-                <span className="text-gray-600 dark:text-gray-400">สิทธิ์ปีนี้</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">{fmtDays(quota.annual_leave)} วัน</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-gray-600 dark:text-gray-400">ยกมาจากปีก่อน</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100 tabular-nums">{fmtDays(quota.annual_leave_carried_over)} วัน</span>
-              </div>
-              <div className="flex items-baseline justify-between border-t border-indigo-200/70 dark:border-indigo-800/60 pt-1 mt-1">
-                <span className="font-semibold text-indigo-900 dark:text-indigo-200">สิทธิ์รวม</span>
-                <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
-                  {fmtDays((parseDays(quota.annual_leave) ?? 0) + (parseDays(quota.annual_leave_carried_over) ?? 0))} วัน
-                </span>
-              </div>
-            </div>
-            {parseDays(quota.annual_leave) === 0 && (
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                พนักงานที่บรรจุระหว่างปีงบประมาณจะยังไม่มีสิทธิ์ลาพักผ่อนในปีแรก
-              </p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-2">
-            {leaveRows === null
-              ? Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[84px] rounded-xl" />)
-              : leaveRows.filter((r) => !isAnnualLeave(r.name)).map((r) => (
-                  <div key={r.id ?? r.name} className="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-3 text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{r.name}</p>
-                    {isPrescribedLeave(r.name) ? (
-                      <>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 mt-1.5">ตามแพทย์สั่ง</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">ไม่จำกัดวัน</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-lg font-bold text-gray-800 dark:text-gray-100 mt-0.5 tabular-nums">{fmtDays(r.quota)}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">วัน/ปี</p>
-                      </>
-                    )}
-                  </div>
-                ))}
-          </div>
-          {leaveRowsError && <p className={cx(errorTextCls, "mt-2")}>โหลดสิทธิ์การลาแต่ละประเภทไม่สำเร็จ ลองเปิดหน้านี้ใหม่</p>}
+          <LeaveBalancePanel
+            quota={quota}
+            rows={leaveRows}
+            error={leaveRowsError}
+            newHireNote="พนักงานที่บรรจุระหว่างปีงบประมาณจะยังไม่มีสิทธิ์ลาพักผ่อนในปีแรก"
+          />
 
           <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
-            ตัวเลขข้างต้นคือสิทธิ์ทั้งปี วันคงเหลือคำนวณจากใบลาที่อนุมัติแล้วในปีงบประมาณเดียวกัน
+            วันที่ใช้ไปและคงเหลือนับจากใบลาที่อนุมัติแล้วในปีงบประมาณนี้
             ลาเกินสิทธิ์ทำได้ โดยวันที่ลาเกินสิทธิ์จะถูกงดจ่ายเงินเดือน (งดจ่าย ลาเกินสิทธิ์)
           </p>
         </div>

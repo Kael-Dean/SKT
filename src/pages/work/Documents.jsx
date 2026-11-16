@@ -1741,15 +1741,7 @@ function Documents() {
 
       <div className="w-full p-5 md:p-6 lg:p-8">
         
-        {/* Header - เอาปุ่มเลือก Mode ทั้ง 3 อันด้านบนออกไปแล้ว */}
-        <div className="mb-8 flex items-center gap-3">
-          <PageTitle title="คลังเอกสาร & รายงาน" />
-          {!loadingOptions && !loadingSpecs && !branchLoadFailed && !specLoadFailed && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-300/90 dark:ring-emerald-400/20">
-              พร้อมใช้งาน
-            </span>
-          )}
-        </div>
+        <PageTitle title="คลังเอกสาร & รายงาน" />
 
         {/* --- หน้าแรก: กล่องหมวดหมู่ 3 กล่อง พร้อม Dropdown ประจำกล่อง --- */}
         {!reportObj && (

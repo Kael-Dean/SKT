@@ -42,7 +42,7 @@ const SMALL_ZOOM = 1.3
 
 // /mascot/* is cached for a day and has no hashed name. Bump this whenever the art
 // changes, or returning browsers keep showing the previous version.
-const MASCOT_VERSION = "8.9"
+const MASCOT_VERSION = "9.0"
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}?v=${MASCOT_VERSION}`
 
 // Can this page compile WebAssembly at all? A CSP without 'wasm-unsafe-eval' in

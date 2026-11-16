@@ -37,7 +37,7 @@ function SectionTitle({ children }) {
 
 function Field({ label, required, children }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <label className={labelCls}>
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>

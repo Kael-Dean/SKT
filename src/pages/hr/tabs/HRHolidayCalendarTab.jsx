@@ -574,13 +574,13 @@ export default function HRHolidayCalendarTab({ readOnly = false }) {
               </p>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">จากปีงบประมาณ</label>
                   <input type="number" min={2560} max={2599} value={copyForm.from_fiscal_year}
                     onChange={(e) => setCopyForm((f) => ({ ...f, from_fiscal_year: e.target.value }))}
                     className={`${inputCls} tabular-nums`} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ไปยังปีงบประมาณ</label>
                   <input type="number" min={2560} max={2599} value={copyForm.to_fiscal_year}
                     onChange={(e) => setCopyForm((f) => ({ ...f, to_fiscal_year: e.target.value }))}

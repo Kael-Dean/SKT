@@ -195,7 +195,7 @@ function ChoiceGroup({ id, legend, name, value, options, onChange, error }) {
 
 function Field({ id, label, required, error, hint, children }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}
         {required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}

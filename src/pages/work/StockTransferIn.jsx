@@ -612,7 +612,7 @@ function StockTransferIn() {
 
             {/* แถวที่ 1: น้ำหนักเข้า/ออก/สุทธิ */}
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="weight_in" className={labelCls}>น้ำหนักชั่งเข้า (กก.)</label>
                 <input
                   id="weight_in"
@@ -688,7 +688,7 @@ function StockTransferIn() {
 
             {/* แถวที่ 2: คุณภาพ & สิ่งเจือปน */}
             <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="dest_quality" className={labelCls}>คุณภาพ <span className="text-red-500">*</span></label>
                 <input
                   id="dest_quality"

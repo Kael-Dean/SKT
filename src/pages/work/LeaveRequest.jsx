@@ -235,7 +235,7 @@ function Field({ label, required, children, className = "" }) {
     return c
   })
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex min-w-0 flex-col gap-1 ${className}`}>
       <label htmlFor={controlId} className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}
         {required && <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>}

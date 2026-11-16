@@ -49,7 +49,7 @@ const trailerIsEmpty = (t = {}) => Object.values(t).every((v) => String(v ?? "")
 /** `htmlFor` = the control's id; `errorId` = id for the error text (pair it with the control's aria-describedby). */
 function Field({ label, children, hint, error, htmlFor, errorId }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className={labelCls} htmlFor={htmlFor}>{label}</label>
       {children}
       {hint && !error && <p className={helpTextCls}>{hint}</p>}

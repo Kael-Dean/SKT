@@ -61,7 +61,7 @@ const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 function Field({ label, required, children }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>

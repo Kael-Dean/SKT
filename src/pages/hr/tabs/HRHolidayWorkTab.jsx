@@ -229,14 +229,14 @@ export default function HRHolidayWorkTab() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
                     รหัสพนักงาน <span className="text-red-500">*</span>
                   </label>
                   <input type="text" value={form.user_id} onChange={(e) => setForm((f) => ({ ...f, user_id: e.target.value }))}
                     className={`${inputCls} tabular-nums`} placeholder="เช่น 1001" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
                     วันที่ทำงาน <span className="text-red-500">*</span>
                   </label>

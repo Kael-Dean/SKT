@@ -508,44 +508,47 @@ function RiceSpecCreate() {
           )}
           </>
           )}
+
+          {/* ปุ่ม ≥md — อยู่ท้ายการ์ดฟอร์มเหมือนหน้าฟอร์มอื่น (submitRef อยู่ใน Enter chain) */}
+          {!isPhone && (
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              ref={submitRef}
+              disabled={submitting}
+              onClick={submit}
+              className={submitBtnCls}
+              aria-busy={submitting ? "true" : "false"}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  submit()
+                }
+              }}
+            >
+              {submitting && <span className={spinnerCls} aria-hidden="true" />}
+              {submitting ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+  
+            <button
+              type="button"
+              onClick={reset}
+              disabled={submitting}
+              className={resetBtnCls}
+            >
+              รีเซ็ต
+            </button>
+          </div>
+          )}
         </Card>
 
-        {/* ปุ่ม — <md: แถบติดล่าง (UI-SPEC §7) · ≥md: ปุ่มเดิม (submitRef อยู่ใน Enter chain) */}
-        {isPhone ? (
+        {/* ปุ่ม <md — แถบติดล่าง (UI-SPEC §7) */}
+        {isPhone && (
           <StickyActionBar
             summary={<p className="truncate text-gray-900 dark:text-gray-100">{previewName || "ยังไม่ได้เลือกสเปค"}</p>}
             secondary={{ label: "ล้างฟอร์ม", onClick: reset, disabled: submitting }}
             primary={{ label: submitting ? "กำลังบันทึก…" : "บันทึก", onClick: submit, loading: submitting }}
           />
-        ) : (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            ref={submitRef}
-            disabled={submitting}
-            onClick={submit}
-            className={submitBtnCls}
-            aria-busy={submitting ? "true" : "false"}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                submit()
-              }
-            }}
-          >
-            {submitting && <span className={spinnerCls} aria-hidden="true" />}
-            {submitting ? "กำลังบันทึก..." : "บันทึก"}
-          </button>
-
-          <button
-            type="button"
-            onClick={reset}
-            disabled={submitting}
-            className={resetBtnCls}
-          >
-            รีเซ็ต
-          </button>
-        </div>
         )}
 
         {/* ผลลัพธ์ */}

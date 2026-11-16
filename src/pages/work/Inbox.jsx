@@ -567,8 +567,8 @@ export default function Inbox() {
     const text = {
       approve: `${STAGE_APPROVE_LABEL[stageOf(item.req)] || "อนุมัติ"}คำขอของ ${item.name} แล้ว`,
       reject: `ไม่อนุมัติคำขอของ ${item.name} แล้ว`,
-      justified: `บันทึกผลตรวจ "สมเหตุสมผล" ของ ${item.name} แล้ว`,
-      unjust: `บันทึกผลตรวจ "ไม่สมเหตุสมผล" ของ ${item.name} แล้ว · แจ้งผู้ยื่นและฝ่าย HR แล้ว`,
+      justified: `บันทึกผลตรวจ "อนุมัติ" ของ ${item.name} แล้ว`,
+      unjust: `บันทึกผลตรวจ "ไม่อนุมัติ" ของ ${item.name} แล้ว · แจ้งผู้ยื่นและฝ่าย HR แล้ว`,
     }[mode]
     setBanner({ tone: "success", text })
     requestNotificationsRefresh()

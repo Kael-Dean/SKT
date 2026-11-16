@@ -857,7 +857,7 @@ export default function OutOfOffice() {
                         </div>
                         {r.justification === "unjust" && r.justification_note && (
                           <p className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs text-rose-700 break-words dark:bg-rose-900/20 dark:text-rose-300">
-                            ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                            ผลตรวจ ไม่อนุมัติ: {r.justification_note}
                           </p>
                         )}
                         <p className="text-sm text-gray-700 dark:text-gray-300 break-words">

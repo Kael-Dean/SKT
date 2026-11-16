@@ -155,7 +155,7 @@ export function canDecide(req, kind = KIND.LEAVE) {
  * Why the current user cannot act on a request (null when they can).
  * Used for the small hint shown instead of the buttons.
  */
-/** ตรวจสอบ (สมเหตุสมผล / ไม่สมเหตุสมผล) ได้ไหม — เฉพาะ stage awaiting_check + can_act */
+/** ตรวจสอบ (อนุมัติ / ไม่อนุมัติ) ได้ไหม — เฉพาะ stage awaiting_check + can_act */
 export function canCheck(req) {
   return !!req && stageOf(req) === STAGE.AWAITING_CHECK && req.can_act === true
 }
@@ -218,12 +218,12 @@ export function rejectRequest(kind, req, reason) {
 
 /**
  * ตรวจสอบคำขอที่อนุมัติแล้ว: POST …/{id}/check {justified, note}
- * ไม่สมเหตุสมผล ต้องมีเหตุผล (backend 422 ถ้าไม่มี) · ผลเป็นที่สุด ไม่มียกเลิก
+ * ไม่อนุมัติ ต้องมีเหตุผล (backend 422 ถ้าไม่มี) · ผลเป็นที่สุด ไม่มียกเลิก
  */
 export function checkRequest(kind, req, justified, note) {
   const text = typeof note === "string" ? note.trim() : ""
   if (!justified && !text) {
-    return Promise.reject(Object.assign(new Error("ต้องระบุเหตุผลเมื่อบันทึกว่าไม่สมเหตุสมผล"), { status: 0 }))
+    return Promise.reject(Object.assign(new Error("ต้องระบุเหตุผลเมื่อบันทึกว่าไม่อนุมัติ"), { status: 0 }))
   }
   const base = kind === KIND.OOO ? "/hr/out-of-office" : "/hr/leave-requests"
   return apiAuth(`${base}/${req.id}/check`, { method: "POST", body: { justified: !!justified, note: text || null } })

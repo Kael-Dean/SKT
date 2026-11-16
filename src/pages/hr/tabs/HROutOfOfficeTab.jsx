@@ -128,8 +128,8 @@ function RequestsPanel({ branchOptions, branchName }) {
     const text = {
       approve: `อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
       reject: `ไม่อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
-      justified: `บันทึกผลตรวจ "สมเหตุสมผล" ของ ${requesterName(req)} แล้ว`,
-      unjust: `บันทึกผลตรวจ "ไม่สมเหตุสมผล" ของ ${requesterName(req)} แล้ว`,
+      justified: `บันทึกผลตรวจ "อนุมัติ" ของ ${requesterName(req)} แล้ว`,
+      unjust: `บันทึกผลตรวจ "ไม่อนุมัติ" ของ ${requesterName(req)} แล้ว`,
     }[mode]
     setBanner({ tone: "success", text })
     requestNotificationsRefresh()

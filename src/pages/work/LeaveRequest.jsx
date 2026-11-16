@@ -1093,7 +1093,7 @@ export default function LeaveRequest() {
                   )}
                   {r.justification === "unjust" && r.justification_note && (
                     <p className="text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-1.5">
-                      ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                      ผลตรวจ ไม่อนุมัติ: {r.justification_note}
                     </p>
                   )}
                   {(r.status === "rejected" || r.status === "denied") && (r.reject_reason || r.hr_comment) ? (

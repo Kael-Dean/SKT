@@ -64,7 +64,7 @@ export default function HRLeaveTab() {
   const onDecisionDone = (mode) => {
     const r = decision.req
     setDecision(null)
-    const what = { approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]
+    const what = { approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ อนุมัติ ของ", unjust: "บันทึกผลตรวจ ไม่อนุมัติ ของ" }[mode]
     setBanner({
       tone: "success",
       text: `${what}ใบลาของ ${requesterName(r)} แล้ว`,
@@ -195,7 +195,7 @@ export default function HRLeaveTab() {
                   )}
                   {r.justification === "unjust" && r.justification_note && (
                     <p className="text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-1.5">
-                      ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                      ผลตรวจ ไม่อนุมัติ: {r.justification_note}
                     </p>
                   )}
                   {historyId === r.id && (

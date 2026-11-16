@@ -77,7 +77,7 @@ export default function HRLeaveManagement() {
     setDecision(null)
     setBanner({
       tone: "success",
-      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]}ใบลาของ ${requesterName(r)} แล้ว`,
+      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ อนุมัติ ของ", unjust: "บันทึกผลตรวจ ไม่อนุมัติ ของ" }[mode]}ใบลาของ ${requesterName(r)} แล้ว`,
     })
     requestNotificationsRefresh()
     fetchRequests()

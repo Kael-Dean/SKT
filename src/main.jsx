@@ -26,6 +26,12 @@ function migrateHashUrl() {
   return true
 }
 if (!DEMO) {
+  // `_r` = cache-buster added by public/boot-guard.js / hardReload() — drop it before the router reads the URL
+  const url = new URL(window.location.href)
+  if (url.searchParams.has('_r')) {
+    url.searchParams.delete('_r')
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+  }
   migrateHashUrl()
   // วางลิงก์ /#/... ในแท็บที่อยู่หน้าเดียวกันอยู่แล้ว = เปลี่ยนแค่ hash ไม่ reload → แปลงแล้วแจ้ง router (ฟัง popstate)
   window.addEventListener('hashchange', () => {
@@ -58,3 +64,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </Router>
   </React.StrictMode>
 )
+// bundle ran → tell public/boot-guard.js not to recover
+window.__amcBooted = true

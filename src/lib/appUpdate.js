@@ -14,6 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect } from "react"
 import { toast } from "../components/ui/toast"
+import { hardReload } from "./chunkReload"
 
 const CHECK_INTERVAL_MS = 60_000
 const TOAST_ID = "app-update"
@@ -41,7 +42,8 @@ function showUpdateToast() {
     id: TOAST_ID,
     description: "รีเฟรชหน้าเพื่อใช้งานเวอร์ชันล่าสุด — บันทึกข้อมูลที่กรอกค้างไว้ก่อนรีเฟรช",
     duration: Infinity,
-    action: { label: "รีเฟรชตอนนี้", onClick: () => window.location.reload() },
+    // plain reload() can get the old index.html back from the CDN cache → stuck boot screen
+    action: { label: "รีเฟรชตอนนี้", onClick: hardReload },
   })
 }
 

@@ -32,8 +32,19 @@ export function reloadOnceForStaleChunk() {
     // sessionStorage ใช้ไม่ได้ (private mode บางเบราว์เซอร์) → ไม่ reload กันวนไม่รู้จบ
     return false
   }
-  window.location.reload()
+  hardReload()
   return true
+}
+
+/**
+ * Reload with a fresh `_r` query so the CDN / HTTP cache can't hand back the
+ * pre-deploy index.html (whose asset hashes are gone → stuck boot screen).
+ * src/main.jsx strips `_r` again before the router reads the URL.
+ */
+export function hardReload() {
+  const url = new URL(window.location.href)
+  url.searchParams.set("_r", String(Date.now()))
+  window.location.replace(url.pathname + url.search + url.hash)
 }
 
 let installed = false

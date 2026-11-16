@@ -1,7 +1,7 @@
 // src/pages/MemberTermination.jsx
 import { useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth } from "../../lib/api" // ✅ แนบ token อัตโนมัติ + JSON ให้แล้ว
-import { cx, baseField, labelCls, helpTextCls, errorTextCls } from "../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, segmentedCls, segmentedItemCls, segmentedItemActiveCls } from "../../lib/styles"
 import { ErrorState, ConfirmDialog, toast } from "../../components/ui"
 import DateInput from "../../components/ThaiDateField"
 import PageTitle from "../../components/PageTitle"
@@ -50,53 +50,11 @@ function SectionCard({ title, subtitle, children, className = "" }) {
 /** ---------- DateInput (สไตล์เดียวกับ MemberSignup.last_bought_date) ---------- */
 // ช่องวันที่ไทย (วัน เดือน พ.ศ.) ตัวกลาง — API เหมือน input เดิม (handoff F25)
 
-/** ---------- การ์ดเลือกโหมด (toggle style) ---------- */
-function ChoiceCard({ active = false, icon, label, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cx(
-        "group relative flex items-center gap-4 rounded-3xl border p-4 sm:p-5 min-h-[78px] w-full text-left transition-all",
-        "border-slate-200 bg-white/85 shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
-        "hover:border-emerald-300/70 hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
-        "dark:border-slate-700 dark:bg-slate-700/40",
-        active
-          ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)] bg-emerald-50/60 dark:ring-emerald-500 dark:bg-emerald-400/10"
-          : "ring-0"
-      )}
-    >
-      <span
-        className={cx(
-          "relative inline-flex h-8 w-14 flex-shrink-0 items-center rounded-full transition-colors",
-          active ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
-        )}
-        aria-hidden="true"
-      >
-        <span
-          className={cx(
-            "inline-block h-7 w-7 transform rounded-full bg-white shadow transition",
-            "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
-            active ? "translate-x-7" : "translate-x-1",
-            "group-hover:scale-105"
-          )}
-        />
-      </span>
-      <div className="flex items-center gap-3">
-        <span className="text-xl">{icon}</span>
-        <span className="text-[15px] md:text-base font-semibold text-slate-800 dark:text-slate-100">{label}</span>
-      </div>
-      <span
-        className={cx(
-          "pointer-events-none absolute inset-0 rounded-3xl transition-opacity",
-          "bg-emerald-100/30 dark:bg-emerald-400/10",
-          active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-        )}
-        aria-hidden="true"
-      />
-    </button>
-  )
-}
+/** ---------- ตัวเลือกประเภทการสิ้นสภาพ (segmented — เลือกได้อย่างเดียว) ---------- */
+const MODE_OPTIONS = [
+  { value: "resigned", label: "ลาออก" },
+  { value: "passed", label: "เสียชีวิต" },
+]
 
 /** ---------- หน้า MemberTermination ---------- */
 function MemberTermination() {
@@ -329,21 +287,27 @@ function MemberTermination() {
 
         {/* เลือกโหมด */}
         <SectionCard title="ประเภทการสิ้นสภาพ" className="mb-6">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ChoiceCard
-              active={mode === "resigned"}
-              icon=""
-              label="ลาออก"
-              onClick={() => { setMode("resigned"); setErrors((p) => ({ ...p, mode: undefined })) }}
-            />
-            <ChoiceCard
-              active={mode === "passed"}
-              icon=""
-              label="เสียชีวิต"
-              onClick={() => { setMode("passed"); setErrors((p) => ({ ...p, mode: undefined })) }}
-            />
+          <div
+            role="radiogroup"
+            aria-label="ประเภทการสิ้นสภาพ"
+            aria-invalid={errors.mode ? true : undefined}
+            aria-describedby={errors.mode ? "mode-error" : undefined}
+            className={cx(segmentedCls, "mt-3 md:max-w-sm", errors.mode && "!ring-red-500 dark:!ring-red-400")}
+          >
+            {MODE_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={mode === o.value}
+                onClick={() => { setMode(o.value); setErrors((p) => ({ ...p, mode: undefined })) }}
+                className={cx(segmentedItemCls, "md:!text-base", mode === o.value && segmentedItemActiveCls)}
+              >
+                {o.label}
+              </button>
+            ))}
           </div>
-          {errors.mode && <p className={errorTextCls}>{errors.mode}</p>}
+          {errors.mode && <p id="mode-error" className={errorTextCls}>{errors.mode}</p>}
         </SectionCard>
 
         {/* ค้นหา/เลือกสมาชิก */}

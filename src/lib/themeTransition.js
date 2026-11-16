@@ -47,16 +47,20 @@ export function switchTheme(setDarkMode, originEl) {
   root.dataset.themeTransition = next ? "to-dark" : "to-light"
   inflight++
   const vt = document.startViewTransition(apply)
+  let clip = null
 
   vt.ready
     .then(() => {
       const small = `circle(0px at ${x}px ${y}px)`
       const big = `circle(${radius}px at ${x}px ${y}px)`
-      root.animate(
+      clip = root.animate(
         { clipPath: next ? [small, big] : [big, small] },
         {
           duration: DURATION,
           easing: next ? EASE_IN : EASE_OUT,
+          // ต้องค้างที่เฟรมสุดท้าย: ไม่งั้นเฟรมก่อน transition ถูกรื้อ clip-path หลุด
+          // → ภาพเก่า (มืด) ที่อยู่ชั้นบนตอนสลับเป็นสว่างโผล่เต็มจอ = จอกระพริบ
+          fill: "forwards",
           pseudoElement: next ? "::view-transition-new(root)" : "::view-transition-old(root)",
         },
       )
@@ -65,6 +69,7 @@ export function switchTheme(setDarkMode, originEl) {
 
   vt.finished.catch(() => {}).finally(() => {
     inflight--
+    clip?.cancel()
     // transition ใหม่ที่เริ่มทับอาจตั้งค่าไว้แล้ว — ลบเฉพาะของรอบนี้
     if (root.dataset.themeTransition === (next ? "to-dark" : "to-light")) delete root.dataset.themeTransition
   })

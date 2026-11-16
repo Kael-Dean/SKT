@@ -423,7 +423,7 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
   )
 
   return (
-    <div ref={wrapRef} className={cx("relative", widthCls)}>
+    <div ref={wrapRef} className={cx("relative min-w-0 max-w-full", widthCls)}>
       <button
         ref={triggerRef}
         id={id}
@@ -443,7 +443,7 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
           error && fieldErrorCls,
         )}
       >
-        <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}>
+        <span className={cx("min-w-0 truncate", value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500")}>
           {formatDisplay(value) || placeholder}
         </span>
         <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />

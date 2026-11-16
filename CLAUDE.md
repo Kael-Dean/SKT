@@ -168,6 +168,11 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
   รองรับ `id`, `ref`, `className`, `disabled`, `min`, `max`, `error`/`aria-invalid`, `aria-describedby`, `placeholder`. ทั้งช่องเป็นปุ่มเดียว
   กดตรงไหนก็เปิดปฏิทิน (desktop = popover portal z 10050, มือถือ = Sheet), แสดง วัน เดือน พ.ศ. ให้อัตโนมัติ.
   ในโฟลเดอร์ `buy/` / `sales/` import ผ่าน `./DateInput` ได้ (re-export ตัวเดียวกัน). เช็คก่อนปิดงาน: `grep -rn 'type="date"' src --include=*.jsx` ต้องไม่เจอ
+- **ช่องกรอก/ดรอปดาวห้ามล้นกรอบบนมือถือ** (บั๊กจริง พ.ย. 2026: ช่อง "วันที่ลา" ในใบลาบน iPhone ยื่นเลยการ์ด) —
+  iOS Safari ให้ native `<input type="date|time|month">` มี min-width ในตัว ไม่ยอมหดตาม `w-full` และตอนว่างกลายเป็นกล่องเปล่า.
+  มี guard กลางใน `src/index.css` (`appearance:none` + `min-width:0; max-width:100%`) แล้ว — ห้ามลบ.
+  เวลาสร้างช่อง/trigger ใหม่: ใส่ `min-w-0` ที่ wrapper + ข้อความใน trigger ใช้ `min-w-0 truncate`, ลูกของ `grid`/`flex` ที่มีช่องกรอกต้องหดได้ (`min-w-0`).
+  ช่องเวลา (`type="time"`) ที่ยังเหลือ: `OutOfOffice`, `HROutOfOfficeTab`, `MyDiscipline`, `ProfitResultPanel` (`type="month"`). ก่อนปิดงานเช็คที่ 375px ว่าไม่มีช่องไหนเกินขอบการ์ด
 - **ดรอปดาวที่ค้นหาชื่อได้ = หน้าตาแบบเลือกจังหวัด (`ComboBox`) ทุกจุด** — ปุ่ม trigger + ช่องค้นหาใน panel, มือถือเปิดเป็น picker sheet. `SelectDropdown searchable` ส่งต่อให้ `ComboBox` อัตโนมัติ. รายการที่ต้องค้นที่ server ใช้ `remoteSearch` + `searching` / `searchFailed` + `onQueryChange`; ช่องไม่บังคับที่ต้องล้างค่าได้ใส่ `onClear`. ห้ามเขียน input + รายการผลค้นหาเองเป็นดรอปดาวอีก
 
 ### Mobile (<768px) — กฎหลัง mobile overhaul (ต.ค. 2026)

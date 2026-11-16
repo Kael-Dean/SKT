@@ -644,6 +644,25 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
    important declarations, so this beats the `md:!text-sm` / `!text-*` utilities
    that an unlayered normal rule loses to. */
 @layer base {
+  /* iOS Safari: native date/time/month inputs keep an intrinsic min-width and ignore
+     width:100% → the box runs past its card (bug พ.ย. 2026: "วันที่ลา" ในใบลาบนมือถือ).
+     When empty they also collapse to a blank box. Reset appearance + allow shrinking.
+     Same guard for <select>. New date pickers must still use ThaiDateField. */
+  input[type="date"], input[type="time"], input[type="month"],
+  input[type="datetime-local"], input[type="week"], select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  input[type="date"], input[type="time"], input[type="month"],
+  input[type="datetime-local"], input[type="week"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+  }
+
   @media (max-width: 767.98px), (pointer: coarse) {
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.cell-input),
     select:not(.cell-input),

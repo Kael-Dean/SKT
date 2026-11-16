@@ -12,7 +12,7 @@ import { currentPositionLabel } from "../../components/hr/positionUtils"
 import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
 import { useLeaveBalance } from "../../lib/leaveTypes"
-import LeaveBalancePanel from "../../components/hr/LeaveBalancePanel"
+import LeaveRegisterTable from "../../components/hr/LeaveRegisterTable"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
@@ -421,8 +421,11 @@ export default function HRPersonnelDetail() {
       {/* สิทธิ์การลา — LeaveQuotaOut (backend v1.1.0) */}
       {Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
-          <SectionTitle>สิทธิ์การลา (ปีงบประมาณ {quota.year})</SectionTitle>
-          <LeaveBalancePanel quota={quota} rows={leaveRows} error={leaveRowsError} />
+          <SectionTitle>ทะเบียนการลา (ปีงบประมาณ {quota.year})</SectionTitle>
+          <LeaveRegisterTable quota={quota} rows={leaveRows} error={leaveRowsError} />
+          <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
+            หน่วยเป็นวัน · นับจากใบลาที่อนุมัติแล้วในปีงบประมาณนี้ วันที่ลาเกินสิทธิ์จะถูกงดจ่ายเงินเดือน
+          </p>
         </div>
       )}
 

@@ -107,65 +107,99 @@ function Criteria({ c, className }) {
 }
 
 function entitledCell(r) {
-  if (r.prescribed) return <span className="text-xs text-gray-500 dark:text-gray-400">ตามแพทย์สั่ง</span>
+  if (r.prescribed) return <span className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">ตามแพทย์สั่ง</span>
   if (r.absence) return <Dash />
   return <Num v={r.entitled} />
 }
 
+/** หลักเกณฑ์แบบบรรทัดเดียว (ตาราง desktop) — ให้ทั้งทะเบียนอยู่ในจอเดียว */
+function CriteriaInline({ c }) {
+  if (!c) return <Dash />
+  return (
+    <p className="text-xs leading-snug text-gray-600 dark:text-gray-400">
+      {c.rules.join(" · ")}
+      {c.cert && (
+        <span className="ml-1.5 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-gray-100 dark:bg-white/5 px-1.5 py-px align-[1px] text-[11px] font-medium text-gray-600 dark:text-gray-300">
+          <FileText aria-hidden="true" className="size-3" />
+          ใบรับรองแพทย์{typeof c.cert === "string" ? ` (${c.cert})` : ""}
+        </span>
+      )}
+    </p>
+  )
+}
+
 /* ───────────── desktop: ตาราง ───────────── */
 
-const TH = "px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
-const TD = "px-3 py-3 align-top text-sm text-right"
+// เส้นแบ่งคอลัมน์ทุกช่อง + แถวสลับสี → อ่านตามคอลัมน์ได้ชัดแบบทะเบียนกระดาษ
+const LINE = "border-gray-200 dark:border-line"
+const VLINE = cx("border-l", LINE)
+const TH = "px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap"
+const TD = cx("px-3 py-2 align-middle text-sm text-right", VLINE)
+const NUM_COLS = ["สิทธิ์", "ยกมา", "ลาแล้ว", "คงเหลือ", "เกินสิทธิ์ (งดจ่าย)"]
 
 function RegisterTable({ rows, year }) {
   return (
-    <div className="overflow-x-auto -mx-5 px-5">
-      <table className="w-full min-w-[760px] border-separate border-spacing-0">
+    <div className={cx("overflow-x-auto rounded-xl border", LINE)}>
+      <table className="w-full min-w-[880px] table-fixed border-separate border-spacing-0">
         <caption className="sr-only">ทะเบียนการลา ปีงบประมาณ {year} หน่วยเป็นวัน</caption>
-        <thead>
+        <colgroup>
+          <col className="w-44" />
+          <col className="w-24" />
+          <col className="w-20" />
+          <col className="w-24" />
+          <col className="w-20" />
+          <col className="w-32" />
+          <col />
+        </colgroup>
+        <thead className="bg-gray-50 dark:bg-white/[0.04]">
           <tr>
-            <th rowSpan={2} scope="col" className={cx(TH, "text-left align-bottom border-b border-gray-200 dark:border-line w-[22%]")}>
+            <th rowSpan={2} scope="col" className={cx(TH, "text-left align-middle border-b", LINE)}>
               ประเภท
             </th>
-            <th colSpan={5} scope="colgroup" className={cx(TH, "text-center border-b border-gray-100 dark:border-line font-medium")}>
-              <span className="rounded-full bg-indigo-50 dark:bg-indigo-500/10 px-2.5 py-0.5 text-indigo-700 dark:text-indigo-300">
-                ประจำปี {year}
-              </span>
+            <th colSpan={5} scope="colgroup" className={cx(TH, "py-1.5 text-center border-b", VLINE, LINE, "bg-indigo-50/70 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300")}>
+              ประจำปี {year}
             </th>
-            <th rowSpan={2} scope="col" className={cx(TH, "text-left align-bottom border-b border-gray-200 dark:border-line pl-6")}>
+            <th rowSpan={2} scope="col" className={cx(TH, "text-left align-middle border-b", VLINE, LINE)}>
               หลักเกณฑ์
             </th>
           </tr>
           <tr>
-            {["สิทธิ์", "ยกมา", "ลาแล้ว", "คงเหลือ", "เกินสิทธิ์ (งดจ่าย)"].map((h) => (
-              <th key={h} scope="col" className={cx(TH, "text-right border-b border-gray-200 dark:border-line")}>
+            {NUM_COLS.map((h, i) => (
+              <th key={h} scope="col" className={cx(TH, "text-right border-b", VLINE, LINE, i === 3 && "text-indigo-700 dark:text-indigo-300")}>
                 {h}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, i) => {
             const touched = r.used > 0
+            const last = i === rows.length - 1
+            const rowLine = last ? "" : cx("border-b", LINE)
             return (
-              <tr key={r.key} className="group transition-colors duration-200 hover:bg-gray-50/80 dark:hover:bg-white/[0.03]">
-                <th scope="row" className="px-3 py-3 align-top text-left border-b border-gray-100 dark:border-line">
-                  <span className={cx("text-sm", touched ? "font-semibold text-gray-900 dark:text-gray-100" : "font-medium text-gray-700 dark:text-gray-300")}>
+              <tr
+                key={r.key}
+                className="transition-colors duration-200 even:bg-gray-50/70 dark:even:bg-white/[0.025] hover:bg-indigo-50/40 dark:hover:bg-indigo-500/[0.06]"
+              >
+                <th scope="row" className={cx("px-3 py-2 align-middle text-left", rowLine)}>
+                  <span className={cx("block truncate text-sm", touched ? "font-semibold text-gray-900 dark:text-gray-100" : "font-medium text-gray-700 dark:text-gray-300")} title={r.name}>
                     {r.name}
                   </span>
                 </th>
-                <td className={cx(TD, "border-b border-gray-100 dark:border-line")}>{entitledCell(r)}</td>
-                <td className={cx(TD, "border-b border-gray-100 dark:border-line")}><Num v={r.carried} /></td>
-                <td className={cx(TD, "border-b border-gray-100 dark:border-line")}>
-                  <Num v={r.used} strong tone={r.absence ? "danger" : undefined} />
-                  {r.capped && touched && <UsageBar used={r.used} cap={r.cap} className="mt-1.5 ml-auto w-12" />}
+                <td className={cx(TD, rowLine)}>{entitledCell(r)}</td>
+                <td className={cx(TD, rowLine)}><Num v={r.carried} /></td>
+                <td className={cx(TD, rowLine)}>
+                  <span className="inline-flex items-center justify-end gap-2">
+                    {r.capped && touched && <UsageBar used={r.used} cap={r.cap} className="w-8" />}
+                    <Num v={r.used} strong tone={r.absence ? "danger" : undefined} />
+                  </span>
                 </td>
-                <td className={cx(TD, "border-b border-gray-100 dark:border-line")}>
+                <td className={cx(TD, rowLine, "bg-indigo-50/40 dark:bg-indigo-500/[0.05]")}>
                   {r.capped ? <Num v={r.remaining} strong tone="accent" /> : <Dash />}
                 </td>
-                <td className={cx(TD, "border-b border-gray-100 dark:border-line")}><Num v={r.over} tone="warn" /></td>
-                <td className="pl-6 pr-3 py-3 align-top border-b border-gray-100 dark:border-line min-w-[240px]">
-                  <Criteria c={r.criteria} className="space-y-1.5" />
+                <td className={cx(TD, rowLine)}><Num v={r.over} tone="warn" /></td>
+                <td className={cx("px-3 py-2 align-middle", VLINE, rowLine)}>
+                  <CriteriaInline c={r.criteria} />
                 </td>
               </tr>
             )

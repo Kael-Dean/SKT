@@ -11,7 +11,7 @@
 // ข้อความที่นี่จึง aria-hidden เพื่อไม่ให้ screen reader อ่านซ้ำ
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Menu, Moon, Sun, X } from "lucide-react";
+import { ChevronLeft, Maximize, Menu, Minimize, Moon, Sun, X } from "lucide-react";
 import { getUser, getRoleId } from "../lib/auth";
 import BranchSwitcher from "./BranchSwitcher";
 import GlobalFunctionSearch from "./GlobalFunctionSearch";
@@ -75,6 +75,24 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
     };
   }, []);
 
+  // Fullscreen toggle (desktop). Browsers only allow entering fullscreen from a click,
+  // so this can't happen on app launch; Esc / F11 leave it and fullscreenchange keeps the icon in sync.
+  const fullscreenSupported = typeof document !== "undefined" && document.fullscreenEnabled === true;
+  const [isFullscreen, setIsFullscreen] = useState(() => typeof document !== "undefined" && !!document.fullscreenElement);
+  useEffect(() => {
+    if (!fullscreenSupported) return;
+    const sync = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, [fullscreenSupported]);
+  const toggleFullscreen = () => {
+    const p = document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.documentElement.requestFullscreen({ navigationUI: "hide" });
+    p?.catch?.(() => {});
+  };
+  const fullscreenLabel = isFullscreen ? "ออกจากโหมดเต็มจอ" : "เต็มจอ";
+
   const toggleLabel = useMemo(
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
@@ -91,9 +109,9 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 pt-safe pl-safe pr-safe backdrop-blur-md transition-colors duration-300 dark:border-line dark:bg-canvas/80"
+      className="wco-titlebar sticky top-0 z-20 border-b border-gray-200/70 bg-white/80 pt-safe pl-safe pr-safe backdrop-blur-md transition-colors duration-300 dark:border-line dark:bg-canvas/80"
     >
-      <div className="flex items-center justify-between gap-2 px-3 py-2 md:gap-4 md:px-6 md:py-3 short-touch:py-1">
+      <div className="wco-titlebar-row flex items-center justify-between gap-2 px-3 py-2 md:gap-4 md:px-6 md:py-3 short-touch:py-1">
 
         {/* Left: back (phone) + hamburger + logo + back/title (desktop) */}
         <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-initial md:gap-4">
@@ -202,6 +220,23 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
               <Moon aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
             )}
           </button>
+
+          {fullscreenSupported && (
+            <button
+              onClick={toggleFullscreen}
+              aria-label={fullscreenLabel}
+              aria-pressed={isFullscreen}
+              title={`${fullscreenLabel} (F11)`}
+              className={`hidden md:inline-flex size-11 md:pointer-fine:size-9 ${chromeBtnBase}`}
+              type="button"
+            >
+              {isFullscreen ? (
+                <Minimize aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+              ) : (
+                <Maximize aria-hidden="true" className="size-[18px]" strokeWidth={1.75} />
+              )}
+            </button>
+          )}
 
           <div className="hidden h-5 w-px bg-gray-200 dark:bg-gray-700 md:block" />
 

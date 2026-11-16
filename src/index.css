@@ -715,3 +715,24 @@ body[data-preview-active] [role="dialog"][aria-labelledby] {
     max-height: calc(100dvh - 7rem) !important;
   }
 }
+
+/* Installed desktop app with the title bar hidden (manifest display_override
+   "window-controls-overlay", Chrome/Edge). The Topbar becomes the window's title bar:
+   empty parts of it drag the window, controls inside stay clickable, and the right
+   end leaves room for the OS ─ ☐ ✕ buttons drawn over the top-right corner.
+   Unlayered on purpose so it beats the row's md:px-6 utility. */
+@media (display-mode: window-controls-overlay) {
+  .wco-titlebar {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .wco-titlebar :is(a, button, input, select, textarea, label, img, [role="button"], [role="combobox"], [tabindex]) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+  .wco-titlebar-row {
+    /* macOS draws the controls on the left (titlebar-area-x > 0), Windows on the right. */
+    padding-left: calc(env(titlebar-area-x, 0px) + 1rem);
+    padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 0.5rem);
+  }
+}

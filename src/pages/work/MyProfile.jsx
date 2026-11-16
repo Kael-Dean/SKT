@@ -21,6 +21,7 @@ import { can, myRoleLabel } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
 import { getTenure, tenureText } from "../../lib/tenure"
+import { ageText } from "../../lib/age"
 import ActivityList from "../../components/hr/ActivityList"
 import { fetchMyActivities } from "../../lib/activities"
 import { apiDetail } from "../../lib/apiErrors"
@@ -376,7 +377,7 @@ export default function MyProfile() {
             <InfoRow label="อายุงาน" value={getTenure(profile) ? tenureText(profile) : null} />
             <InfoRow label="เลขบัตรประชาชน" value={pi.cid ? maskCID(pi.cid) : null} mono />
             <InfoRow label="วันเกิด" value={fmtDate(pi.birthday)} />
-            <InfoRow label="อายุ" value={pi.age != null ? `${pi.age} ปี` : null} />
+            <InfoRow label="อายุ" value={ageText(pi.birthday, pi.age)} />
             <InfoRow label="เพศ" value={GENDER_LABEL[pi.gender] ?? pi.gender} />
             <InfoRow label="สถานภาพสมรส" value={MARITAL_LABEL[pi.m_status] ?? pi.m_status} />
             <InfoRow label="จำนวนบุตร" value={pi.children_number != null ? `${pi.children_number} คน` : null} />

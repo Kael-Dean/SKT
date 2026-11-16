@@ -9,6 +9,7 @@ import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/st
 import { assignableRoleOptions } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
 import { ED_LEVEL_OPTIONS } from "../../lib/education"
+import { ageFromBirthday } from "../../lib/age"
 
 
 const GENDER_OPTIONS = [
@@ -156,7 +157,16 @@ export default function HRStaffSignup() {
   }, [])
 
   const set = (field) => (e) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
+    const value = e.target.value
+    setForm((prev) => {
+      const next = { ...prev, [field]: value }
+      // กรอกวันเกิดแล้วเติมอายุให้อัตโนมัติ — กันอายุที่พิมพ์เองไม่ตรงกับวันเกิด
+      if (field === "birthday") {
+        const age = ageFromBirthday(value)
+        if (age != null) next.age = String(age)
+      }
+      return next
+    })
   }
   // สำหรับ SelectDropdown ที่ส่ง value โดยตรง (ไม่ใช่ event)
   const setField = (field) => (val) => {

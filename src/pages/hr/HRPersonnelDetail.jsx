@@ -28,6 +28,7 @@ import PersonnelDisciplineTab from "./tabs/PersonnelDisciplineTab"
 import PersonnelPayBasisTab from "./tabs/PersonnelPayBasisTab"
 import PersonnelActivitiesTab from "./tabs/PersonnelActivitiesTab"
 import { getTenure, tenureText } from "../../lib/tenure"
+import { ageText } from "../../lib/age"
 import { reserveRateText } from "../../lib/payroll"
 import PrefixedNameInput from "../../components/PrefixedNameInput"
 import SelectDropdown from "../../components/SelectDropdown"
@@ -352,7 +353,7 @@ export default function HRPersonnelDetail() {
           <SectionTitle>ข้อมูลส่วนตัว</SectionTitle>
           <InfoRow label="เลขบัตรประชาชน" value={formatCid(pi.cid)} always numeric />
           <InfoRow label="วันเกิด" value={fmtDate(pi.birthday)} />
-          <InfoRow label="อายุ" value={pi.age ? `${pi.age} ปี` : null} />
+          <InfoRow label="อายุ" value={ageText(pi.birthday, pi.age)} />
           <InfoRow label="เพศ" value={pi.gender} />
           <InfoRow label="สถานภาพสมรส" value={pi.m_status} />
           <InfoRow label="จำนวนบุตร" value={pi.children_number != null ? `${pi.children_number} คน` : null} />
@@ -504,7 +505,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label="ชื่อ-นามสกุล" value={spouse.spouse_name} />
           <InfoRow label="อาชีพ" value={spouse.spouse_occupation} />
           <InfoRow label="วันเกิด" value={fmtDate(spouse.spouse_birthday)} />
-          <InfoRow label="อายุ" value={spouse.spouse_age != null ? `${spouse.spouse_age} ปี` : null} />
+          <InfoRow label="อายุ" value={ageText(spouse.spouse_birthday, spouse.spouse_age)} />
           <InfoRow label="สถานภาพการสมรส" value={spouse.spouse_marriage_status === "registered" ? "จดทะเบียนสมรส" : spouse.spouse_marriage_status === "unregistered" ? "ไม่ได้จดทะเบียน" : null} />
           <InfoRow label="เบอร์โทร" value={spouse.spouse_phone} />
         </div>

@@ -68,7 +68,7 @@ import useAnchoredPanel from "../lib/useAnchoredPanel"
 import { useIsCoarsePointer, useIsPhone } from "../hooks/useMediaQuery"
 import Sheet from "./ui/Sheet"
 import EmptyState from "./ui/EmptyState"
-import { cx, fieldDisabled } from "../lib/styles"
+import { cx, fieldDisabled, fieldErrorCls } from "../lib/styles"
 
 const PANEL_Z = 10050
 const AUTO_SEARCH_MIN = 9 // 'auto' → search box when options.length > 8
@@ -532,7 +532,7 @@ const ComboBox = forwardRef(function ComboBox(
             ? cx("border-slate-300 dark:border-line-strong", fieldDisabled)
             : "cursor-pointer bg-slate-100 hover:bg-slate-200 dark:bg-field dark:hover:bg-field",
           error
-            ? "border-red-400 ring-2 ring-red-300/70 dark:border-red-500 dark:ring-red-500/30"
+            ? fieldErrorCls
             : open
               ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-1 dark:ring-indigo-400"
               : cx(
@@ -541,7 +541,7 @@ const ComboBox = forwardRef(function ComboBox(
                   !isDisabled && "dark:hover:border-line-field-hover",
                 ),
           "text-slate-900 dark:text-gray-100",
-          hintRed && "ring-2 ring-red-300 animate-pulse",
+          hintRed && fieldErrorCls,
         )}
       >
         <span className="min-w-0 flex-1">

@@ -19,7 +19,7 @@ import { ChevronDown } from "lucide-react"
 import { Stepper, StickyActionBar, ConfirmDialog, DataList, Badge, toast } from "../../../components/ui"
 import {
   cx, labelCls, helpTextCls, errorTextCls, cardCls, sectionTitleCls, neutralBtnCls, secondaryBtnCls,
-  segmentedCls, segmentedItemCls, segmentedItemActiveCls, focusRingCls, baseField,
+  segmentedCls, segmentedItemCls, segmentedItemActiveCls, focusRingCls, baseField, fieldErrorCls
 } from "../../../lib/styles"
 import { validateCustomer, validateSpec, validateTrailers, trailersHaveErrors, describeErrors, STEP_OF_KEY, TRAILER_ERROR_KEY_ORDER } from "./salesValidation"
 import { nf, thb, round2, onlyDigits, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
@@ -340,7 +340,7 @@ export default function SalesMobileStepper({ form }) {
                       ref={refs.taxId}
                       inputMode="numeric"
                       maxLength={13}
-                      className={cx(baseField, errors.taxId && "border-red-500 ring-2 ring-red-300")}
+                      className={cx(baseField, errors.taxId && fieldErrorCls)}
                       value={customer.taxId}
                       onChange={(e) => { updateCustomer("taxId", onlyDigits(e.target.value)); clearError("taxId") }}
                       placeholder="13 หลัก"

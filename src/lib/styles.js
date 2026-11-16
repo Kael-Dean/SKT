@@ -53,6 +53,12 @@ export const labelCls =
 export const helpTextCls =
   "mt-1 text-sm text-slate-500 dark:text-slate-400"
 
+/** Invalid field — the ONE red outline for every input / dropdown / date field.
+ *  `!` so it beats baseField's own (dark) border, hover and focus colours. Pair with errorTextCls
+ *  (red-600 / dark red-400) so the outline and the message are the same red. */
+export const fieldErrorCls =
+  "!border-red-500 !ring-2 !ring-red-500/15 dark:!border-red-400 dark:!ring-red-400/20"
+
 /** Validation error message below a field (red-600: 4.8:1 on white — red-500 was 3.8:1) */
 export const errorTextCls =
   "mt-1 text-sm text-red-600 dark:text-red-400"

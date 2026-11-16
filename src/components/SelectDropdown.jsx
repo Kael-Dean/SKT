@@ -31,6 +31,7 @@ import { createPortal } from "react-dom"
 import { Check, ChevronDown } from "lucide-react"
 import ComboBox from "./ComboBox"
 import useAnchoredPanel from "../lib/useAnchoredPanel"
+import { fieldErrorCls } from "../lib/styles"
 
 // Must sit above StickyTableScrollbar (z-index 10000) and the Sheet (10040).
 // Full z-stack: see src/components/ui/Sheet.jsx header.
@@ -302,7 +303,7 @@ function PlainSelect({
           open
             ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-1 dark:ring-indigo-400"
             : error
-            ? "border-red-400 ring-2 ring-red-300/50 dark:border-red-500 dark:ring-red-500/30"
+            ? fieldErrorCls
             : "focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 " +
               "dark:focus-visible:border-indigo-400 dark:focus-visible:ring-1 dark:focus-visible:ring-indigo-400" +
               // disabled keeps the dim hairline (inactive controls are exempt

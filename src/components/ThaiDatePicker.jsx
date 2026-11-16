@@ -11,7 +11,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-rea
 import useAnchoredPanel from "../lib/useAnchoredPanel"
 import { useIsCoarsePointer, useIsPhone, useMediaQuery } from "../hooks/useMediaQuery"
 import Sheet from "./ui/Sheet"
-import { cx, focusRingCls } from "../lib/styles"
+import { cx, focusRingCls, fieldErrorCls } from "../lib/styles"
 
 const PANEL_Z = 10050
 const PANEL_W = 288
@@ -421,7 +421,7 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
         className={cx(
           "flex w-full cursor-pointer items-center justify-between gap-2 text-left disabled:cursor-not-allowed disabled:opacity-70",
           wrapperCls,
-          error && "!border-red-500 ring-2 ring-red-300 dark:ring-red-500/40",
+          error && fieldErrorCls,
         )}
       >
         <span className={value ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500"}>

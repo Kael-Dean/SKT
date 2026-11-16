@@ -25,6 +25,7 @@ import SalesMobileStepper from "./sales/SalesMobileStepper"
 import { revealInvalidField } from "./buy/fieldFeedback"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
+import { fieldErrorCls } from "../../lib/styles"
 
 // =====================================================================
 //                              Sales Page (ขาย: หลายพ่วง)
@@ -379,8 +380,8 @@ function Sales() {
       return rest
     })
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
-  const redFieldCls = (key) => (hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : "")
-  const redHintCls = (key) => (missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : "")
+  const redFieldCls = (key) => (hasRed(key) ? fieldErrorCls : "")
+  const redHintCls = (key) => (missingHints[key] ? fieldErrorCls : "")
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
   // ---------- โหลด dropdown เริ่มต้น ----------

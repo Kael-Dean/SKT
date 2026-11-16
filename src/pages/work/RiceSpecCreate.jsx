@@ -509,9 +509,10 @@ function RiceSpecCreate() {
           </>
           )}
 
-          {/* ปุ่ม ≥md — อยู่ท้ายการ์ดฟอร์มเหมือนหน้าฟอร์มอื่น (submitRef อยู่ใน Enter chain) */}
+          {/* ปุ่ม ≥md — ท้ายการ์ด ชิดขวา: บันทึกอยู่ขวาสุด รีเซ็ตอยู่ซ้ายมือ
+              (row-reverse เพื่อให้ลำดับ DOM/Tab ยังเป็น บันทึก → รีเซ็ต ตาม Enter chain ของ submitRef) */}
           {!isPhone && (
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-6 flex flex-row-reverse flex-wrap justify-start gap-3">
             <button
               type="button"
               ref={submitRef}
@@ -529,7 +530,7 @@ function RiceSpecCreate() {
               {submitting && <span className={spinnerCls} aria-hidden="true" />}
               {submitting ? "กำลังบันทึก..." : "บันทึก"}
             </button>
-  
+
             <button
               type="button"
               onClick={reset}

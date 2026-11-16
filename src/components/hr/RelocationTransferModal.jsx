@@ -13,6 +13,7 @@ import { apiAuth } from "../../lib/api"
 import Portal from "../Portal"
 import useModalDismiss from "../../lib/useModalDismiss"
 import SelectDropdown from "../SelectDropdown"
+import ThaiDateField from "../ThaiDateField"
 
 const inputCls =
   "w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm " +
@@ -299,9 +300,8 @@ export default function RelocationTransferModal({ employee = null, onClose, onDo
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="rt-date" className={labelCls}>วันที่มีผล</label>
-                  <input
+                  <ThaiDateField
                     id="rt-date"
-                    type="date"
                     value={effectiveDate}
                     onChange={(e) => setEffectiveDate(e.target.value)}
                     aria-describedby="rt-date-hint"

@@ -163,6 +163,11 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 - **Dropdown / popup panel ห้ามมีอะไรมาทับตอนเปิดเลือก** — panel ต้อง portal เข้า `document.body` + `position: fixed` วาง coord จาก trigger rect (ไม่ใช่ `absolute z-30` กลาง tree) และ z-index ต้องสูงกว่า `StickyTableScrollbar` (z-index 10000). ดู `src/components/SelectDropdown.jsx` (ใช้ `PANEL_Z = 10050`, reposition ตอน scroll/resize, outside-click เช็คทั้ง trigger + panel ref). เคยมี sticky table scrollbar ลอยทับ dropdown จนกดเลือกไม่ได้ — อย่าให้เกิดอีก
 - **ทุก dropdown ต้องเป็นแบบตกแต่ง — ห้ามเพิ่ม native `<select>` ใหม่** (เปิดเป็นรายการ OS ไม่ตรงธีม/dark mode). ตัวเลือกคงที่/ไม่กี่รายการ (เช่นฟอร์ม HR) → `SelectDropdown` (`size="sm"` เมื่อวางคู่ช่อง `cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")`, `required` = aria-required, `<label htmlFor>` ผูกกับ `id` ได้); ต้องค้นหา/รายการเยอะ/Enter-flow → `ComboBox`. native `<select>` ที่ยังเหลือ ให้ทยอยเปลี่ยนเมื่อแตะไฟล์นั้น: `ThaiDateInput`, `HRPersonnelDetail` (5 จุด), `HRHolidayCalendarTab`, `HRLoanSheets`, `HRLoansTab`, `HRResignedRetiredTab`, `LoanRequest`, `MemberSearch`, `MyRelocation` (เช็คล่าสุด: `grep -rn "<select" src --include=*.jsx`)
 
+- **ช่องเลือกวันที่ทุกจุด = ปฏิทินตกแต่งของเราเอง — ห้ามใช้ `<input type="date">` ของเบราว์เซอร์** (ปฏิทิน OS แสดง ค.ศ./ไม่ตรงธีม/dark mode).
+  ใช้ `ThaiDateField` (`src/components/ThaiDateField.jsx`) — API เหมือน input เดิม: `value`/`e.target.value` = ISO `YYYY-MM-DD` (ค.ศ.),
+  รองรับ `id`, `ref`, `className`, `disabled`, `min`, `max`, `error`/`aria-invalid`, `aria-describedby`, `placeholder`. ทั้งช่องเป็นปุ่มเดียว
+  กดตรงไหนก็เปิดปฏิทิน (desktop = popover portal z 10050, มือถือ = Sheet), แสดง วัน เดือน พ.ศ. ให้อัตโนมัติ.
+  ในโฟลเดอร์ `buy/` / `sales/` import ผ่าน `./DateInput` ได้ (re-export ตัวเดียวกัน). เช็คก่อนปิดงาน: `grep -rn 'type="date"' src --include=*.jsx` ต้องไม่เจอ
 - **ดรอปดาวที่ค้นหาชื่อได้ = หน้าตาแบบเลือกจังหวัด (`ComboBox`) ทุกจุด** — ปุ่ม trigger + ช่องค้นหาใน panel, มือถือเปิดเป็น picker sheet. `SelectDropdown searchable` ส่งต่อให้ `ComboBox` อัตโนมัติ. รายการที่ต้องค้นที่ server ใช้ `remoteSearch` + `searching` / `searchFailed` + `onQueryChange`; ช่องไม่บังคับที่ต้องล้างค่าได้ใส่ `onClear`. ห้ามเขียน input + รายการผลค้นหาเองเป็นดรอปดาวอีก
 
 ### Mobile (<768px) — กฎหลัง mobile overhaul (ต.ค. 2026)

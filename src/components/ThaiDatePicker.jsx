@@ -148,7 +148,12 @@ function MonthGrid({ value, today, viewYear, viewMonth, onYear, onPick }) {
   )
 }
 
-function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, onToday, onHeader }) {
+/** ISO "YYYY-MM-DD" อยู่นอกช่วง min/max ไหม (เทียบ string ได้เพราะรูปแบบคงที่) */
+function outOfRange(iso, min, max) {
+  return (!!min && iso < min) || (!!max && iso > max)
+}
+
+function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, onToday, onHeader, min, max }) {
   const totalDays = daysInMonth(viewYear, viewMonth)
   const firstDay = firstDayOfMonth(viewYear, viewMonth)
   const cells = [
@@ -190,16 +195,19 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
           const isSelected = iso === value
           const isToday = iso === today
           const isSun = i % 7 === 0
+          const off = outOfRange(iso, min, max)
           return (
             <button
               key={i}
               type="button"
+              disabled={off}
               onClick={() => onPick(day)}
               aria-pressed={isSelected}
               aria-label={`${day} ${THAI_MONTHS[viewMonth - 1]} ${viewYear + 543}`}
               className={cx(
                 // min-w-0: at 320px a column is ~41px, and the global 44px floor would overlap the next day
                 "h-11 w-full min-w-0 cursor-pointer rounded-xl text-sm font-medium tabular-nums transition-colors duration-150 md:pointer-fine:h-9",
+                "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent",
                 focusRingCls,
                 isSelected
                   ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-600"
@@ -220,7 +228,8 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
         <button
           type="button"
           onClick={onToday}
-          className={cx("min-h-touch cursor-pointer rounded-lg px-3 text-sm text-indigo-600 hover:underline dark:text-indigo-400 md:pointer-fine:min-h-8", focusRingCls)}
+          disabled={outOfRange(today, min, max)}
+          className={cx("min-h-touch cursor-pointer rounded-lg px-3 text-sm text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:no-underline dark:text-indigo-400 md:pointer-fine:min-h-8", focusRingCls)}
         >
           วันนี้
         </button>
@@ -236,6 +245,7 @@ function Calendar({ value, today, viewYear, viewMonth, onPrev, onNext, onPick, o
 const ThaiDatePicker = forwardRef(function ThaiDatePicker({
   value = "", onChange, className = "", id, ariaLabel = "เลือกวันที่",
   onKeyDown, onFocus, error = false, disabled = false, ariaDescribedBy, placeholder = "— เลือกวันที่ —",
+  min, max,
 }, ref) {
   const today = todayISO()
   const parsed = parseCE(value)
@@ -345,6 +355,7 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
   }
 
   function goToday() {
+    if (outOfRange(today, min, max)) return
     onChange?.(today)
     const p = parseCE(today)
     if (p) { setViewYear(p.year); setViewMonth(p.month) }
@@ -354,6 +365,12 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
   const wrapperCls = className
     .split(" ")
     .filter(c => !c.startsWith("w-") && c !== "block")
+    .join(" ")
+  // ความกว้างเจาะจง (w-36, w-[10rem] …) ย้ายไปที่ wrapper ให้ขนาดเท่า <input type="date"> เดิม
+  // (w-full ไม่ย้าย — คงพฤติกรรมเดิมของจุดที่ใช้อยู่แล้ว)
+  const widthCls = className
+    .split(" ")
+    .filter(c => /^(?:[a-z0-9]+:)*!?w-/.test(c) && !/w-full$/.test(c))
     .join(" ")
 
   // Keep the panel the height of the day grid while drilling into years/months —
@@ -395,6 +412,8 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
       onNext={nextMonth}
       onPick={selectDay}
       onToday={goToday}
+      min={min || undefined}
+      max={max || undefined}
     />
   )
   const calendar = (
@@ -404,7 +423,7 @@ const ThaiDatePicker = forwardRef(function ThaiDatePicker({
   )
 
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className={cx("relative", widthCls)}>
       <button
         ref={triggerRef}
         id={id}

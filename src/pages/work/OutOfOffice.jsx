@@ -29,6 +29,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import PageTitle from "../../components/PageTitle"
 import FormApplicantHeader from "../../components/FormApplicantHeader"
+import ThaiDateField from "../../components/ThaiDateField"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -576,9 +577,8 @@ export default function OutOfOffice() {
               error={errors.request_date}
               hint={form.request_date ? fmtThaiLong(form.request_date) + (dateIsWeekend ? " — วันหยุดสุดสัปดาห์" : "") : undefined}
             >
-              <input
+              <ThaiDateField
                 id="ooo-request_date"
-                type="date"
                 className={`${inputCls} ${errors.request_date ? inputErrCls : ""}`}
                 value={form.request_date}
                 onChange={set("request_date")}
@@ -594,9 +594,8 @@ export default function OutOfOffice() {
                 error={errors.return_date}
                 hint={isMultiDay ? fmtThaiLong(form.return_date) : "ไม่บังคับ — เว้นว่างถ้ากลับวันเดียวกัน"}
               >
-                <input
+                <ThaiDateField
                   id="ooo-return_date"
-                  type="date"
                   className={`${inputCls} ${errors.return_date ? inputErrCls : ""}`}
                   value={form.return_date}
                   min={form.request_date || undefined}

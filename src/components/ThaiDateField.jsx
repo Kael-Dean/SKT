@@ -8,6 +8,8 @@
 //
 // value / e.target.value = ISO "YYYY-MM-DD" (ค.ศ.) เหมือนเดิม — payload ไม่เปลี่ยน
 // ref → ปุ่มเปิดปฏิทิน (focus() ได้) · className เพิ่มต่อจาก baseField
+// min / max (ISO) → วันนอกช่วงกดไม่ได้ · aria-invalid ใช้แทน error ได้
+// ทั้งช่องเป็นปุ่มเดียว — กดตรงไหนของช่องก็เปิดปฏิทิน
 // ─────────────────────────────────────────────────────────────────────────────
 import { forwardRef } from "react"
 import ThaiDatePicker from "./ThaiDatePicker"
@@ -24,6 +26,9 @@ const ThaiDateField = forwardRef(function ThaiDateField(
     id,
     disabled = false,
     placeholder,
+    min,
+    max,
+    "aria-invalid": ariaInvalid,
     "aria-label": ariaLabelAttr,
     ariaLabel,
     "aria-describedby": ariaDescribedBy,
@@ -39,9 +44,11 @@ const ThaiDateField = forwardRef(function ThaiDateField(
       onChange={(v) => onChange?.({ target: { value: v || "" }, currentTarget: { value: v || "" } })}
       onKeyDown={onKeyDown}
       onFocus={onFocus}
-      error={error}
+      error={error || ariaInvalid === true || ariaInvalid === "true"}
       disabled={disabled}
       placeholder={placeholder}
+      min={min ? String(min).slice(0, 10) : undefined}
+      max={max ? String(max).slice(0, 10) : undefined}
       ariaLabel={ariaLabel || ariaLabelAttr || "เลือกวันที่"}
       ariaDescribedBy={ariaDescribedBy}
       className={cx(baseField, className)}

@@ -10,6 +10,7 @@ import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import AllTimeToggle from "../../../components/AllTimeToggle"
 import { firstOfMonthIso, todayIso } from "../../../lib/allTime"
 import { exitTypeLabel, normalizeExitType } from "../../../lib/exitTypes"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"]
 
@@ -138,12 +139,12 @@ export default function HRResignedRetiredTab() {
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ตั้งแต่วันที่</label>
-          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+          <ThaiDateField value={fromDate} onChange={(e) => setFromDate(e.target.value)}
             className="w-36 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60" />
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">ถึงวันที่</label>
-          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+          <ThaiDateField value={toDate} onChange={(e) => setToDate(e.target.value)}
             className="w-36 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60" />
         </div>
         <AllTimeToggle

@@ -33,6 +33,7 @@ import { reserveRateText } from "../../lib/payroll"
 import PrefixedNameInput from "../../components/PrefixedNameInput"
 import SelectDropdown from "../../components/SelectDropdown"
 import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../lib/namePrefix"
+import ThaiDateField from "../../components/ThaiDateField"
 
 const CHILD_PREFIX_GENDER = { ชาย: "male", หญิง: "female" }
 // value "" = ยังไม่เลือก — คงตัวเลือกนี้ไว้เพื่อล้างค่าที่เลือกไปแล้วได้
@@ -635,8 +636,7 @@ export default function HRPersonnelDetail() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันเกิดคู่สมรส</label>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={inputCls}
                       value={familyForm.spouse?.spouse_birthday ?? ""}
                       onChange={(e) => setFamilyForm((p) => ({ ...p, spouse: { ...p.spouse, spouse_birthday: e.target.value } }))}
@@ -708,8 +708,7 @@ export default function HRPersonnelDetail() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันเกิดบุตร</label>
-                      <input
-                        type="date"
+                      <ThaiDateField
                         className={inputCls}
                         value={child.child_birthday}
                         onChange={(e) => setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_birthday: e.target.value }; return { ...p, children: next } })}
@@ -794,8 +793,7 @@ export default function HRPersonnelDetail() {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันเกิด</label>
-                        <input
-                          type="date"
+                        <ThaiDateField
                           className={inputCls}
                           value={parent.parent_birthday}
                           onChange={(e) => setFamilyForm((p) => { const next = [...p.parents]; next[i] = { ...next[i], parent_birthday: e.target.value }; return { ...p, parents: next } })}

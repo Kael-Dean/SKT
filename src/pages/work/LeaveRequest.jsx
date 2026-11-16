@@ -12,6 +12,7 @@ import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../li
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { Skeleton, ErrorState, EmptyState, toast } from "../../components/ui"
 import PageTitle from "../../components/PageTitle"
+import ThaiDateField from "../../components/ThaiDateField"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -712,7 +713,7 @@ export default function LeaveRequest() {
               <SectionTitle>ข้อมูลทั่วไป</SectionTitle>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="วันที่" required>
-                  <input type="date" className={inputCls} value={form.docDate} onChange={set("docDate")} />
+                  <ThaiDateField className={inputCls} value={form.docDate} onChange={set("docDate")} />
                 </Field>
                 <div />
                 {/* ดึงจากข้อมูลบุคลากรในระบบ — ดูได้อย่างเดียว (ไม่ได้ส่งไป backend ใช้พิมพ์ใบลา) */}
@@ -846,8 +847,7 @@ export default function LeaveRequest() {
               {form.dayPart === "full" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="ตั้งแต่วันที่" required>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={`${inputCls} ${errors.fromDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                       value={form.fromDate}
                       onChange={setFromDate}
@@ -855,8 +855,7 @@ export default function LeaveRequest() {
                     <ErrMsg field="fromDate" />
                   </Field>
                   <Field label="ถึงวันที่" required>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={`${inputCls} ${errors.toDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                       value={form.toDate}
                       min={form.fromDate || undefined}
@@ -867,8 +866,7 @@ export default function LeaveRequest() {
                 </div>
               ) : (
                 <Field label="วันที่ลา" required>
-                  <input
-                    type="date"
+                  <ThaiDateField
                     className={`${inputCls} ${errors.fromDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     value={form.fromDate}
                     onChange={setFromDate}

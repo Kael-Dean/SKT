@@ -11,6 +11,7 @@ import Portal from "../../../components/Portal"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import { currentFiscalYearBE } from "../../../lib/leaveDays"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
@@ -239,7 +240,7 @@ export default function HRHolidayWorkTab() {
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">
                     วันที่ทำงาน <span className="text-red-500">*</span>
                   </label>
-                  <input type="date" value={form.work_date} onChange={(e) => setForm((f) => ({ ...f, work_date: e.target.value }))}
+                  <ThaiDateField value={form.work_date} onChange={(e) => setForm((f) => ({ ...f, work_date: e.target.value }))}
                     className={inputCls} />
                 </div>
               </div>

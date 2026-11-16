@@ -27,6 +27,7 @@ import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { cx, baseField, tabPanelCls } from "../../../lib/styles"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -181,13 +182,12 @@ function RequestsPanel({ branchOptions, branchName }) {
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="ooo-f-from" className={labelCls}>ตั้งแต่วันที่</label>
-            <input id="ooo-f-from" type="date" className={inputCls} value={filters.from_date} onChange={setFilter("from_date")} />
+            <ThaiDateField id="ooo-f-from" className={inputCls} value={filters.from_date} onChange={setFilter("from_date")} />
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="ooo-f-to" className={labelCls}>ถึงวันที่</label>
-            <input
+            <ThaiDateField
               id="ooo-f-to"
-              type="date"
               className={`${inputCls} ${dateRangeInvalid ? inputErrCls : ""}`}
               value={filters.to_date}
               min={filters.from_date || undefined}

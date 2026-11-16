@@ -12,6 +12,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import PageTitle from "../../components/PageTitle"
 import AllTimeToggle from "../../components/AllTimeToggle"
 import { ALL_TIME_START, allTimeEnd } from "../../lib/allTime"
+import ThaiDateField from "../../components/ThaiDateField"
 
 
 // ─── utils ────────────────────────────────────────────────────────────────────
@@ -191,8 +192,7 @@ function TransactionModal({ items, defaultDate, tx, onSave, onClose }) {
         </Field>
 
         <Field label="วันที่" required>
-          <input
-            type="date" className={inputCls}
+          <ThaiDateField className={inputCls}
             value={form.transaction_date}
             onChange={(e) => setForm((prev) => ({ ...prev, transaction_date: e.target.value }))}
           />
@@ -658,8 +658,7 @@ export default function FacilityReport() {
                 />
               </Field>
               <Field label="วันที่">
-                <input
-                  type="date" className={inputCls}
+                <ThaiDateField className={inputCls}
                   value={filterDate}
                   disabled={txAllTime}
                   onChange={(e) => setFilterDate(e.target.value)}
@@ -810,11 +809,11 @@ export default function FacilityReport() {
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="ตั้งแต่วันที่" required>
-              <input type="date" className={inputCls} value={reportFrom} disabled={reportAllTime}
+              <ThaiDateField className={inputCls} value={reportFrom} disabled={reportAllTime}
                 onChange={(e) => setReportFrom(e.target.value)} />
             </Field>
             <Field label="ถึงวันที่" required>
-              <input type="date" className={inputCls} value={reportTo} disabled={reportAllTime}
+              <ThaiDateField className={inputCls} value={reportTo} disabled={reportAllTime}
                 min={reportFrom || undefined}
                 onChange={(e) => setReportTo(e.target.value)} />
             </Field>

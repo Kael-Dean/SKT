@@ -10,6 +10,7 @@ import { assignableRoleOptions } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
 import { ED_LEVEL_OPTIONS } from "../../lib/education"
 import { ageFromBirthday, ageText } from "../../lib/age"
+import ThaiDateField from "../../components/ThaiDateField"
 
 
 const GENDER_OPTIONS = [
@@ -425,7 +426,7 @@ export default function HRStaffSignup() {
               <input className={baseField} value={form.cid} onChange={set("cid")} required maxLength={13} placeholder="13 หลัก" />
             </Field>
             <Field label="วันที่เริ่มงาน">
-              <input type="date" className={baseField} value={form.hired} onChange={set("hired")} />
+              <ThaiDateField className={baseField} value={form.hired} onChange={set("hired")} />
             </Field>
             <Field label="Role">
               <SelectDropdown
@@ -478,7 +479,7 @@ export default function HRStaffSignup() {
               <input className={baseField} value={form.e_contact} onChange={set("e_contact")} placeholder="08XXXXXXXX" />
             </Field>
             <Field label="วันเกิด">
-              <input type="date" className={baseField} value={form.birthday} onChange={set("birthday")} />
+              <ThaiDateField className={baseField} value={form.birthday} onChange={set("birthday")} />
             </Field>
             <Field label="อายุ">
               <p className={readonlyFieldCls} aria-live="polite">{ageText(form.birthday) ?? "คำนวณจากวันเกิด"}</p>
@@ -592,10 +593,10 @@ export default function HRStaffSignup() {
                   <input className={baseField} value={edu.inst_name} onChange={setEdu(i, "inst_name")} placeholder="ชื่อสถาบัน" />
                 </Field>
                 <Field label="ตั้งแต่">
-                  <input type="date" className={baseField} value={edu.from_date} onChange={setEdu(i, "from_date")} />
+                  <ThaiDateField className={baseField} value={edu.from_date} onChange={setEdu(i, "from_date")} />
                 </Field>
                 <Field label="ถึง">
-                  <input type="date" className={baseField} value={edu.to_date} onChange={setEdu(i, "to_date")} />
+                  <ThaiDateField className={baseField} value={edu.to_date} onChange={setEdu(i, "to_date")} />
                 </Field>
               </div>
             </div>
@@ -634,10 +635,10 @@ export default function HRStaffSignup() {
                   <input className={baseField} value={w.position} onChange={setWork(i, "position")} placeholder="ตำแหน่งที่ทำ" />
                 </Field>
                 <Field label="ตั้งแต่">
-                  <input type="date" className={baseField} value={w.from_date} onChange={setWork(i, "from_date")} />
+                  <ThaiDateField className={baseField} value={w.from_date} onChange={setWork(i, "from_date")} />
                 </Field>
                 <Field label="ถึง">
-                  <input type="date" className={baseField} value={w.to_date} onChange={setWork(i, "to_date")} />
+                  <ThaiDateField className={baseField} value={w.to_date} onChange={setWork(i, "to_date")} />
                 </Field>
               </div>
             </div>
@@ -676,7 +677,7 @@ export default function HRStaffSignup() {
                   <input className={baseField} value={c.court} onChange={setCrime(i, "court")} placeholder="ชื่อศาล" />
                 </Field>
                 <Field label="วันที่คดี">
-                  <input type="date" className={baseField} value={c.case_date} onChange={setCrime(i, "case_date")} />
+                  <ThaiDateField className={baseField} value={c.case_date} onChange={setCrime(i, "case_date")} />
                 </Field>
                 <Field label="ผลการตัดสิน">
                   <input className={baseField} value={c.outcome} onChange={setCrime(i, "outcome")} placeholder="ผลคดี" />
@@ -727,8 +728,7 @@ export default function HRStaffSignup() {
                   />
                 </Field>
                 <Field label="วันเกิดคู่สมรส">
-                  <input
-                    type="date"
+                  <ThaiDateField
                     className={baseField}
                     value={spouse.spouse_birthday}
                     onChange={(e) => setSpouse((p) => ({ ...p, spouse_birthday: e.target.value }))}
@@ -803,8 +803,7 @@ export default function HRStaffSignup() {
                     />
                   </Field>
                   <Field label="วันเกิดบุตร" required>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={baseField}
                       value={child.child_birthday}
                       onChange={(e) => setChildren((prev) => { const next = [...prev]; next[i] = { ...next[i], child_birthday: e.target.value }; return next })}
@@ -890,8 +889,7 @@ export default function HRStaffSignup() {
                       />
                     </Field>
                     <Field label="วันเกิด">
-                      <input
-                        type="date"
+                      <ThaiDateField
                         className={baseField}
                         value={parent.parent_birthday}
                         onChange={(e) => setParents((prev) => { const next = [...prev]; next[i] = { ...next[i], parent_birthday: e.target.value }; return next })}

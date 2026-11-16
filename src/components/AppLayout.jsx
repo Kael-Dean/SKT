@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
+import PullToRefresh from "./PullToRefresh"
 import PageLoader from "./ui/PageLoader"
 import { recordVisit } from "../lib/recentRoutes"
 import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions"
@@ -236,6 +237,8 @@ const AppLayout = () => {
 
       {/* Global toast host (toast.success/error/… from components/ui/toast.js) */}
       <Toaster />
+      {/* ดึงหน้าจอลงเพื่อรีเฟรช — เฉพาะแอปที่ติดตั้งบนมือถือ */}
+      <PullToRefresh />
       {/* Self-service tour (onboarding) — overlays the real pages, mounts only while a tour runs */}
       <TourOverlay />
       {/* One-time intro of the header search — its overlay is a lazy chunk */}

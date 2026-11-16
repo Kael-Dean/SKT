@@ -169,6 +169,9 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 - **body เป็นตัว scroll** (AppLayout `min-h-dvh`, `<main>` ไม่มี `overflow-y-auto`) — header ที่ `sticky` ในหน้าใช้ `top-(--topbar-h)` (Topbar ตั้งค่าให้ผ่าน ResizeObserver). ยกเว้นหัวตารางที่อยู่ใน wrapper `overflow-x-auto` ให้ใช้ `top-0`
 - **ตรวจมือถือใน JS ใช้ `useIsPhone()` / `useIsCoarsePointer()`** จาก `src/hooks/useMediaQuery.js` (breakpoint ตรงกับ Tailwind `md`). เลือก layout ด้วย conditional render เมื่อสอง layout ใช้ ref ชุดเดียวกัน (เช่น Buy/Sales) — ห้าม render ทั้งคู่แล้วซ่อนด้วย CSS
 - **Modal ใหม่ใช้ `<Sheet>`** (`src/components/ui`) — bottom sheet บนมือถือ, dialog กลางจอบน desktop; จัดการ Portal/focus trap/Esc/dvh/safe-area/keyboard ให้แล้ว
+- **ห้ามทำช่องค้นหา/แถบเครื่องมือเป็น `sticky top-0` ใน children ของ `<Sheet>`** — body ของ Sheet มี padding บน + เลื่อนได้
+  ทำให้มีช่องโปร่งเหนือ/รอบช่องค้นหา รายการเลื่อนผ่านแล้วตัวหนังสือโผล่ให้เห็น (บั๊กจริง พ.ย. 2026: picker "เลือกเมนู" หน้า HR บนมือถือ).
+  ให้ส่งผ่าน prop `toolbar` ของ Sheet แทน (slot ไม่เลื่อน อยู่ระหว่าง header กับ body) — ดู `ComboBox.jsx` picker เป็นตัวอย่าง
 - **ตารางบนมือถือ → `<DataList>`** (card list) เมื่อคอลัมน์เกิน ~4; `fields[].value` ส่งเป็น function `(item) => …` (string = ชื่อ key)
 - **ฟอร์มยาวบนมือถือ → `<StickyActionBar>`** (ปุ่มหลักติดล่างจอ, `primary.tone: "primary"` = ถัดไป/indigo, default `"submit"` = บันทึก/emerald) + `<Stepper>` ถ้าเป็นหลายขั้น
 - **ห้าม `alert()` / `confirm()`** — ใช้ `toast` (รับ `action`) / `<ResultSheet>` / `<ConfirmDialog>`

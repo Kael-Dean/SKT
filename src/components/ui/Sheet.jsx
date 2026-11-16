@@ -24,6 +24,10 @@
 //                          Phone convention: `grid grid-cols-2 gap-3` with
 //                          h-12 buttons, primary on the RIGHT; ≥md
 //                          `md:flex md:justify-end md:gap-2`
+//   toolbar                fixed slot between header and body (never scrolls),
+//                          e.g. a search box. Use this instead of `sticky top-0`
+//                          inside children: the body's padding leaves a see-through
+//                          gap above a sticky element and rows show through it.
 //   hideHandle             hide the phone drag handle
 //
 // Phone: fixed to the bottom, rounded top, max-height =
@@ -70,6 +74,7 @@ function SheetBody({
   z = 10040,
   initialFocus,
   footer,
+  toolbar,
   children,
   hideHandle = false,
   className = "",
@@ -146,7 +151,7 @@ function SheetBody({
             </div>
           )}
 
-          <header className="flex shrink-0 items-start gap-3 border-b border-gray-100 px-4 pb-3 pt-3 dark:border-line md:px-6 md:pt-5 short-touch:pt-2 short-touch:pb-2">
+          <header className={cx("flex shrink-0 items-start gap-3 px-4 pb-3 pt-3 md:px-6 md:pt-5 short-touch:pt-2 short-touch:pb-2", !toolbar && "border-b border-gray-100 dark:border-line")}>
             <div className="min-w-0 flex-1">
               <h2 id={titleId} className="text-base font-bold text-balance leading-snug text-gray-900 dark:text-gray-100 md:text-lg">
                 {title}
@@ -168,6 +173,12 @@ function SheetBody({
               <X aria-hidden="true" className="size-5" strokeWidth={1.75} />
             </button>
           </header>
+
+          {toolbar && (
+            <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-3 dark:border-line dark:bg-surface md:px-6 short-touch:pb-2">
+              {toolbar}
+            </div>
+          )}
 
           <div
             onFocus={onBodyFocus}

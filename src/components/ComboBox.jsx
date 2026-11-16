@@ -47,7 +47,8 @@
 //   open:   ↑/↓ wrap, Home/End, Enter picks, Esc closes (preventDefault so a
 //           parent useModalDismiss stays open), Tab closes and moves on
 // After a pick the trigger regains focus, then onEnterNext() (desktop).
-// Phone (<md): full-height picker <Sheet z=10050> with a sticky search box
+// Phone (<md): full-height picker <Sheet z=10050> with the search box in the
+// Sheet `toolbar` slot (NOT sticky inside the body — rows showed through the gap)
 // (never autofocused), 44px rows, check mark on the selected row.
 // Focus ring = indigo (design authority) — the inline copies used emerald.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -457,10 +458,10 @@ const ComboBox = forwardRef(function ComboBox(
   }
 
   const searchBox = (phone) => (
-    <div className={cx("relative", phone ? "sticky top-0 z-10 -mx-4 -mt-4 bg-white px-4 py-3 dark:bg-surface" : "shrink-0 border-b border-slate-200 dark:border-line")}>
+    <div className={cx("relative", !phone && "shrink-0 border-b border-slate-200 dark:border-line")}>
       <Search
         aria-hidden="true"
-        className={cx("pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-slate-400 dark:text-slate-500", phone ? "left-7" : "left-3")}
+        className={cx("pointer-events-none absolute top-1/2 size-4 -translate-y-1/2 text-slate-400 dark:text-slate-500", phone ? "left-3.5" : "left-3")}
         strokeWidth={1.75}
       />
       <input
@@ -491,7 +492,7 @@ const ComboBox = forwardRef(function ComboBox(
           aria-label="ล้างคำค้นหา"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => { setQuery(""); setHighlight(0); searchRef.current?.focus() }}
-          className={cx("absolute top-1/2 flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200", phone ? "right-5 size-11" : "right-1 size-8 pointer-coarse:right-0 pointer-coarse:size-11")}
+          className={cx("absolute top-1/2 flex -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200", phone ? "right-0.5 size-11" : "right-1 size-8 pointer-coarse:right-0 pointer-coarse:size-11")}
         >
           <X aria-hidden="true" className="size-4" strokeWidth={2} />
         </button>
@@ -584,13 +585,13 @@ const ComboBox = forwardRef(function ComboBox(
           size="full"
           z={PANEL_Z}
           hideHandle
+          toolbar={hasSearch ? searchBox(true) : undefined}
         >
-          {hasSearch && searchBox(true)}
           <ul
             id={listId}
             role="listbox"
             aria-label={ariaLabel}
-            className={cx("-mx-4 divide-y divide-gray-100 dark:divide-line", hasSearch ? "mt-1" : "-mt-2")}
+            className="-mx-4 -mt-2 divide-y divide-gray-100 dark:divide-line"
           >
             {listBody(true)}
           </ul>

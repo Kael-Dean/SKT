@@ -1,5 +1,5 @@
 // src/pages/work/LeaveRequest.jsx
-import { cx, baseField } from "../../lib/styles"
+import { cx, baseField, readonlyFieldCls } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback, useId, Children, cloneElement, isValidElement } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
@@ -15,6 +15,8 @@ import PageTitle from "../../components/PageTitle"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
+const readonlyCls = cx(readonlyFieldCls, "!rounded-lg !px-3 !py-2 md:!text-sm cursor-default focus:outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500")
+const NO_DATA = "ยังไม่มีข้อมูลในระบบ"
 
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
@@ -450,17 +452,18 @@ export default function LeaveRequest() {
 
   const [form, setForm] = useState(blankForm)
 
-  // ค่าเริ่มต้นมาถึงทีหลัง — เติมเฉพาะช่องที่ผู้ใช้ยังไม่ได้แก้ (ว่าง หรือยังเป็นชื่อล็อกอินเดิม)
+  // ค่าจากระบบมาถึงทีหลัง — ชื่อ/ตำแหน่ง/สังกัดแก้ในหน้านี้ไม่ได้ จึงใช้ค่าจากระบบเสมอ
   useEffect(() => {
     const { name, position, branch, department } = defaults
     if (!name && !position && !branch) return
     const untouchedName = (v) => !v || v === fallbackName
+    const unit = [branch, department].filter(Boolean).join(" / ")
     setForm((prev) => ({
       ...prev,
-      fullName: name && untouchedName(prev.fullName) ? name : prev.fullName,
+      fullName: name || prev.fullName,
       signatureName: name && untouchedName(prev.signatureName) ? name : prev.signatureName,
-      position: prev.position || position,
-      department: prev.department || [branch, department].filter(Boolean).join(" / "),
+      position: position || prev.position,
+      department: unit || prev.department,
     }))
   }, [defaults, fallbackName])
   const [holidays, setHolidays] = useState([])
@@ -564,9 +567,6 @@ export default function LeaveRequest() {
   // ── validation ──────────────────────────────────────────────────────────
   const validate = () => {
     const errs = {}
-    if (!form.fullName.trim())   errs.fullName    = "กรุณาระบุชื่อ-นามสกุล"
-    if (!form.position.trim())   errs.position    = "กรุณาระบุตำแหน่ง"
-    if (!form.department.trim()) errs.department  = "กรุณาระบุสังกัด"
     if (!form.leaveTypeId)       errs.leaveTypeId = "กรุณาเลือกประเภทการลา"
     if (!form.fromDate)          errs.fromDate    = "กรุณาระบุวันที่เริ่มลา"
     if (!form.toDate)            errs.toDate      = "กรุณาระบุวันที่สิ้นสุด"
@@ -715,36 +715,19 @@ export default function LeaveRequest() {
                   <input type="date" className={inputCls} value={form.docDate} onChange={set("docDate")} />
                 </Field>
                 <div />
-                <Field label="ข้าพเจ้า (ชื่อ-นามสกุล)" required className="sm:col-span-2">
-                  <input
-                    type="text"
-                    className={`${inputCls} ${errors.fullName ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
-                    placeholder="กรอกชื่อ-นามสกุล"
-                    value={form.fullName}
-                    onChange={set("fullName")}
-                  />
-                  <ErrMsg field="fullName" />
+                {/* ดึงจากข้อมูลบุคลากรในระบบ — ดูได้อย่างเดียว (ไม่ได้ส่งไป backend ใช้พิมพ์ใบลา) */}
+                <Field label="ข้าพเจ้า (ชื่อ-นามสกุล)" className="sm:col-span-2">
+                  <input type="text" readOnly className={readonlyCls} value={form.fullName} placeholder={NO_DATA} />
                 </Field>
-                <Field label="ตำแหน่ง" required>
-                  <input
-                    type="text"
-                    className={`${inputCls} ${errors.position ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
-                    placeholder="ระบุตำแหน่ง"
-                    value={form.position}
-                    onChange={set("position")}
-                  />
-                  <ErrMsg field="position" />
+                <Field label="ตำแหน่ง">
+                  <input type="text" readOnly className={readonlyCls} value={form.position} placeholder={NO_DATA} />
                 </Field>
-                <Field label="สังกัด / แผนก" required>
-                  <input
-                    type="text"
-                    className={`${inputCls} ${errors.department ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
-                    placeholder="ระบุสังกัด / แผนก"
-                    value={form.department}
-                    onChange={set("department")}
-                  />
-                  <ErrMsg field="department" />
+                <Field label="สังกัด / แผนก">
+                  <input type="text" readOnly className={readonlyCls} value={form.department} placeholder={NO_DATA} />
                 </Field>
+                <p className="sm:col-span-2 -mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  ข้อมูลนี้ดึงจากระบบอัตโนมัติ ถ้าไม่ถูกต้องแจ้งฝ่ายบุคคลให้แก้ไข
+                </p>
               </div>
             </div>
 

@@ -13,17 +13,19 @@ const isAbsence = (name) => String(name ?? "").trim().startsWith("ขาดง�
 
 /** แปลงแถวจาก API เป็นตัวเลขของทะเบียน — ลาพักผ่อนใช้สิทธิ์ปีนี้ + ยกมาจาก leave_quota */
 function toRegisterRow(row, quota) {
+  const type = row.type || row.name
   const used = parseDays(row.used) ?? 0
-  const annual = isAnnualLeave(row.name)
-  const prescribed = isPrescribedLeave(row.name)
-  const absence = isAbsence(row.name)
+  const annual = isAnnualLeave(type)
+  const prescribed = isPrescribedLeave(type)
+  const absence = isAbsence(type)
   const entitled = annual ? parseDays(quota.annual_leave) ?? 0 : parseDays(row.quota)
   const carried = annual ? parseDays(quota.annual_leave_carried_over) ?? 0 : null
   const cap = prescribed || absence ? null : (entitled ?? 0) + (carried ?? 0)
   const capped = cap != null && cap > 0
   return {
     key: row.id ?? row.name,
-    name: registerLabel(row.name),
+    // HR ตั้ง display_name แล้ว → ใช้ชื่อนั้น, ยังไม่ตั้ง → ชื่อตามแบบฟอร์มทะเบียน
+    name: row.name && row.name !== type ? row.name : registerLabel(type),
     used,
     entitled,
     carried,
@@ -33,7 +35,7 @@ function toRegisterRow(row, quota) {
     absence,
     remaining: capped ? Math.max(0, cap - used) : null,
     over: cap == null ? 0 : Math.max(0, used - cap),
-    criteria: leaveCriteria(row.name),
+    criteria: leaveCriteria(type),
   }
 }
 

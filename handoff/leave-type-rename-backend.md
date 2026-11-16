@@ -20,6 +20,11 @@ HR ขอแก้ชื่อในหน้า "ประเภทการล
 ระหว่างรอ FE แสดงสองชื่อนี้เฉพาะในทะเบียนการลา ผ่าน alias ฝั่งหน้าเว็บ (`registerLabel()` ใน `src/lib/leaveTypes.js`) —
 เมื่อ backend ส่ง `display_name` แล้ว FE จะลบ alias นี้ และให้ HR แก้ชื่อเองในหน้า leave-types
 
+**FE เตรียมไว้แล้ว (2026-11-16):** ปุ่มแก้ชื่อในหน้า leave-types จะโผล่เองทันทีที่ `GET /hr/leave-types` มี key `display_name`
+(ค่า `null` ก็ได้) แล้วยิง `PATCH { display_name }` — ไม่ต้อง deploy FE เพิ่ม. ขอเพิ่มอีกข้อ: ใน leave-balance
+(`/personnel/me/leave-balance`, `/hr/personnel/{id}/leave-balance`) ให้ส่ง **`leave_type` (= `Leaves.type` key)** คู่กับ
+`leave_type_name` (= ชื่อที่แสดง) — FE ใช้ `leave_type` จับคู่หลักเกณฑ์/ลาพักผ่อน/ลาทำหมัน/ขาดงาน
+
 **ลำดับที่ขอ:** ส่วนที่ 1 (`display_name`) ก่อน — เล็ก, ไม่แตะ logic, ปลดล็อกงาน HR ทันที · ส่วนที่ 2 (POST สร้างประเภทใหม่) ทำทีหลังได้
 
 ## ต้องการอะไร

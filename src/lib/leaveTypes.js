@@ -82,7 +82,9 @@ export function parseLeaveBalance(data) {
     list
       .map((x) => ({
         id: x?.leave_type_id ?? null,
+        // name = ชื่อที่แสดง (backend จะส่ง display_name มาใน leave_type_name), type = key ของ logic
         name: x?.leave_type_name ?? x?.leave_type ?? "",
+        type: x?.leave_type ?? x?.leave_type_name ?? "",
         isActive: x?.is_active !== false,
         quota: x?.quota,
         used: x?.used,

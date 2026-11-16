@@ -3,13 +3,33 @@ import { cx, baseField } from "../../../lib/styles"
 // จัดการประเภทการลา — GET /hr/leave-types, PATCH update/toggle
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import { leaveTypeLabel } from "../../../lib/leaveDays"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
 
 const inputCls = cx(baseField, "!w-24 !rounded-lg !px-3 !py-1.5 md:!text-sm text-right")
+const nameInputCls = cx(baseField, "!rounded-lg !px-3 !py-1.5 md:!text-sm")
+const NAME_MAX = 100
 
-// GET /hr/leave-types returns the Leaves row as-is: { id, type, days, max_days, is_active }
-const leaveName = (lt) => lt?.type ?? lt?.leave_name ?? lt?.name ?? ""
+// GET /hr/leave-types returns the Leaves row as-is: { id, type, days, max_days, is_active, display_name? }
+// `type` = key ของ logic (ห้ามแก้), `display_name` = ชื่อที่ HR ตั้ง — handoff/leave-type-rename-backend.md
+const leaveName = (lt) => leaveTypeLabel(lt)
 const leaveDays = (lt) => lt?.days ?? lt?.days_allowed ?? null
+
+function PencilBtn({ label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="inline-flex shrink-0 items-center justify-center rounded-lg p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </svg>
+    </button>
+  )
+}
 
 export default function HRLeaveTypesTab() {
   const [leaveTypes, setLeaveTypes] = useState([])
@@ -53,6 +73,45 @@ export default function HRLeaveTypesTab() {
       setMsg({ ok: false, text: err.message || "บันทึกไม่สำเร็จ" })
     } finally {
       setSaving(null)
+    }
+  }
+
+  // แก้ชื่อ — ปุ่มโผล่เองเมื่อ backend ส่ง display_name มาใน GET (ยังไม่มี = ซ่อน ไม่ยิง PATCH ที่ backend ไม่รู้จัก)
+  const renameSupported = leaveTypes.some((lt) => lt && typeof lt === "object" && "display_name" in lt)
+  const [nameEditId, setNameEditId] = useState(null)
+  const [nameVal, setNameVal] = useState("")
+  const [nameErr, setNameErr] = useState("")
+  const [nameSaving, setNameSaving] = useState(false)
+
+  const startRename = (lt) => {
+    setNameEditId(lt.id)
+    setNameVal(leaveTypeLabel(lt))
+    setNameErr("")
+    setMsg(null)
+  }
+  const cancelRename = () => {
+    setNameEditId(null)
+    setNameErr("")
+  }
+
+  const saveName = async (lt) => {
+    const name = nameVal.trim()
+    if (!name) return setNameErr("กรอกชื่อประเภทการลา")
+    if (name.length > NAME_MAX) return setNameErr(`ชื่อยาวได้ไม่เกิน ${NAME_MAX} ตัวอักษร`)
+    if (name === leaveTypeLabel(lt)) return cancelRename()
+    const clash = leaveTypes.some((o) => o.id !== lt.id && (leaveTypeLabel(o) === name || o.type === name))
+    if (clash) return setNameErr("มีประเภทการลาชื่อนี้แล้ว")
+    setNameSaving(true)
+    setNameErr("")
+    try {
+      await apiAuth(`/hr/leave-types/${lt.id}`, { method: "PATCH", body: { display_name: name } })
+      setMsg({ ok: true, text: `เปลี่ยนชื่อเป็น "${name}" แล้ว` })
+      setNameEditId(null)
+      fetchLeaveTypes()
+    } catch (err) {
+      setNameErr(err.message || "เปลี่ยนชื่อไม่สำเร็จ")
+    } finally {
+      setNameSaving(false)
     }
   }
 
@@ -105,8 +164,42 @@ export default function HRLeaveTypesTab() {
                   <SkeletonTableRows rows={6} cols={4} />
                 ) : leaveTypes.map((lt) => (
                   <tr key={lt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-150">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900 dark:text-gray-100">{leaveName(lt) || "—"}</div>
+                    <td className="px-4 py-3 min-w-0">
+                      {nameEditId === lt.id ? (
+                        <form
+                          className="flex min-w-0 flex-wrap items-center gap-2"
+                          onSubmit={(e) => { e.preventDefault(); saveName(lt) }}
+                        >
+                          <input
+                            id={`lt-name-${lt.id}`}
+                            value={nameVal}
+                            onChange={(e) => { setNameVal(e.target.value); setNameErr("") }}
+                            onKeyDown={(e) => { if (e.key === "Escape") cancelRename() }}
+                            maxLength={NAME_MAX}
+                            autoFocus
+                            aria-label={`ชื่อประเภทการลา (เดิม ${leaveTypeLabel(lt)})`}
+                            aria-invalid={nameErr ? true : undefined}
+                            aria-describedby={nameErr ? `lt-name-err-${lt.id}` : undefined}
+                            className={cx(nameInputCls, "min-w-0 flex-1 basis-48", nameErr && "!border-red-500 dark:!border-red-400")}
+                          />
+                          <button type="submit" disabled={nameSaving}
+                            className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded">
+                            {nameSaving ? "..." : "บันทึก"}
+                          </button>
+                          <button type="button" onClick={cancelRename} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">ยกเลิก</button>
+                          {nameErr && (
+                            <p id={`lt-name-err-${lt.id}`} role="alert" className="basis-full text-xs text-red-600 dark:text-red-400">{nameErr}</p>
+                          )}
+                        </form>
+                      ) : (
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-medium text-gray-900 dark:text-gray-100">{leaveName(lt) || "—"}</span>
+                          {renameSupported && <PencilBtn label={`แก้ชื่อ ${leaveName(lt)}`} onClick={() => startRename(lt)} />}
+                        </div>
+                      )}
+                      {leaveName(lt) !== lt.type && lt.type && nameEditId !== lt.id && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">ชื่อในระบบ: {lt.type}</div>
+                      )}
                       {lt.max_days != null && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">ลาได้สูงสุด {lt.max_days} วัน</div>
                       )}
@@ -132,16 +225,7 @@ export default function HRLeaveTypesTab() {
                       ) : (
                         <div className="flex items-center justify-end gap-2">
                           <span className="font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">{leaveDays(lt) ?? "—"} วัน</span>
-                          <button
-                            onClick={() => startEdit(lt)}
-                            aria-label={`แก้ไขจำนวนวัน ${leaveName(lt)}`}
-                            className="inline-flex items-center justify-center rounded-lg p-1 text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                          >
-                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                            </svg>
-                          </button>
+                          <PencilBtn label={`แก้ไขจำนวนวัน ${leaveName(lt)}`} onClick={() => startEdit(lt)} />
                         </div>
                       )}
                     </td>

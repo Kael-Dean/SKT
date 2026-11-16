@@ -3,7 +3,7 @@ import { cx, baseField, readonlyFieldCls } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback, useId, Children, cloneElement, isValidElement } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
-import { countLeaveDays, countsCalendarDays, fmtDays, fmtLeaveDuration, fmtLeaveRowDuration, currentFiscalYearBE } from "../../lib/leaveDays"
+import { countLeaveDays, countsCalendarDays, fmtDays, fmtLeaveDuration, fmtLeaveRowDuration, currentFiscalYearBE, leaveTypeLabel } from "../../lib/leaveDays"
 import { sortLeaveTypes } from "../../lib/leaveTypes"
 import { printPage } from "../../lib/files"
 import { getUser } from "../../lib/auth"
@@ -427,8 +427,8 @@ export default function LeaveRequest() {
       .catch(() => {})
   }, [])
 
-  const getLeaveTypeName = (lt) =>
-    lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
+  // ชื่อที่แสดง (display_name ของ HR ถ้ามี) — logic ลาคลอดใช้ selectedType ไม่ใช่ชื่อนี้
+  const getLeaveTypeName = leaveTypeLabel
 
   // ── form state ──────────────────────────────────────────────────────────
   // หัวฟอร์ม (ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจากข้อมูลบุคลากร — แก้ได้เสมอ; แผนกยังไม่มีที่มา ผู้ใช้พิมพ์ต่อท้ายเอง

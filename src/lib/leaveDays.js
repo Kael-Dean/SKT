@@ -82,8 +82,16 @@ function parseISO(iso) {
 
 const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
+/** ชื่อ "key" ของประเภทการลา (`Leaves.type`) — ใช้กับ logic/การจับคู่ ห้ามเอาชื่อที่ HR ตั้งใหม่มาใช้แทน */
 export const leaveTypeName = (lt) =>
   typeof lt === "string" ? lt : lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
+
+/**
+ * ชื่อที่แสดงบนหน้าจอ — `display_name` ที่ HR ตั้ง (backend ยังไม่มี, handoff/leave-type-rename-backend.md)
+ * ถ้าไม่มีใช้ชื่อ key. แสดงผลอย่างเดียว ห้ามใช้จับคู่ logic
+ */
+export const leaveTypeLabel = (lt) =>
+  (typeof lt === "object" && String(lt?.display_name ?? "").trim()) || leaveTypeName(lt)
 
 /**
  * True when a leave type is counted in calendar days rather than working days.

@@ -9,11 +9,17 @@ import { apiDetail } from "../../../lib/apiErrors"
 import { asArray } from "../../../lib/discipline"
 import { cardPaddedCls } from "../../../lib/styles"
 import DisciplineHistory from "../../../components/hr/DisciplineHistory"
+import AckSheet from "../../../components/hr/discipline/AckSheet"
+import { canAckAction } from "../../../components/hr/discipline/disciplineData"
+import { useCan } from "../../../lib/permissions"
 
 export default function PersonnelDisciplineTab({ employeeId, employeeName }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [acking, setAcking] = useState(null)
+  const { can } = useCan()
+  const canRecord = can("hr.discipline.recordOutcome")
 
   const load = useCallback(() => {
     if (employeeId == null) return undefined
@@ -29,7 +35,7 @@ export default function PersonnelDisciplineTab({ employeeId, employeeName }) {
 
   useEffect(() => load(), [load])
 
-  const suspensions = rows.filter((a) => Number(a.step) >= 6).length
+  const suspensions = rows.filter((a) => Number(a.step) >= 6).length // ≥6 = บล็อกการขึ้นเงินเดือน KPI (ภาคทัณฑ์ไม่บล็อก)
 
   return (
     <section aria-labelledby="pd-discipline-h" aria-busy={loading || undefined} className={cardPaddedCls}>
@@ -48,7 +54,10 @@ export default function PersonnelDisciplineTab({ employeeId, employeeName }) {
         onRetry={load}
         emptyTitle="ไม่มีประวัติการตักเตือน"
         emptyDescription={employeeName ? `${employeeName} ยังไม่เคยถูกลงโทษทางวินัย` : "พนักงานคนนี้ยังไม่เคยถูกลงโทษทางวินัย"}
+        canAck={(a) => canAckAction(a, canRecord)}
+        onAck={setAcking}
       />
+      {acking && <AckSheet action={acking} onClose={() => setAcking(null)} onSaved={() => { setAcking(null); load() }} />}
     </section>
   )
 }

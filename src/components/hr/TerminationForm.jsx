@@ -69,6 +69,8 @@ function toForm(record, prefill) {
     const t = PREFILL_EXIT_TYPE[prefill.exit_type] ?? prefill.exit_type
     if (EXIT_TYPES.some((o) => o.value === t)) f.exit_type = t
     if (prefill.severance_pay != null && prefill.severance_pay !== "") f.severance_pay = String(prefill.severance_pay)
+    // 2026-11-16: prefill จาก "บันทึกวินัยและโทษทางวินัย" ส่ง exit_date (วันที่มีผลของโทษ) มาด้วย
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(prefill.exit_date ?? ""))) f.exit_date = prefill.exit_date
   }
   return f
 }

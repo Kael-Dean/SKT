@@ -16,6 +16,7 @@ import {
   cx, baseField, cardCls, errorTextCls, focusRingCls, neutralBtnCls, primaryBtnCls, readonlyFieldCls,
 } from "../../../lib/styles"
 import { Badge, ConfirmDialog, EmptyState, ErrorState, Sheet, Skeleton, toast } from "../../../components/ui"
+import ClausesSection, { TopicClausesSheet } from "./HRDisciplineClausesSection"
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const numCls = cx(inputCls, "text-right tabular-nums")
@@ -110,7 +111,7 @@ function TopicSheet({ topic, onClose, onSaved }) {
             placeholder="ข้อระเบียบที่อ้างอิง หรือขอบเขตของหัวข้อ — ผู้แจ้งเห็นข้อความนี้ตอนเลือกหัวข้อ" className={cx(inputCls, "resize-y")} />
         </div>
         <Switch id="disc-topic-serious" checked={serious} onChange={setSerious} label="ความผิดร้ายแรง"
-          hint="เรื่องเริ่มที่ ผช.ผจก. และผู้พิจารณาเลือกโทษข้ามขั้นได้ (ที่ขั้นถัดไปขึ้นไป)" />
+          hint="เรื่องเริ่มที่ฝ่ายบุคคล (จัดทำหนังสือรายงานผู้จัดการ) แล้วเข้าสู่การสอบสวน" />
         {err && <p role="alert" className={errorTextCls}>{err}</p>}
       </form>
     </Sheet>
@@ -128,6 +129,7 @@ function TopicsSection({ canEdit }) {
   const [confirmBusy, setConfirmBusy] = useState(false)
   const [confirmErr, setConfirmErr] = useState("")
   const [rowBusy, setRowBusy] = useState(null)
+  const [clausesFor, setClausesFor] = useState(null) // topic
 
   useEffect(() => {
     let alive = true
@@ -219,9 +221,18 @@ function TopicsSection({ canEdit }) {
                     {inactive && <Badge tone="neutral">ปิดใช้</Badge>}
                   </div>
                   {t.description && <p className="mt-0.5 break-words text-sm text-gray-600 dark:text-gray-400">{t.description}</p>}
+                  {asArray(t.clause_ids).length > 0 && (
+                    <p className="mt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">ข้อระเบียบเริ่มต้น {asArray(t.clause_ids).length} ข้อ</p>
+                  )}
                 </div>
                 {canEdit && (
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 flex-wrap items-center gap-1">
+                    {!inactive && (
+                      <button type="button" onClick={() => setClausesFor(t)} aria-label={`ข้อระเบียบเริ่มต้นของหัวข้อ ${t.name}`}
+                        className={cx(linkBtn, "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[.06]")}>
+                        ข้อระเบียบเริ่มต้น
+                      </button>
+                    )}
                     {!inactive && (
                       <button type="button" onClick={() => setEditing(t)} aria-label={`แก้ไขหัวข้อ ${t.name}`}
                         className={cx(linkBtn, "text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10")}>
@@ -250,6 +261,10 @@ function TopicsSection({ canEdit }) {
       {editing && (
         <TopicSheet key={editing.id ?? "new"} topic={editing.id != null ? editing : null}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />
+      )}
+      {clausesFor && (
+        <TopicClausesSheet key={clausesFor.id} topic={clausesFor}
+          onClose={() => setClausesFor(null)} onSaved={() => { setClausesFor(null); reload() }} />
       )}
       <ConfirmDialog
         open={!!confirm}
@@ -380,7 +395,7 @@ function SettingsSection({ canEdit }) {
           </fieldset>
           <fieldset className="space-y-3 border-t border-gray-100 pt-4 dark:border-line">
             <legend className="sr-only">การพักงาน</legend>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">พักงาน (ขั้น 6) — งดจ่ายค่าจ้างวันทำงานที่พัก</p>
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">พักงานโดยไม่จ่ายค่าจ้าง (ขั้น 6) — ใช้ตรวจช่วงวันในบันทึกวินัย</p>
             <div className="grid gap-3 sm:grid-cols-2">{SETTING_FIELDS.slice(3).map(numField)}</div>
           </fieldset>
           <div className="border-t border-gray-100 pt-4 dark:border-line">
@@ -420,6 +435,7 @@ export default function HRDisciplineSettingsTab() {
     <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <TopicsSection canEdit={canEdit} />
       <SettingsSection canEdit={canEdit} />
+      <div className="xl:col-span-2"><ClausesSection canEdit={canEdit} /></div>
     </div>
   )
 }

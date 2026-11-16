@@ -5,11 +5,11 @@ import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../../components/SelectDropdown"
 import PrefixedNameInput from "../../components/PrefixedNameInput"
 import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../lib/namePrefix"
-import { baseField, labelCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
+import { baseField, labelCls, readonlyFieldCls, sectionTitleCls, submitBtnCls } from "../../lib/styles"
 import { assignableRoleOptions } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
 import { ED_LEVEL_OPTIONS } from "../../lib/education"
-import { ageFromBirthday } from "../../lib/age"
+import { ageFromBirthday, ageText } from "../../lib/age"
 
 
 const GENDER_OPTIONS = [
@@ -103,7 +103,6 @@ export default function HRStaffSignup() {
     p_number: "",
     e_contact: "",
     birthday: "",
-    age: "",
     gender: "",
     m_status: "",
     children_number: "0",
@@ -157,16 +156,7 @@ export default function HRStaffSignup() {
   }, [])
 
   const set = (field) => (e) => {
-    const value = e.target.value
-    setForm((prev) => {
-      const next = { ...prev, [field]: value }
-      // กรอกวันเกิดแล้วเติมอายุให้อัตโนมัติ — กันอายุที่พิมพ์เองไม่ตรงกับวันเกิด
-      if (field === "birthday") {
-        const age = ageFromBirthday(value)
-        if (age != null) next.age = String(age)
-      }
-      return next
-    })
+    setForm((prev) => ({ ...prev, [field]: e.target.value }))
   }
   // สำหรับ SelectDropdown ที่ส่ง value โดยตรง (ไม่ใช่ event)
   const setField = (field) => (val) => {
@@ -243,7 +233,7 @@ export default function HRStaffSignup() {
         ...(form.p_number && { p_number: form.p_number.trim() }),
         ...(form.e_contact && { e_contact: form.e_contact.trim() }),
         ...(form.birthday && { birthday: form.birthday }),
-        ...(form.age && { age: Number(form.age) }),
+        ...(ageFromBirthday(form.birthday) != null && { age: ageFromBirthday(form.birthday) }),
         ...(form.gender && { gender: form.gender }),
         ...(form.m_status && { m_status: form.m_status }),
         children_number: Number(form.children_number) || 0,
@@ -333,7 +323,7 @@ export default function HRStaffSignup() {
     setForm({
       first_name: "", last_name: "", cid: "", role_id: "", branch_location: "",
       position: "", employment_type: "officer", email: "", hired: "", bank_no: "", guarantee_bank_no: "", p_number: "",
-      e_contact: "", birthday: "", age: "", gender: "", m_status: "",
+      e_contact: "", birthday: "", gender: "", m_status: "",
       children_number: "0", h_address: "", mhoo: "", soi: "", road: "",
       district: "", sub_district: "", province: "", postal_code: "", current_salary: "",
       underlying_disease: "",
@@ -491,7 +481,7 @@ export default function HRStaffSignup() {
               <input type="date" className={baseField} value={form.birthday} onChange={set("birthday")} />
             </Field>
             <Field label="อายุ">
-              <input type="number" min="18" max="70" className={baseField} value={form.age} onChange={set("age")} placeholder="อายุ (ปี)" />
+              <p className={readonlyFieldCls} aria-live="polite">{ageText(form.birthday) ?? "คำนวณจากวันเกิด"}</p>
             </Field>
             <Field label="เพศ">
               <SelectDropdown

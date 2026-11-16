@@ -5,7 +5,7 @@ import { useState } from "react"
 import { ChevronDown, FileText } from "lucide-react"
 import { cx } from "../../lib/styles"
 import { fmtDays, parseDays } from "../../lib/leaveDays"
-import { isAnnualLeave, isPrescribedLeave, leaveCriteria } from "../../lib/leaveTypes"
+import { isAnnualLeave, isPrescribedLeave, leaveCriteria, registerLabel } from "../../lib/leaveTypes"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { Skeleton } from "../ui"
 
@@ -23,7 +23,7 @@ function toRegisterRow(row, quota) {
   const capped = cap != null && cap > 0
   return {
     key: row.id ?? row.name,
-    name: row.name,
+    name: registerLabel(row.name),
     used,
     entitled,
     carried,

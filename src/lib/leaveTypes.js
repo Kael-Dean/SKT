@@ -51,6 +51,20 @@ const LEAVE_CRITERIA = [
   [/^ขาดงาน/, { rules: ["ไม่นับเป็นวันลา และไม่ได้รับค่าจ้าง"] }],
 ]
 
+/**
+ * ชื่อที่แสดงในทะเบียนการลา (ตามแบบฟอร์มสหกรณ์) — แสดงผลอย่างเดียว ห้ามใช้เป็น key:
+ * ชื่อจาก backend (`Leaves.type`) ยังเป็น key ของ logic ทั้งสองฝั่ง
+ */
+const REGISTER_LABELS = [
+  [/^ลาเกณฑ์ทหาร/, "ลาฝึกทหาร"],
+  [/^ลาอุปสมบท$/, "ลาอุปสมบท/พิธีฮัจย์"],
+]
+
+export function registerLabel(name) {
+  const n = String(name ?? "").trim()
+  return REGISTER_LABELS.find(([re]) => re.test(n))?.[1] ?? n
+}
+
 export function leaveCriteria(name) {
   const n = String(name ?? "").trim()
   return LEAVE_CRITERIA.find(([re]) => re.test(n))?.[1] ?? null

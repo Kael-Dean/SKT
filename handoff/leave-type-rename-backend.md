@@ -3,6 +3,25 @@
 **จาก:** Frontend (SKT) · **ถึง:** Backend (`FeatureRichDevelopment/um_backend`) · **วันที่:** 2026-10-29
 **หน้าที่เกี่ยว:** `/hr/dashboard?tab=leave-types` (`src/pages/hr/tabs/HRLeaveTypesTab.jsx`)
 
+## 🔁 ตามงาน 2026-11-16 — ยังไม่มีใน backend, ขอส่วนที่ 1 (แก้ชื่อ) ก่อน
+
+เช็ค `openapi.json` ทั้ง `um-repo-…run.app` และ `api.amcsurin.com` วันนี้:
+
+- `PATCH /hr/leave-types/{id}` → `LeaveTypeUpdateRequest` ยังมีแค่ `{ days }` (required) — **ยังไม่มี `display_name`**
+- ยังไม่มี `POST /hr/leave-types`
+
+HR ขอแก้ชื่อในหน้า "ประเภทการลา" อีกรอบ — ตัวอย่างชื่อที่ลูกค้าต้องการ (ตามแบบฟอร์มทะเบียนการลาของสหกรณ์):
+
+| `type` (key, ห้ามแตะ) | `display_name` ที่ต้องการ |
+|---|---|
+| ลาเกณฑ์ทหาร | ลาฝึกทหาร |
+| ลาอุปสมบท | ลาอุปสมบท/พิธีฮัจย์ |
+
+ระหว่างรอ FE แสดงสองชื่อนี้เฉพาะในทะเบียนการลา ผ่าน alias ฝั่งหน้าเว็บ (`registerLabel()` ใน `src/lib/leaveTypes.js`) —
+เมื่อ backend ส่ง `display_name` แล้ว FE จะลบ alias นี้ และให้ HR แก้ชื่อเองในหน้า leave-types
+
+**ลำดับที่ขอ:** ส่วนที่ 1 (`display_name`) ก่อน — เล็ก, ไม่แตะ logic, ปลดล็อกงาน HR ทันที · ส่วนที่ 2 (POST สร้างประเภทใหม่) ทำทีหลังได้
+
 ## ต้องการอะไร
 
 HR อยากแก้ชื่อ (ส่วนที่ 1) และเพิ่มประเภทการลาใหม่ (ส่วนที่ 2) ในหน้าตั้งค่าได้เอง — ตอนนี้แก้ได้แค่จำนวนวัน/ปี กับเปิด/ปิด

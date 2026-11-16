@@ -824,10 +824,10 @@ export default function LeaveRequest() {
             <div className={cardCls}>
               <SectionTitle>วันที่ลา</SectionTitle>
 
-              {/* ลาแบบไหน — เลือกครั้งเดียว ไม่ต้องกรอกเวลา */}
+              {/* ช่วงเวลาการลา — เลือกครั้งเดียว ไม่ต้องกรอกเวลา */}
               <fieldset className="mb-4">
                 <legend className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  ลาแบบไหน<span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+                  ช่วงเวลาการลา<span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
                 </legend>
                 <div className="grid grid-cols-3 gap-2">
                   {DAY_PART_KEYS.map((key) => {

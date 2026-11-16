@@ -158,6 +158,9 @@ export default function Mascot({
           className={cx(
             "absolute inset-0 size-full transition-opacity duration-200 ease-out",
             showCanvas ? "opacity-0" : "opacity-100",
+            // Loading: hop on the static pose until Rive takes over (or forever when
+            // Rive cannot run). Reduced motion keeps her still — handled in CSS too.
+            mood === "loading" && !showCanvas && !reduced && "animate-mascot-hop",
           )}
         />
         {animate && mount && (

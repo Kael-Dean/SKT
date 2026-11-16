@@ -248,6 +248,27 @@
   animation: sheet-in 0.2s var(--ease-out-quart) both;
 }
 
+/* น้องมะลิ loading hop on the static pose (ui/Mascot.jsx) — plays while the
+   Rive runtime is still downloading, i.e. exactly when a slow load is visible.
+   Squash before take-off, stretch in the air, squash on landing, settle. */
+@keyframes mascot-hop {
+  0%, 100% { transform: none; }
+  12%      { transform: translateY(0) scale(1.05, 0.94); }
+  34%      { transform: translateY(-9%) scale(0.97, 1.04); }
+  52%      { transform: translateY(-11%) scale(1, 1); }
+  72%      { transform: translateY(0) scale(1.06, 0.93); }
+  86%      { transform: translateY(0) scale(0.99, 1.01); }
+}
+
+.animate-mascot-hop {
+  transform-origin: 50% 88%;
+  animation: mascot-hop 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-mascot-hop { animation: none; }
+}
+
 /* ─── Onboarding (pages/onboarding + components/onboarding) ─────────────────
    Direction-aware step change: content enters from the side it travels to.
    End state `transform: none` (see the fade-up note above). */

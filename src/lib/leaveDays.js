@@ -87,7 +87,7 @@ export const leaveTypeName = (lt) =>
   typeof lt === "string" ? lt : lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
 
 /**
- * ชื่อที่แสดงบนหน้าจอ — `display_name` ที่ HR ตั้ง (backend ยังไม่มี, handoff/leave-type-rename-backend.md)
+ * ชื่อที่แสดงบนหน้าจอ — `display_name` ที่ HR ตั้ง (um_backend PR 93, `PATCH /hr/leave-types/{id}`)
  * ถ้าไม่มีใช้ชื่อ key. แสดงผลอย่างเดียว ห้ามใช้จับคู่ logic
  */
 export const leaveTypeLabel = (lt) =>

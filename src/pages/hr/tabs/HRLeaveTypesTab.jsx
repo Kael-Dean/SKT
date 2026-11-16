@@ -94,18 +94,21 @@ export default function HRLeaveTypesTab() {
     setNameErr("")
   }
 
-  const saveName = async (lt) => {
-    const name = nameVal.trim()
+  // ส่ง null = กลับไปแสดงชื่อในระบบ (`type`) — พิมพ์ชื่อในระบบกลับมาเองก็ส่ง null เช่นกัน
+  const saveName = async (lt, reset = false) => {
+    const name = reset ? (lt.type ?? "") : nameVal.trim()
     if (!name) return setNameErr("กรอกชื่อประเภทการลา")
     if (name.length > NAME_MAX) return setNameErr(`ชื่อยาวได้ไม่เกิน ${NAME_MAX} ตัวอักษร`)
     if (name === leaveTypeLabel(lt)) return cancelRename()
-    const clash = leaveTypes.some((o) => o.id !== lt.id && (leaveTypeLabel(o) === name || o.type === name))
+    // กติกาเดียวกับ backend (409): ห้ามซ้ำกับชื่อที่แสดงของประเภทอื่น (display_name ถ้ามี ไม่งั้น type)
+    const clash = leaveTypes.some((o) => o.id !== lt.id && leaveTypeLabel(o) === name)
     if (clash) return setNameErr("มีประเภทการลาชื่อนี้แล้ว")
+    const displayName = lt.type && name === lt.type ? null : name
     setNameSaving(true)
     setNameErr("")
     try {
-      await apiAuth(`/hr/leave-types/${lt.id}`, { method: "PATCH", body: { display_name: name } })
-      setMsg({ ok: true, text: `เปลี่ยนชื่อเป็น "${name}" แล้ว` })
+      await apiAuth(`/hr/leave-types/${lt.id}`, { method: "PATCH", body: { display_name: displayName } })
+      setMsg({ ok: true, text: displayName == null ? `กลับไปใช้ชื่อ "${name}" แล้ว` : `เปลี่ยนชื่อเป็น "${name}" แล้ว` })
       setNameEditId(null)
       fetchLeaveTypes()
     } catch (err) {
@@ -187,6 +190,12 @@ export default function HRLeaveTypesTab() {
                             {nameSaving ? "..." : "บันทึก"}
                           </button>
                           <button type="button" onClick={cancelRename} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">ยกเลิก</button>
+                          {lt.type && leaveTypeLabel(lt) !== lt.type && (
+                            <button type="button" onClick={() => saveName(lt, true)} disabled={nameSaving}
+                              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
+                              ใช้ชื่อในระบบ ({lt.type})
+                            </button>
+                          )}
                           {nameErr && (
                             <p id={`lt-name-err-${lt.id}`} role="alert" className="basis-full text-xs text-red-600 dark:text-red-400">{nameErr}</p>
                           )}

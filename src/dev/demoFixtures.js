@@ -28,6 +28,14 @@ const FORM_DEFAULTS = {
 
 let nextId = 900
 const state = {
+  // GET /hr/leave-types — `display_name` null = ยังไม่เปลี่ยนชื่อ (um_backend PR 93)
+  leaveTypes: [
+    { id: 1, type: "ลาป่วย", display_name: null, days: 30, is_active: true, max_days: 30 },
+    { id: 2, type: "ลากิจส่วนตัว", display_name: null, days: 6, is_active: true, max_days: 6 },
+    { id: 3, type: "ลาพักผ่อน", display_name: null, days: 10, is_active: true, max_days: 10 },
+    { id: 4, type: "ลาคลอดบุตร", display_name: null, days: 98, is_active: true, max_days: 98, code: "maternity" },
+    { id: 5, type: "ลาอุปสมบท", display_name: null, days: 120, is_active: true, max_days: 120 },
+  ],
   leaves: [
     { id: 301, leave_type_name: "ลาป่วย", status: "approved", stage: "approved", from_date: iso(daysAgo(40)), to_date: iso(daysAgo(39)),
       from_time: null, to_time: null, total_days: 2, address_during_leave: "112 หมู่ 4 ต.นอกเมือง อ.เมืองสุรินทร์", contact_during_leave: "0812345678",
@@ -159,13 +167,7 @@ export function demoFixture(path, method, u, body, values) {
             paternity_leave: 15, religious_leave: 0, military_leave: 0, training_leave: 0, ow_leave: 0, accompany_leave: 0 },
         })
       case "/hr/leave-types":
-        return ok([
-          { id: 1, type: "ลาป่วย", days: 30, is_active: true, max_days: 30 },
-          { id: 2, type: "ลากิจส่วนตัว", days: 6, is_active: true, max_days: 6 },
-          { id: 3, type: "ลาพักผ่อน", days: 10, is_active: true, max_days: 10 },
-          { id: 4, type: "ลาคลอดบุตร", days: 98, is_active: true, max_days: 98, code: "maternity" },
-          { id: 5, type: "ลาอุปสมบท", days: 120, is_active: true, max_days: 120 },
-        ])
+        return ok(state.leaveTypes)
       case "/personnel/me/leave-defaults":
         return ok({ address_during_leave: "112 หมู่ 4 ถ.สุรินทร์-ปราสาท ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000", contact_during_leave: "0812345678" })
       case "/hr/holidays": {
@@ -195,6 +197,29 @@ export function demoFixture(path, method, u, body, values) {
     const slip = path.match(/^\/personnel\/me\/payroll\/(\d+)$/)
     if (slip) return ok(payslips().find((p) => p.id === Number(slip[1])) ?? {})
     return null
+  }
+
+  // PATCH /hr/leave-types/{id} — { days } and/or { display_name } (null = back to `type`); 409 on a clash
+  const lt = method === "PATCH" && path.match(/^\/hr\/leave-types\/(\d+)$/)
+  if (lt) {
+    const row = state.leaveTypes.find((t) => t.id === Number(lt[1]))
+    if (!row) return [404, { detail: "ไม่พบประเภทการลา" }]
+    body = body ?? {}
+    if ("display_name" in body) {
+      const name = body.display_name == null ? null : String(body.display_name).trim()
+      if (name === "") return [422, { detail: [{ msg: "ชื่อประเภทการลาต้องไม่ว่าง" }] }]
+      if (name && state.leaveTypes.some((t) => t.id !== row.id && (t.display_name ?? t.type) === name))
+        return [409, { detail: "มีประเภทการลาชื่อนี้แล้ว" }]
+      row.display_name = name
+    }
+    if ("days" in body) row.days = body.days
+    return ok({ status: "ok", leave_type_id: row.id, days: row.days, display_name: row.display_name })
+  }
+  const toggle = method === "PATCH" && path.match(/^\/hr\/leave-types\/(\d+)\/toggle$/)
+  if (toggle) {
+    const row = state.leaveTypes.find((t) => t.id === Number(toggle[1]))
+    if (row) row.is_active = !row.is_active
+    return ok({ status: "ok" })
   }
 
   // submissions: keep them so the list updates like the real thing

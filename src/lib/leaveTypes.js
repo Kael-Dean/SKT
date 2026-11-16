@@ -75,16 +75,18 @@ export function leaveCriteria(name) {
  * leave_type_name, is_active, quota, used, remaining }] }`.
  * A switched-off type is dropped unless days were already taken against it.
  */
-export function parseLeaveBalance(data) {
+export function parseLeaveBalance(data, typeById) {
   const list = Array.isArray(data) ? data : data?.balance
   if (!Array.isArray(list)) return []
   return sortLeaveTypes(
     list
       .map((x) => ({
         id: x?.leave_type_id ?? null,
-        // name = ชื่อที่แสดง (backend จะส่ง display_name มาใน leave_type_name), type = key ของ logic
+        // name = ชื่อที่แสดง (`leave_type_name` = display_name ?? type), type = key ของ logic.
+        // leave-balance ไม่ส่ง `type` มา → หา key จาก catalogue ด้วย id ไม่งั้นแถวที่ HR เปลี่ยนชื่อแล้ว
+        // จะจับคู่ logic (ลาพักผ่อน / ลาตามระเบียบ / หลักเกณฑ์) ด้วยชื่อใหม่แล้วผิด
         name: x?.leave_type_name ?? x?.leave_type ?? "",
-        type: x?.leave_type ?? x?.leave_type_name ?? "",
+        type: x?.leave_type ?? typeById?.get(x?.leave_type_id) ?? x?.leave_type_name ?? "",
         isActive: x?.is_active !== false,
         quota: x?.quota,
         used: x?.used,
@@ -103,9 +105,14 @@ export function useLeaveBalance(path) {
   useEffect(() => {
     if (!path) return undefined
     let alive = true
-    apiAuth(path)
-      .then((d) => {
-        if (alive) setState({ path, rows: parseLeaveBalance(d), error: "" })
+    // catalogue ใช้หา `type` (key) ของแต่ละแถว — โหลดไม่ได้ก็ยังแสดงยอดได้ (ตกไปใช้ชื่อที่แสดง)
+    const catalogue = apiAuth("/hr/leave-types").catch(() => [])
+    Promise.all([apiAuth(path), catalogue])
+      .then(([d, types]) => {
+        const typeById = new Map(
+          (Array.isArray(types) ? types : []).filter((t) => t?.id != null).map((t) => [t.id, leaveTypeName(t)]),
+        )
+        if (alive) setState({ path, rows: parseLeaveBalance(d, typeById), error: "" })
       })
       .catch((e) => {
         if (alive) setState({ path, rows: [], error: e?.message || "โหลดประเภทการลาไม่สำเร็จ" })

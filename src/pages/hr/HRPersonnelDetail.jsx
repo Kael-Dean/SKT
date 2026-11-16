@@ -83,14 +83,29 @@ function SectionTitle({ children }) {
   )
 }
 
-function InfoRow({ label, value }) {
-  if (value == null || value === "") return null
+// always = แสดงแถวแม้ค่าว่าง (ขึ้น "ยังไม่มีข้อมูล" สีจาง) — ใช้กับข้อมูลที่ HR ต้องเห็นว่าขาด
+function InfoRow({ label, value, always = false, numeric = false }) {
+  const empty = value == null || value === ""
+  if (empty && !always) return null
   return (
     <div className="flex flex-col sm:flex-row sm:gap-4 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44 shrink-0">{label}</span>
-      <span className="text-sm text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-0">{value}</span>
+      <span className={cx(
+        "text-sm mt-0.5 sm:mt-0",
+        numeric && "tabular-nums",
+        empty ? "text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-gray-100",
+      )}>
+        {empty ? "ยังไม่มีข้อมูล" : value}
+      </span>
     </div>
   )
+}
+
+// 1234567890123 → 1-2345-67890-12-3 (รูปแบบบนบัตรประชาชน); ค่าที่ไม่ใช่ 13 หลักแสดงตามเดิม
+function formatCid(cid) {
+  const d = String(cid ?? "").replace(/\D/g, "")
+  if (d.length !== 13) return cid
+  return `${d[0]}-${d.slice(1, 5)}-${d.slice(5, 10)}-${d.slice(10, 12)}-${d[12]}`
 }
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -335,7 +350,7 @@ export default function HRPersonnelDetail() {
       {Object.keys(pi).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
           <SectionTitle>ข้อมูลส่วนตัว</SectionTitle>
-          <InfoRow label="เลขบัตรประชาชน" value={pi.cid} />
+          <InfoRow label="เลขบัตรประชาชน" value={formatCid(pi.cid)} always numeric />
           <InfoRow label="วันเกิด" value={fmtDate(pi.birthday)} />
           <InfoRow label="อายุ" value={pi.age ? `${pi.age} ปี` : null} />
           <InfoRow label="เพศ" value={pi.gender} />

@@ -95,7 +95,12 @@ jobs:
             --web-error-page=index.html || true
 
       # --- Upload with correct Cache-Control at upload time ---
-      - name: Upload index.html (no-cache) and assets (immutable)
+      # ลำดับสำคัญ (บั๊กจริง พ.ย. 2026: กด "รีเฟรชตอนนี้" แล้วค้างหน้าโหลด):
+      #   1. assets ใหม่ขึ้นก่อน — ห้ามลบ assets เก่าก่อนอัปโหลด: แท็บ/CDN ที่ยังถือ index.html เก่าต้องโหลด hash เก่าได้
+      #   2. boot-guard.js (ตัวกู้หน้าโหลดค้าง ที่ index.html เรียก) — ไม่อัปโหลด = 404 = ไม่มีอะไรกู้
+      #   3. index.html ท้ายสุด — ตัวเช็คเวอร์ชันในแอป (src/lib/appUpdate.js) เห็นเวอร์ชันใหม่ตอนไฟล์ครบแล้วเท่านั้น
+      #   4. ลบ assets เก่าที่ไม่ใช่ของ build นี้ และเก่ากว่า 14 วัน
+      - name: Upload assets, boot-guard.js, then index.html (last)
         env:
           BUCKET: ${{ steps.verify_bucket.outputs.BUCKET_NORMALIZED }}
         run: |
@@ -103,18 +108,40 @@ jobs:
           echo "Using bucket: $BUCKET"
 
           test -f dist/index.html || { echo "dist/index.html not found. Did build fail?"; exit 1; }
+          test -f dist/boot-guard.js || { echo "dist/boot-guard.js not found. Did build fail?"; exit 1; }
 
-          # ลบ assets เก่า กันไฟล์ตกค้าง
-          gsutil -m rm -r "gs://$BUCKET/assets/**" 2>/dev/null || true
-
-          # อัปโหลด index.html (no-cache)
-          gsutil -h "Cache-Control:no-cache" cp "dist/index.html" "gs://$BUCKET/index.html"
-
-          # อัปโหลด assets (immutable + cache ยาว)
+          # 1) assets (immutable + cache ยาว) — ไม่ลบของเก่าก่อน
           if [ -d "dist/assets" ]; then
             gsutil -m -h "Cache-Control:public, max-age=31536000, immutable" cp -r "dist/assets/*" "gs://$BUCKET/assets/"
           else
             echo "WARN: dist/assets not found (Vite may have inlined assets)"
+          fi
+
+          # 2) boot-guard.js (ชื่อไม่มี hash → no-cache)
+          gsutil -h "Cache-Control:no-cache" -h "Content-Type:text/javascript; charset=utf-8" \
+                 cp "dist/boot-guard.js" "gs://$BUCKET/boot-guard.js"
+
+          # 3) index.html ท้ายสุด (no-cache)
+          gsutil -h "Cache-Control:no-cache" cp "dist/index.html" "gs://$BUCKET/index.html"
+
+      - name: Prune old assets (not in this build, older than 14 days)
+        env:
+          BUCKET: ${{ steps.verify_bucket.outputs.BUCKET_NORMALIZED }}
+        run: |
+          set -uo pipefail
+          [ -d dist/assets ] || exit 0
+          cutoff="$(date -u -d '14 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+          ls dist/assets > /tmp/current_assets.txt
+          # `gsutil ls -l` → "<size>  <YYYY-MM-DDTHH:MM:SSZ>  gs://bucket/assets/<name>"
+          gsutil ls -l "gs://$BUCKET/assets/**" 2>/dev/null \
+            | awk -v cutoff="$cutoff" '$3 ~ /^gs:\/\// && $2 < cutoff { print $3 }' \
+            | while read -r obj; do
+                name="${obj##*/}"
+                grep -qxF "$name" /tmp/current_assets.txt || echo "$obj"
+              done > /tmp/stale_assets.txt
+          echo "Stale assets to delete: $(wc -l < /tmp/stale_assets.txt)"
+          if [ -s /tmp/stale_assets.txt ]; then
+            gsutil -m rm -I < /tmp/stale_assets.txt || echo "WARN: prune failed (deploy still OK)"
           fi
 
       # --- Upload public data (gzipped JSON) + logo (cacheable) ---

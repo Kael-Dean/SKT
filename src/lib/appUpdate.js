@@ -37,6 +37,25 @@ async function fetchLatestEntry() {
   return (await res.text()).match(ENTRY_RE)?.[0] ?? null
 }
 
+/**
+ * The new index.html can be live before its assets are (mid-deploy, or an older deploy
+ * script). Reloading then gets a 404 entry script → stuck boot screen. Only offer the
+ * refresh once the new entry script really loads: a 404 from the bucket is index.html.
+ */
+async function entryIsLive(entry) {
+  try {
+    const res = await fetch(new URL(entry, new URL(import.meta.env.BASE_URL, window.location.origin)), {
+      method: "HEAD", // headers are enough; the service worker only handles GET
+      cache: "no-store",
+      credentials: "same-origin",
+    })
+    const type = res.headers.get("content-type") || ""
+    return res.ok && !type.includes("text/html")
+  } catch {
+    return false
+  }
+}
+
 function showUpdateToast() {
   toast.info("มีเวอร์ชันใหม่ของระบบ", {
     id: TOAST_ID,
@@ -67,7 +86,7 @@ export function useAppUpdateCheck() {
       inFlight = true
       try {
         const latest = await fetchLatestEntry()
-        if (latest && latest !== running) {
+        if (latest && latest !== running && (await entryIsLive(latest))) {
           updateFound = true
           showUpdateToast()
         }

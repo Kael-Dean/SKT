@@ -16,15 +16,15 @@ import { switchTheme } from "../lib/themeTransition"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
-  indigo:  { chip: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300",   solid: "bg-indigo-500 text-white" },
-  sky:     { chip: "bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300",               solid: "bg-sky-500 text-white" },
-  amber:   { chip: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300",       solid: "bg-amber-500 text-white" },
-  emerald: { chip: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300", solid: "bg-emerald-500 text-white" },
-  orange:  { chip: "bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300",   solid: "bg-orange-500 text-white" },
-  teal:    { chip: "bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-300",           solid: "bg-teal-500 text-white" },
-  violet:  { chip: "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300",   solid: "bg-violet-500 text-white" },
-  rose:    { chip: "bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300",           solid: "bg-rose-500 text-white" },
-  blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",           solid: "bg-blue-500 text-white" },
+  indigo:  { chip: "bg-indigo-50 text-indigo-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-indigo-200/75",   solid: "bg-indigo-500 text-white" },
+  sky:     { chip: "bg-sky-50 text-sky-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-sky-200/75",               solid: "bg-sky-500 text-white" },
+  amber:   { chip: "bg-amber-50 text-amber-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-amber-200/75",       solid: "bg-amber-500 text-white" },
+  emerald: { chip: "bg-emerald-50 text-emerald-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-emerald-200/75", solid: "bg-emerald-500 text-white" },
+  orange:  { chip: "bg-orange-50 text-orange-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-orange-200/75",   solid: "bg-orange-500 text-white" },
+  teal:    { chip: "bg-teal-50 text-teal-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-teal-200/75",           solid: "bg-teal-500 text-white" },
+  violet:  { chip: "bg-violet-50 text-violet-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-violet-200/75",   solid: "bg-violet-500 text-white" },
+  rose:    { chip: "bg-rose-50 text-rose-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-rose-200/75",           solid: "bg-rose-500 text-white" },
+  blue:    { chip: "bg-blue-50 text-blue-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-blue-200/75",           solid: "bg-blue-500 text-white" },
 }
 
 const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {

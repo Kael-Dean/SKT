@@ -186,16 +186,16 @@ export function lucideFor(path) {
 
 // Class names are written out in full: Tailwind v4 can't detect concatenated names.
 const ICON_TONES = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",
-  sky: "bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300",
-  amber: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300",
-  orange: "bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300",
-  rose: "bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300",
-  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300",
-  lime: "bg-lime-50 text-lime-600 dark:bg-lime-500/15 dark:text-lime-300",
-  teal: "bg-teal-50 text-teal-600 dark:bg-teal-500/15 dark:text-teal-300",
-  indigo: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300",
-  violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300",
+  blue: "bg-blue-50 text-blue-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-blue-200/75",
+  sky: "bg-sky-50 text-sky-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-sky-200/75",
+  amber: "bg-amber-50 text-amber-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-amber-200/75",
+  orange: "bg-orange-50 text-orange-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-orange-200/75",
+  rose: "bg-rose-50 text-rose-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-rose-200/75",
+  emerald: "bg-emerald-50 text-emerald-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-emerald-200/75",
+  lime: "bg-lime-50 text-lime-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-lime-200/75",
+  teal: "bg-teal-50 text-teal-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-teal-200/75",
+  indigo: "bg-indigo-50 text-indigo-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-indigo-200/75",
+  violet: "bg-violet-50 text-violet-600 dark:bg-raised dark:ring-1 dark:ring-inset dark:ring-line dark:text-violet-200/75",
   slate: "bg-slate-100 text-slate-600 dark:bg-white/[.06] dark:text-gray-300",
 }
 

@@ -1745,7 +1745,7 @@ function Documents() {
         <div className="mb-8 flex items-center gap-3">
           <PageTitle title="คลังเอกสาร & รายงาน" />
           {!loadingOptions && !loadingSpecs && !branchLoadFailed && !specLoadFailed && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-300/90 dark:ring-emerald-400/20">
               พร้อมใช้งาน
             </span>
           )}
@@ -1757,16 +1757,16 @@ function Documents() {
 
             {/* กล่อง 1: รายงานซื้อขายข้าว (Phase 1) — แสดงเฉพาะผู้มีสิทธิ์ reports.phase1.* */}
             {allowedPhase1Reports().some((r) => !isPhase1Member(r)) && (
-            <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
+            <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-line dark:bg-surface transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-400/10 dark:text-amber-300/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 15.86.5 13.31.5c-1.38 0-2.61.56-3.51 1.46L9 2.77l-.8-.81C7.3 1.06 6.07.5 4.69.5 2.14.5 0 2.54 0 4.64c0 .48.11.92.18 1.36H0v2h20V6zm-5.47 0H9.47C9.17 5.56 9 4.98 9 4.64c0-1.03.9-2.14 1.94-2.14.54 0 1.05.24 1.42.62L14 4.88l1.64-1.76C16.01 2.74 16.52 2.5 17.06 2.5 18.1 2.5 19 3.61 19 4.64c0 .34-.17.92-.47 1.36zM1 20c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V9H1v11zm8-8h6v2H9v-2z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงานซื้อขายข้าว</h2>
+                <h2 className="text-xl font-bold text-amber-800 dark:text-gray-100">รายงานซื้อขายข้าว</h2>
               </div>
-              <p className="mb-6 text-sm text-amber-700/80 dark:text-amber-400/80">
+              <p className="mb-6 text-sm text-amber-700/80 dark:text-gray-400">
                 ซื้อ/ขายข้าวเปลือกรายวัน รายคน แยกราคา ทะเบียนคุม และสรุปสาขา (PDF)
               </p>
               <div className="mt-auto">
@@ -1783,16 +1783,16 @@ function Documents() {
 
             {/* กล่อง 2: รายงานสมาชิกและทุนเรือนหุ้น (Phase 1) */}
             {allowedPhase1Reports().some(isPhase1Member) && (
-            <div className="flex flex-col rounded-2xl border border-violet-200 bg-violet-50/40 p-6 shadow-sm dark:border-violet-800/50 dark:bg-violet-900/10 transition-all hover:shadow-md">
+            <div className="flex flex-col rounded-2xl border border-violet-200 bg-violet-50/40 p-6 shadow-sm dark:border-line dark:bg-surface transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-400/10 dark:text-violet-300/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-violet-800 dark:text-violet-300">รายงานสมาชิก</h2>
+                <h2 className="text-xl font-bold text-violet-800 dark:text-gray-100">รายงานสมาชิก</h2>
               </div>
-              <p className="mb-6 text-sm text-violet-700/80 dark:text-violet-400/80">
+              <p className="mb-6 text-sm text-violet-700/80 dark:text-gray-400">
                 ทะเบียนสมาชิก สมาชิกใหม่/ลาออก ทุนเรือนหุ้น และการจ่ายคืนค่าหุ้น (PDF)
               </p>
               <div className="mt-auto">
@@ -1809,16 +1809,16 @@ function Documents() {
 
             {/* กล่อง: รายงาน Excel ซื้อขาย P20–P26 (สิทธิ์ order.reports) */}
             {allowedTradeReports().length > 0 && (
-            <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/10 transition-all hover:shadow-md">
+            <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-line dark:bg-surface transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-300/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h2l1 2 1-2h2l-2 3 2 3h-2l-1-2-1 2H8l2-3-2-3z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-emerald-800 dark:text-emerald-300">รายงานซื้อขาย (Excel)</h2>
+                <h2 className="text-xl font-bold text-emerald-800 dark:text-gray-100">รายงานซื้อขาย (Excel)</h2>
               </div>
-              <p className="mb-6 text-sm text-emerald-700/80 dark:text-emerald-400/80">
+              <p className="mb-6 text-sm text-emerald-700/80 dark:text-gray-400">
                 ทะเบียนคุมสาขา ซื้อ-ขายแยกราคา ทะเบียนรับซื้อ รายงานซื้อ/ขายรายวัน สรุปรับซื้อจากสมาชิก (P20–P27) ได้ทั้ง Excel และ PDF
               </p>
               <div className="mt-auto">
@@ -1835,16 +1835,16 @@ function Documents() {
 
             {/* กล่อง: รายงานฝ่ายบุคคล (สิทธิ์ report.hr.*) */}
             {allowedHrReports().length > 0 && (
-            <div className="flex flex-col rounded-2xl border border-rose-200 bg-rose-50/40 p-6 shadow-sm dark:border-rose-800/50 dark:bg-rose-900/10 transition-all hover:shadow-md">
+            <div className="flex flex-col rounded-2xl border border-rose-200 bg-rose-50/40 p-6 shadow-sm dark:border-line dark:bg-surface transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-400/10 dark:text-rose-300/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-rose-800 dark:text-rose-300">รายงานฝ่ายบุคคล</h2>
+                <h2 className="text-xl font-bold text-rose-800 dark:text-gray-100">รายงานฝ่ายบุคคล</h2>
               </div>
-              <p className="mb-6 text-sm text-rose-700/80 dark:text-rose-400/80">
+              <p className="mb-6 text-sm text-rose-700/80 dark:text-gray-400">
                 เงินเดือน ประกันสังคม วันลา ทะเบียนพนักงาน การโยกย้าย เงินกู้ และ KPI (PDF / Excel)
               </p>
               <div className="mt-auto">
@@ -1861,16 +1861,16 @@ function Documents() {
             )}
 
             {/* กล่อง 3: รายงานแผนดำเนินงานประจำปี */}
-            <div className="flex flex-col rounded-2xl border border-blue-200 bg-blue-50/40 p-6 shadow-sm dark:border-blue-800/50 dark:bg-blue-900/10 transition-all hover:shadow-md">
+            <div className="flex flex-col rounded-2xl border border-blue-200 bg-blue-50/40 p-6 shadow-sm dark:border-line dark:bg-surface transition-all hover:shadow-md">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300/90">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-blue-800 dark:text-blue-300">รายงานแผนดำเนินงาน</h2>
+                <h2 className="text-xl font-bold text-blue-800 dark:text-gray-100">รายงานแผนดำเนินงาน</h2>
               </div>
-              <p className="mb-6 text-sm text-blue-700/80 dark:text-blue-400/80">
+              <p className="mb-6 text-sm text-blue-700/80 dark:text-gray-400">
                 เอกสารแผนดำเนินงานประจำปี เลือกรูปแบบรายงานที่ต้องการ (รูปแบบที่ 01 ถึง 18)
               </p>
               <div className="mt-auto relative z-10">

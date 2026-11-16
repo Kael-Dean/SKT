@@ -12,6 +12,7 @@ import { goToOnboardingFromLocked } from "../lib/onboardingGate"
 import { lockBodyScroll, unlockBodyScroll } from "../lib/scrollLock"
 import { useInstallOption } from "../lib/pwa"
 import InstallGuideLazy from "./InstallGuideLazy"
+import { switchTheme } from "../lib/themeTransition"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -242,7 +243,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                 type="button"
                 role="switch"
                 aria-checked={darkMode}
-                onClick={() => setDarkMode((v) => !v)}
+                onClick={(e) => switchTheme(setDarkMode, e.currentTarget)}
                 className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100 md:hidden"
               >
                 <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONES.indigo.chip}`}>

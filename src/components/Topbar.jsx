@@ -21,6 +21,7 @@ import { myRoleLabel } from "../lib/permissions";
 import { useMyPermissionsVersion } from "../lib/myPermissions";
 import { isActingAsRole, isRealSuperAdmin } from "../lib/actAsRole";
 import { canGoBack } from "../lib/drill";
+import { switchTheme } from "../lib/themeTransition"
 
 // Shared chrome for the icon buttons; display + size are set per button so
 // `hidden md:inline-flex` on the dark toggle is not out-ranked by `inline-flex`.
@@ -208,7 +209,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
           <NotificationBell />
 
           <button
-            onClick={() => setDarkMode((v) => !v)}
+            onClick={(e) => switchTheme(setDarkMode, e.currentTarget)}
             aria-label={toggleLabel}
             title={toggleLabel}
             className={`hidden md:inline-flex size-11 md:pointer-fine:size-9 ${chromeBtnBase}`}

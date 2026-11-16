@@ -757,3 +757,20 @@ body[data-preview-active] [role="dialog"][aria-labelledby] {
     padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 0.5rem);
   }
 }
+
+/* ── สลับธีมแบบวงกลมจากปุ่ม (src/lib/themeTransition.js) ───────────────────── */
+html[data-theme-transition]::view-transition-old(root),
+html[data-theme-transition]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+/* → สว่าง: ภาพเก่า (มืด) อยู่บนแล้วหดเข้าปุ่ม */
+html[data-theme-transition="to-light"]::view-transition-old(root) {
+  z-index: 2;
+}
+/* กันสีของ element ที่มี transition-colors ค่อย ๆ เฟดซ้อนกับวงกลม */
+html[data-theme-transition] *,
+html[data-theme-transition] *::before,
+html[data-theme-transition] *::after {
+  transition: none !important;
+}

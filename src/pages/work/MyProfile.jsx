@@ -14,7 +14,7 @@ import useFileUploads from "../../hooks/useFileUploads"
 import { hasNewValue, isResolvedStatus } from "../../lib/issueReports"
 import DateInput from "../../components/ThaiDateField"
 import { useLeaveBalance } from "../../lib/leaveTypes"
-import LeaveBalancePanel from "../../components/hr/LeaveBalancePanel"
+import LeaveRegisterTable from "../../components/hr/LeaveRegisterTable"
 import lineIcon from "../../assets/line-icon.png"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
@@ -497,9 +497,9 @@ export default function MyProfile() {
       {/* สิทธิ์การลา — LeaveQuotaOut (backend v1.1.0) */}
       {financial && Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">
-          <SectionTitle>สิทธิ์การลา ปีงบประมาณ {quota.year}</SectionTitle>
+          <SectionTitle>ทะเบียนการลา ปีงบประมาณ {quota.year}</SectionTitle>
 
-          <LeaveBalancePanel
+          <LeaveRegisterTable
             quota={quota}
             rows={leaveRows}
             error={leaveRowsError}
@@ -507,7 +507,7 @@ export default function MyProfile() {
           />
 
           <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
-            วันที่ใช้ไปและคงเหลือนับจากใบลาที่อนุมัติแล้วในปีงบประมาณนี้
+            หน่วยเป็นวัน · วันที่ลาแล้วและคงเหลือนับจากใบลาที่อนุมัติแล้วในปีงบประมาณนี้
             ลาเกินสิทธิ์ทำได้ โดยวันที่ลาเกินสิทธิ์จะถูกงดจ่ายเงินเดือน (งดจ่าย ลาเกินสิทธิ์)
           </p>
         </div>

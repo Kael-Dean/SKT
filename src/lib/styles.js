@@ -72,40 +72,60 @@ export const cellInput =
 
 // ─── Buttons ─────────────────────────────────────────────────────────────────
 
+// Form-scale actions (44px, rounded-xl — same family as the compact buttons below).
+// No coloured glow and no hover-zoom: hover = one step darker fill, press = 1px
+// sink. A hairline top highlight gives the solid fills a little physicality.
+const formBtnBase =
+  "inline-flex min-h-11 md:pointer-fine:min-h-10 items-center justify-center gap-2 rounded-xl px-5 py-2.5 " +
+  "text-[15px] leading-6 font-semibold cursor-pointer select-none " +
+  "transition-[background-color,border-color,color,box-shadow] duration-150 active:translate-y-px " +
+  "disabled:cursor-not-allowed disabled:opacity-50 disabled:active:translate-y-0 " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
+  "focus-visible:ring-offset-white dark:focus-visible:ring-offset-surface "
+
+const solidEdge =
+  "shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(15_23_42/.10)] " +
+  "dark:shadow-[inset_0_1px_0_rgb(255_255_255/.10)] "
+
 /** Primary save / submit button (emerald — semantic: success/positive action).
  *  emerald-700 keeps white text at 5.4:1 (emerald-600 was 3.65:1 — fails AA). */
 export const submitBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-6 py-3 " +
-  "text-base font-semibold text-white shadow-sm cursor-pointer " +
-  "hover:bg-emerald-800 hover:shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:scale-[1.02] " +
-  "active:scale-[.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100 " +
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 " +
-  "dark:focus-visible:ring-offset-surface " +
-  "transition-all duration-200"
+  formBtnBase + solidEdge +
+  "bg-emerald-700 text-white hover:bg-emerald-800 active:bg-emerald-900 " +
+  "disabled:hover:bg-emerald-700 focus-visible:ring-emerald-500 dark:focus-visible:ring-emerald-400"
+
+/** Form-scale indigo action (fetch / search / next step) */
+export const formPrimaryBtnCls =
+  formBtnBase + solidEdge +
+  "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 " +
+  "disabled:hover:bg-indigo-600 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
+
+/** Form-scale destructive submit (e.g. ตัดเสียหาย) */
+export const formDangerBtnCls =
+  formBtnBase + solidEdge +
+  "bg-red-600 text-white hover:bg-red-700 active:bg-red-800 " +
+  "disabled:hover:bg-red-600 focus-visible:ring-red-500 dark:focus-visible:ring-red-400"
+
+/** Form-scale destructive outline (e.g. ปฏิเสธคำขอ) */
+export const formDangerOutlineBtnCls =
+  formBtnBase +
+  "bg-white text-red-700 ring-1 ring-inset ring-red-300 hover:bg-red-50 active:bg-red-100 " +
+  "dark:bg-red-500/[.06] dark:text-red-300 dark:ring-red-400/35 dark:hover:bg-red-500/[.12] " +
+  "focus-visible:ring-red-500 dark:focus-visible:ring-red-400"
 
 /** Reset / clear form button */
 export const resetBtnCls =
-  "inline-flex items-center justify-center rounded-2xl " +
-  "border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700 " +
-  "shadow-sm transition-all duration-200 " +
-  "hover:bg-slate-100 hover:shadow-md hover:scale-[1.03] " +
-  "active:scale-[.97] cursor-pointer " +
-  "dark:border-line-strong dark:bg-white/[.04] dark:text-gray-100 dark:shadow-none " +
-  "dark:hover:bg-white/[.08] dark:hover:border-white/20 dark:hover:shadow-none " +
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 " +
-  "dark:focus-visible:ring-indigo-400 dark:focus-visible:ring-offset-surface"
+  formBtnBase +
+  "bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 active:bg-gray-100 " +
+  "dark:bg-white/[.04] dark:text-gray-100 dark:ring-line-strong dark:hover:bg-white/[.08] dark:active:bg-white/[.11] " +
+  "focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
 
 /** Secondary / outline button (indigo) */
 export const secondaryBtnCls =
-  "inline-flex items-center justify-center gap-2 rounded-2xl " +
-  "border border-indigo-300 bg-white px-6 py-3 text-base font-medium text-indigo-700 " +
-  "shadow-sm transition-all duration-200 " +
-  "hover:bg-indigo-50 hover:border-indigo-400 hover:scale-[1.02] " +
-  "active:scale-[.97] cursor-pointer " +
-  "dark:border-indigo-400/30 dark:bg-white/[.04] dark:text-indigo-300 dark:shadow-none " +
-  "dark:hover:bg-indigo-500/10 dark:hover:border-indigo-400/50 " +
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 " +
-  "dark:focus-visible:ring-indigo-400 dark:focus-visible:ring-offset-surface"
+  formBtnBase +
+  "bg-white text-indigo-700 ring-1 ring-inset ring-indigo-200 hover:bg-indigo-50 hover:ring-indigo-300 active:bg-indigo-100 " +
+  "dark:bg-white/[.04] dark:text-indigo-300 dark:ring-indigo-400/30 dark:hover:bg-indigo-500/10 dark:hover:ring-indigo-400/50 " +
+  "focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
 
 // ─── Compact app buttons (h-10, rounded-xl) — dialogs, toolbars, HR ──────────
 // 44px by default; shrinks only for a mouse at ≥md (`md:pointer-fine:*`). A touch

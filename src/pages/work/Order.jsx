@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { apiAuth } from "../../lib/api"  // ✅ helper รวม token/BASE URL
 import { getActiveBranch, getUserKey } from "../../lib/auth"
-import { cx, baseField, primaryBtnCls, neutralBtnCls, focusRingCls, helpTextCls } from "../../lib/styles"
+import { cx, baseField, primaryBtnCls, neutralBtnCls, focusRingCls, helpTextCls, submitBtnCls, resetBtnCls } from "../../lib/styles"
 import { EmptyState, ErrorState, Skeleton, SkeletonTableRows, DataList, Badge } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import { useIsPhone } from "../../hooks/useMediaQuery"
@@ -784,25 +784,14 @@ const Order = () => {
                   onClick={fetchOrders}
                   type="button"
                   disabled={dateError}
-                  className={cx(
-                    "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-base font-semibold text-white transition-all duration-300 ease-out cursor-pointer",
-                    dateError
-                      ? "bg-emerald-400/60 pointer-events-none"
-                      : "bg-emerald-600 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97]"
-                  )}
+                  className={submitBtnCls}
                 >
                   ค้นหา
                 </button>
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="inline-flex items-center justify-center rounded-2xl
-                             border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
-                             shadow-sm transition-all duration-300 ease-out
-                             hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                             active:scale-[.97]
-                             dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
-                             dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                  className={resetBtnCls}
                 >
                   รีเซ็ต
                 </button>

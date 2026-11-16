@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { get, post } from "../../lib/api"
 import { describeApiError } from "../../lib/apiErrors"
-import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, secondaryBtnCls, submitBtnCls, formDangerOutlineBtnCls, resetBtnCls } from "../../lib/styles"
 import { PageLoader, EmptyState, ErrorState, Badge, DataList, StickyActionBar, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import DateInput from "../../components/ThaiDateField"
@@ -802,13 +802,7 @@ function StockTransferIn() {
                 ref={submitBtnRef}
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-2xl
-                  bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                  shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                  transition-all duration-300 ease-out
-                  hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                  hover:scale-[1.05] active:scale-[.97]
-                  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className={submitBtnCls}
                 aria-busy={submitting ? "true" : "false"}
               >
                 {submitting ? "กำลังบันทึก..." : "บันทึก"}
@@ -817,13 +811,7 @@ function StockTransferIn() {
               <button
                 type="button"
                 onClick={rejectSelected}
-                className="inline-flex items-center justify-center rounded-2xl
-                  border border-red-300 bg-white px-6 py-3 text-base font-semibold text-red-600
-                  shadow-sm transition-all duration-300 ease-out
-                  hover:bg-red-50 hover:shadow-md hover:scale-[1.03]
-                  active:scale-[.97] cursor-pointer
-                  dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300
-                  dark:hover:bg-red-500/20"
+                className={formDangerOutlineBtnCls}
               >
                 ปฏิเสธคำขอ
               </button>
@@ -831,14 +819,7 @@ function StockTransferIn() {
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-2xl
-                  border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
-                  shadow-sm
-                  transition-all duration-300 ease-out
-                  hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                  active:scale-[.97]
-                  dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
-                  dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                className={resetBtnCls}
               >
                 รีเซ็ต
               </button>

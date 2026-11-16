@@ -6,6 +6,7 @@ import { PageLoader } from "./components/ui"            // fallback ระหว
 import RequirePermission from "./components/RequirePermission"
 import { DOCUMENTS_PERMS, HR_HUB_PERMS, canBringInMill } from "./lib/permissions"
 import { lazyWithReload } from "./lib/chunkReload"      // chunk หายหลัง deploy → reload 1 ครั้ง แทนหน้าขาว
+import { useAppUpdateCheck } from "./lib/appUpdate"     // deploy ใหม่ → ย้ายไปเวอร์ชันใหม่ตอนเปลี่ยนหน้า / กลับมาที่แอป
 
 /* -------- หน้าทั้งหมด lazy-load: แต่ละ route แตกเป็น chunk แยก โหลดเมื่อเข้าถึง -------- */
 const Home = lazyWithReload(() => import("./pages/work/Home"))
@@ -98,6 +99,7 @@ function RequirePasswordChanged({ children }) {
 }
 
 function App() {
+  useAppUpdateCheck()
   return (
     <Suspense fallback={<PageLoader variant="spinner" fullscreen message="กำลังโหลดหน้า…" />}>
     <Routes>

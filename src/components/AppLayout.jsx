@@ -16,7 +16,6 @@ import { loadOnboarding, useOnboarding } from "../lib/onboarding"
 import TourOverlay from "./onboarding/TourOverlay"
 import SearchIntroGate from "./onboarding/SearchIntroGate"
 import InstallIntroGate from "./onboarding/InstallIntroGate"
-import { useAppUpdateCheck } from "../lib/appUpdate"
 import { toast } from "./ui/toast"
 import { TOUR_SIDEBAR_EVENT, useTourState } from "../lib/tourState"
 import { usePreview } from "../lib/previewMode"
@@ -80,7 +79,6 @@ const AppLayout = () => {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
-  useAppUpdateCheck()
   useOnlineToast()
   // หน้าตารางหนักอ่าน SidebarContext — defer เพื่อไม่ให้ re-render บล็อกเฟรมแรกของ drawer slide
   const deferredSidebarOpen = useDeferredValue(isSidebarOpen)

@@ -3,7 +3,7 @@ import { cx, baseField, readonlyFieldCls } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback, useId, Children, cloneElement, isValidElement } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
-import { countLeaveDays, countsCalendarDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
+import { countLeaveDays, countsCalendarDays, fmtDays, fmtLeaveDuration, fmtLeaveRowDuration, currentFiscalYearBE } from "../../lib/leaveDays"
 import { sortLeaveTypes } from "../../lib/leaveTypes"
 import { printPage } from "../../lib/files"
 import { getUser } from "../../lib/auth"
@@ -646,7 +646,7 @@ export default function LeaveRequest() {
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ผู้ยื่น:</span> <span className="text-gray-900 dark:text-gray-100">{form.fullName}</span></p>
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ประเภทการลา:</span> <span className="text-gray-900 dark:text-gray-100">{form.leaveTypeName}</span></p>
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ช่วงวันลา:</span> <span className="text-gray-900 dark:text-gray-100">{fmtDateShort(form.fromDate)} – {fmtDateShort(form.toDate)}</span></p>
-              <p><span className="font-semibold text-gray-700 dark:text-gray-300">รวม:</span> <span className="font-bold text-indigo-700 dark:text-indigo-300">{totalDays} วัน</span></p>
+              <p><span className="font-semibold text-gray-700 dark:text-gray-300">รวม:</span> <span className="font-bold text-indigo-700 dark:text-indigo-300">{fmtLeaveDuration(totalDays, { fromTime: period.from })}</span></p>
             </div>
             <div className="flex gap-3">
               <button
@@ -883,7 +883,7 @@ export default function LeaveRequest() {
                       รวมระยะเวลาลาทั้งหมด
                     </span>
                     <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
-                      {fmtDays(totalDays)} วัน
+                      {fmtLeaveDuration(totalDays, { fromTime: period.from })}
                     </span>
                   </div>
                   {calendarDays ? (
@@ -1074,7 +1074,7 @@ export default function LeaveRequest() {
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
                       <p className="font-bold text-indigo-700 dark:text-indigo-300">
-                        {fmtDays(r.total_days)} วัน
+                        {fmtLeaveRowDuration(r)}
                       </p>
                     </div>
                   </div>

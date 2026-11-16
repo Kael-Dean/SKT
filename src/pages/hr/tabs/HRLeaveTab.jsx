@@ -9,6 +9,7 @@ import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadg
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../../components/ui"
 import { cx, tabPanelCls } from "../../../lib/styles"
 import { stageOf } from "../../../lib/approval"
+import { fmtLeaveRowDuration } from "../../../lib/leaveDays"
 import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../../lib/approvalActions"
 
 
@@ -166,7 +167,7 @@ export default function HRLeaveTab() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
-                      <p className="font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">{r.total_days} วัน</p>
+                      <p className="font-bold text-indigo-700 dark:text-indigo-300 ">{fmtLeaveRowDuration(r)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">วันที่ยื่น</p>
@@ -255,7 +256,7 @@ export default function HRLeaveTab() {
           kind={KIND.LEAVE}
           req={decision.req}
           title={`${requesterName(decision.req)} — ${decision.req.leave_type_name ?? "ใบลา"}`}
-          summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${decision.req.total_days ?? "-"} วัน`}
+          summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${fmtLeaveRowDuration(decision.req)}`}
           onClose={() => setDecision(null)}
           onDone={onDecisionDone}
           onConflict={onDecisionConflict}

@@ -14,7 +14,7 @@
 **ประเภท:** Web Application — Centralized HR System
 **Frontend Stack:** React 19 + Vite 7 + Tailwind CSS v4 + React Router v7 (BrowserRouter)
 **Backend:** Python FastAPI บน Google Cloud Run — repo **https://github.com/FeatureRichDevelopment/um_backend** (อ่านดู route/schema ได้ แต่ห้ามแก้จากโปรเจคนี้)
-**Frontend repo:** https://github.com/Kael-Dean/AMC
+**Frontend repo:** https://github.com/Kael-Dean/SKT (ชื่อ repo ต้องเป็น SKT — deploy ผูก Workload Identity กับชื่อนี้; เปลี่ยนเป็น AMC เมื่อ 10 พ.ย. 2026 แล้ว deploy ล้มทุกครั้ง)
 **Deploy:** Frontend อยู่บน Google Cloud Storage Bucket (Static Hosting)
 
 ---

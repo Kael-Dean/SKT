@@ -48,8 +48,8 @@ export const SALARY_CERT_PURPOSE_LABEL = Object.freeze({
 export const salaryCertPurposeLabel = (p) => SALARY_CERT_PURPOSE_LABEL[p] ?? p ?? "หนังสือรับรองเงินเดือน"
 
 export const SUPERVISOR_OPINION_LABEL = Object.freeze({
-  agree: "เห็นด้วย",
-  disagree: "ไม่เห็นด้วย",
+  agree: "เห็นชอบ",
+  disagree: "ไม่เห็นชอบ",
 })
 
 /** ดาวน์โหลด PDF จาก path ที่ให้มา แล้วสั่ง browser บันทึกไฟล์ */

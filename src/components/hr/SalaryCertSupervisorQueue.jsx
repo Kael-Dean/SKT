@@ -19,8 +19,8 @@ import {
 import { Sheet, toast } from "../ui"
 
 const OPINIONS = [
-  { value: "agree", label: "เห็นด้วย" },
-  { value: "disagree", label: "ไม่เห็นด้วย" },
+  { value: "agree", label: "เห็นชอบ" },
+  { value: "disagree", label: "ไม่เห็นชอบ" },
 ]
 
 function OpinionSheet({ req, onClose, onDone }) {
@@ -34,7 +34,7 @@ function OpinionSheet({ req, onClose, onDone }) {
     ev?.preventDefault()
     const text = comment.trim()
     if (opinion === "disagree" && !text) {
-      setError("ระบุเหตุผลที่ไม่เห็นด้วย")
+      setError("ระบุเหตุผลที่ไม่เห็นชอบ")
       document.getElementById(`${uid}-comment`)?.focus()
       return
     }
@@ -122,7 +122,7 @@ function OpinionSheet({ req, onClose, onDone }) {
               )
             })}
           </div>
-          <p className={helpTextCls}>ไม่ว่าจะเห็นด้วยหรือไม่ คำขอจะส่งต่อให้ผู้จัดการเป็นผู้อนุมัติ</p>
+          <p className={helpTextCls}>ไม่ว่าจะเห็นชอบหรือไม่ คำขอจะส่งต่อให้ผู้จัดการเป็นผู้อนุมัติ</p>
         </div>
 
         <div>
@@ -140,7 +140,7 @@ function OpinionSheet({ req, onClose, onDone }) {
             aria-required={opinion === "disagree" || undefined}
             aria-invalid={!!error || undefined}
             aria-describedby={error ? `${uid}-comment-err` : undefined}
-            placeholder={opinion === "disagree" ? "เหตุผลที่ไม่เห็นด้วย" : "เช่น ทำงานดี มีวินัย"}
+            placeholder={opinion === "disagree" ? "เหตุผลที่ไม่เห็นชอบ" : "เช่น ทำงานดี มีวินัย"}
             className={cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm resize-y", error && "!border-red-500 dark:!border-red-400")}
           />
           {error && <p id={`${uid}-comment-err`} className={errorTextCls}>{error}</p>}

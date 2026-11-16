@@ -960,7 +960,7 @@ function OrderCorrection() {
             <thead className="bg-slate-50 text-slate-700 dark:bg-slate-700 dark:text-slate-200">
               {mode === "buy" ? (
                 <tr>
-                  <th className="px-3 py-2">วันที่</th>
+                  <th className="whitespace-nowrap px-3 py-2">วันที่</th>
                   <th className="px-3 py-2">เลขที่ใบสำคัญ</th>
                   <th className="px-3 py-2">ลูกค้า</th>
                   <th className="px-3 py-2">ชนิดข้าว</th>
@@ -975,7 +975,7 @@ function OrderCorrection() {
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-3 py-2">วันที่</th>
+                  <th className="whitespace-nowrap px-3 py-2">วันที่</th>
                   <th className="px-3 py-2">ใบรับเงินขายสินค้า</th>
                   <th className="px-3 py-2">เลขที่ใบชั่ง</th>
                   <th className="px-3 py-2">ลูกค้า</th>
@@ -1016,10 +1016,10 @@ function OrderCorrection() {
                   return (
                     <tr
                       key={r.id ?? `${r.order_serial}-${r.date}-${r.first_name ?? ""}-${r.last_name ?? ""}`}
-                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-transparent dark:even:bg-slate-700/40 dark:hover:bg-emerald-500/10"
                     >
-                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || r.paymentRefNo || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.order_serial || r.paymentRefNo || "—"}</td>
                       <td className="px-3 py-2">
                         {`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.customer_name || "—"}
                       </td>
@@ -1052,11 +1052,11 @@ function OrderCorrection() {
                   return (
                     <tr
                       key={`${r.id ?? r.sale_id}-${r.sub_order ?? 0}`}
-                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-slate-800 dark:even:bg-slate-700 dark:hover:bg-slate-700/70"
+                      className="odd:bg-white even:bg-slate-50 hover:bg-emerald-50 dark:odd:bg-transparent dark:even:bg-slate-700/40 dark:hover:bg-emerald-500/10"
                     >
-                      <td className="px-3 py-2">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
-                      <td className="px-3 py-2">{r.sale_id || "—"}</td>
-                      <td className="px-3 py-2">{r.order_serial || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.date ? new Date(r.date).toLocaleDateString("th-TH") : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.sale_id || "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 tabular-nums">{r.order_serial || "—"}</td>
                       <td className="px-3 py-2">{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
                       <td className="px-3 py-2">{r.species || "—"}</td>
                       <td className="px-3 py-2">{r.branch_name || "—"}</td>

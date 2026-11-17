@@ -159,8 +159,8 @@ const StatSkeleton = ({ sizer, className }) => (
     </span>
   </span>
 )
-const AMBER_SKELETON = "!bg-amber-200/70 dark:!bg-amber-700/30"
-const EMERALD_SKELETON = "!bg-emerald-200/70 dark:!bg-emerald-700/30"
+const AMBER_SKELETON = "!bg-amber-200/70 dark:!bg-white/10"
+const EMERALD_SKELETON = "!bg-emerald-200/70 dark:!bg-white/10"
 
 /** ---------- Page: Order ---------- */
 const PAGE_SIZE = 100
@@ -833,7 +833,7 @@ const Order = () => {
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3" aria-busy={statsLoading ? "true" : "false"}>
           {/* จำนวนรายการ */}
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
-                        dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                        dark:bg-surface dark:text-gray-100 dark:shadow-none dark:ring-line">
             <div className="text-sm md:text-base text-slate-500 dark:text-slate-400">จำนวนรายการ</div>
             <div className="text-xl md:text-2xl font-semibold tabular-nums">
               {statsLoading ? <StatSkeleton sizer="0,000" /> : rows.length.toLocaleString()}
@@ -842,7 +842,7 @@ const Order = () => {
 
           {/* น้ำหนักรวม */}
           <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200
-                        dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+                        dark:bg-surface dark:text-gray-100 dark:shadow-none dark:ring-line">
             <div className="text-sm md:text-base text-slate-500 dark:text-slate-400">น้ำหนักสุทธิรวม (กก.)</div>
             <div className="text-xl md:text-2xl font-semibold tabular-nums">
               {statsLoading ? <StatSkeleton sizer="000,000" /> : (Math.round(toNumber(totals.weight) * 100) / 100).toLocaleString()}
@@ -851,8 +851,11 @@ const Order = () => {
 
           {/* หัก นน.รวม */}
           <div className="rounded-2xl bg-amber-50 p-4 text-amber-950 shadow-sm ring-1 ring-amber-300
-                        dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-700">
-            <div className="text-sm md:text-base text-amber-700 dark:text-amber-300">หัก นน.รวม (กก.)</div>
+                        dark:bg-surface dark:text-gray-100 dark:shadow-none dark:ring-line">
+            <div className="flex items-center gap-2 text-sm md:text-base text-amber-700 dark:text-slate-400">
+              <span aria-hidden="true" className="hidden size-1.5 shrink-0 rounded-full bg-amber-400 dark:inline-block" />
+              หัก นน.รวม (กก.)
+            </div>
             <div className="text-xl md:text-2xl font-semibold tabular-nums">
               {statsLoading ? <StatSkeleton sizer="0,000" className={AMBER_SKELETON} /> : totals.deduct.toLocaleString()}
             </div>
@@ -860,7 +863,7 @@ const Order = () => {
 
           {/* ราคาเฉลี่ย — phone tile (desktop shows it inside the value block) */}
           {isPhone && (
-            <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-slate-800 dark:text-white dark:ring-slate-700">
+            <div className="rounded-2xl bg-white p-4 text-black shadow-sm ring-1 ring-slate-200 dark:bg-surface dark:text-gray-100 dark:shadow-none dark:ring-line">
               <div className="text-sm text-slate-500 dark:text-slate-400">ราคาเฉลี่ย (บาท/กก.)</div>
               <div className="text-xl font-semibold tabular-nums">
                 {statsLoading ? <StatSkeleton sizer="00.00" /> : baht(toNumber(totals.avgUnitPrice))}
@@ -872,10 +875,10 @@ const Order = () => {
           <div className="col-span-2 md:col-span-3 rounded-2xl bg-emerald-50 p-4 md:p-6 text-emerald-950 shadow-sm
                 ring-1 ring-emerald-300
                 flex flex-col items-center justify-center text-center
-                dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700">
+                dark:bg-surface dark:text-gray-50 dark:shadow-none dark:ring-line">
 
-            <div className="text-emerald-700 dark:text-emerald-300">มูลค่ารวม</div>
-            <div className="text-2xl font-semibold tabular-nums">
+            <div className="text-emerald-700 dark:text-slate-400">มูลค่ารวม</div>
+            <div className="text-2xl font-semibold tabular-nums dark:tracking-tight md:dark:text-3xl">
               {statsLoading ? <StatSkeleton sizer="฿00,000,000.00" className={EMERALD_SKELETON} /> : thb(toNumber(totals.revenue))}
             </div>
 
@@ -885,17 +888,17 @@ const Order = () => {
                 className="mt-4 inline-flex flex-wrap items-baseline justify-center gap-x-2 gap-y-1
                            rounded-2xl border-2 border-emerald-600/60 bg-white/70 px-5 py-3
                            shadow-sm ring-1 ring-emerald-600/10
-                           dark:border-emerald-400/60 dark:bg-slate-900/30 dark:ring-emerald-400/10"
+                           dark:border-transparent dark:bg-raised dark:shadow-none dark:ring-line"
               >
-                <span className="text-sm md:text-base font-semibold text-emerald-800 dark:text-emerald-200">
+                <span className="text-sm md:text-base font-semibold text-emerald-800 dark:text-slate-400">
                   ราคาเฉลี่ยต่อกก.
                 </span>
 
-                <span className="text-xl md:text-2xl font-extrabold text-emerald-900 dark:text-emerald-100">
+                <span className="text-xl md:text-2xl font-extrabold tabular-nums text-emerald-900 dark:font-bold dark:text-emerald-300">
                   {statsLoading ? <StatSkeleton sizer="00.00" className={EMERALD_SKELETON} /> : baht(toNumber(totals.avgUnitPrice))}
                 </span>
 
-                <span className="text-sm md:text-base font-semibold text-emerald-800/90 dark:text-emerald-200/90">
+                <span className="text-sm md:text-base font-semibold text-emerald-800/90 dark:text-slate-400">
                   บาท/กก.
                 </span>
 
@@ -904,7 +907,7 @@ const Order = () => {
                     <StatSkeleton sizer="(0,000 รายการ)" className={EMERALD_SKELETON} />
                   </span>
                 ) : totals.unitCount ? (
-                  <span className="text-sm md:text-base text-emerald-800/80 dark:text-emerald-200/80">
+                  <span className="text-sm md:text-base text-emerald-800/80 dark:text-slate-500">
                     ({totals.unitCount.toLocaleString()} รายการ)
                   </span>
                 ) : null}

@@ -150,7 +150,7 @@ const ComboBox = forwardRef(function ComboBox(
   const next = onEnterNext ?? onMoveNext
   const hasSearch = searchable === true || (searchable === "auto" && options.length >= AUTO_SEARCH_MIN)
 
-  const { style: panelStyle } = useAnchoredPanel(triggerRef, { open: open && !isPhone, minW: panelMinW, maxW: panelMaxW, maxH: 288 })
+  const { style: panelStyle } = useAnchoredPanel(triggerRef, { open: open && !isPhone, minW: panelMinW, maxW: panelMaxW, maxH: 448 })
 
   // Merge the internal trigger ref with the caller's `buttonRef` (Enter chains).
   const setTrigger = useCallback(
@@ -423,8 +423,9 @@ const ComboBox = forwardRef(function ComboBox(
         )}
       >
         <span className="min-w-0 flex-1">
-          <span className={cx("block", wrapLabels ? "break-words" : "truncate")}>{label}</span>
-          {sub && <span className="mt-0.5 block truncate text-sm font-normal text-slate-500 dark:text-slate-400">{sub}</span>}
+          {/* Option rows always wrap: long names (e.g. rice product codes) must be readable in full */}
+          <span className="block break-words">{label}</span>
+          {sub &&<span className="mt-0.5 block truncate text-sm font-normal text-slate-500 dark:text-slate-400">{sub}</span>}
         </span>
         {isChosen && <Check aria-hidden="true" className="size-5 shrink-0 text-indigo-600 dark:text-indigo-400" strokeWidth={2} />}
       </li>

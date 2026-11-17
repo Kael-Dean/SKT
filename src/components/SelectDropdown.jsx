@@ -36,7 +36,7 @@ import { fieldErrorCls } from "../lib/styles"
 // Must sit above StickyTableScrollbar (z-index 10000) and the Sheet (10040).
 // Full z-stack: see src/components/ui/Sheet.jsx header.
 const PANEL_Z = 10050
-const PANEL_MAX_H = 288 // max-h-72
+const PANEL_MAX_H = 448 // max-h-112 — taller so long names/more rows show at once
 const PANEL_MIN_W = 288 // 18rem
 const PANEL_MAX_W = 512 // 32rem
 const GAP = 6
@@ -394,7 +394,7 @@ function PlainSelect({
                     {showSwatch && <Swatch color={swatchFor(opt.value)} strong={isChosen} />}
 
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate" title={opt.label}>{opt.label}</span>
+                      <span className="block break-words" title={opt.label}>{opt.label}</span>
                       {sub && (
                         <span className="mt-0.5 block truncate text-xs font-normal text-slate-600 dark:text-slate-300">
                           {sub}

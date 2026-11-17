@@ -19,6 +19,9 @@ import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import GuaranteeBankEditSheet from "../../components/hr/GuaranteeBankEditSheet"
 import Can from "../../components/Can"
+import { can } from "../../lib/permissions"
+import CustomLeaveQuotaCard from "../../components/hr/CustomLeaveQuotaCard"
+import EmployeeHistoryCard from "../../components/hr/EmployeeHistoryCard"
 import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
 import PendingFamilyCard from "../../components/hr/PendingFamilyCard"
@@ -565,6 +568,20 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      {/* โควตาประเภทการลาที่ HR เพิ่มเอง (ซ่อนเองเมื่อไม่มี / ไม่มีสิทธิ์ดู) */}
+      {can("hr.leave.quota.view") && <CustomLeaveQuotaCard employeeId={id} />}
+
+      {/* ประวัติ: ตำแหน่ง / โยกย้าย / การลา / ขั้นเงินเดือน — แต่ละส่วนตามสิทธิ์ของ endpoint */}
+      <EmployeeHistoryCard
+        base={`/hr/employees/${id}`}
+        allow={{
+          position: can("hr.positions.assign"),
+          relocation: can("hr.relocation.history"),
+          leave: can("hr.leave.quota.view"),
+          salary: can("hr.salary.history"),
+        }}
+      />
 
       {/* ผู้มีสิทธิ์รับสวัสดิการ (3P) — WP2 */}
       <Can perm="hr.welfare.dependants.view">

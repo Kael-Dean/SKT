@@ -1,10 +1,12 @@
 // src/pages/hr/tabs/HRLeaveTypesTab.jsx
-import { cx, baseField } from "../../../lib/styles"
-// จัดการประเภทการลา — GET /hr/leave-types, PATCH update/toggle
-import { useEffect, useState, useCallback } from "react"
+import { cx, baseField, errorTextCls, neutralBtnCls, primaryBtnCls } from "../../../lib/styles"
+// จัดการประเภทการลา — GET /hr/leave-types, PATCH update/toggle, POST สร้างประเภทใหม่ (โควตาของตัวเอง ไม่มี quota_column)
+import { useEffect, useId, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
+import Can from "../../../components/Can"
+import { apiDetail } from "../../../lib/apiErrors"
 import { leaveTypeLabel } from "../../../lib/leaveDays"
-import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
+import { SkeletonTableRows, ErrorState, EmptyState, Badge, Sheet, toast } from "../../../components/ui"
 
 const inputCls = cx(baseField, "!w-24 !rounded-lg !px-3 !py-1.5 md:!text-sm text-right")
 const nameInputCls = cx(baseField, "!rounded-lg !px-3 !py-1.5 md:!text-sm")
@@ -31,7 +33,97 @@ function PencilBtn({ label, onClick }) {
   )
 }
 
+const sheetInputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
+const sheetLabelCls = "mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
+
+/** เพิ่มประเภทการลา → POST /hr/leave-types { type, days (≥0), max_days (≥1 | null) } → 201 · 409 ชื่อซ้ำ (รวมชื่อในตัว เช่น ลาฟื้นฟู) */
+function AddLeaveTypeSheet({ existing, onClose, onCreated }) {
+  const uid = useId()
+  const [name, setName] = useState("")
+  const [days, setDays] = useState("")
+  const [maxDays, setMaxDays] = useState("")
+  const [errs, setErrs] = useState({})
+  const [err, setErr] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  const save = async (ev) => {
+    ev?.preventDefault()
+    const n = name.trim()
+    const next = {}
+    if (!n) next.name = "กรอกชื่อประเภทการลา"
+    else if (n.length > NAME_MAX) next.name = `ชื่อยาวได้ไม่เกิน ${NAME_MAX} ตัวอักษร`
+    else if (existing.some((o) => leaveTypeLabel(o) === n || o.type === n)) next.name = "มีประเภทการลาชื่อนี้แล้ว"
+    const d = days === "" ? NaN : Number(days)
+    if (!Number.isInteger(d) || d < 0) next.days = "กรอกจำนวนวันต่อปีเป็นจำนวนเต็ม ตั้งแต่ 0 ขึ้นไป"
+    const m = maxDays === "" ? null : Number(maxDays)
+    if (m !== null && (!Number.isInteger(m) || m < 1)) next.max = "ลาได้สูงสุดต่อครั้งต้องเป็นจำนวนเต็ม ตั้งแต่ 1 ขึ้นไป"
+    setErrs(next)
+    if (Object.keys(next).length) return
+    setBusy(true); setErr("")
+    try {
+      const body = { type: n, days: d }
+      if (m !== null) body.max_days = m
+      const res = await apiAuth("/hr/leave-types", { method: "POST", body })
+      toast.success(`เพิ่มประเภทการลา "${res?.type ?? n}" แล้ว`, { description: "พนักงานทุกคนได้สิทธิ์ตามจำนวนวันต่อปี · ตั้งเฉพาะรายคนได้ที่หน้าพนักงาน" })
+      onCreated?.(res)
+    } catch (e) {
+      setErr(apiDetail(e) || "เพิ่มประเภทการลาไม่สำเร็จ") // 409 → "มีประเภทการลาชื่อนี้แล้ว"
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const fieldErr = (k) => (errs[k] ? <p id={`${uid}-${k}-err`} role="alert" className={errorTextCls}>{errs[k]}</p> : null)
+
+  return (
+    <Sheet open onClose={onClose} busy={busy} size="md" title="เพิ่มประเภทการลา"
+      subtitle="ประเภทที่เพิ่มมีโควตาของตัวเอง ไม่ปนกับประเภทอื่น"
+      footer={(
+        <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
+          <button type="button" onClick={onClose} disabled={busy} className={neutralBtnCls}>ยกเลิก</button>
+          <button type="submit" form={`${uid}-form`} disabled={busy} className={primaryBtnCls}>{busy ? "กำลังบันทึก…" : "เพิ่มประเภท"}</button>
+        </div>
+      )}>
+      <form id={`${uid}-form`} onSubmit={save} noValidate className="space-y-4">
+        <div className="min-w-0">
+          <label htmlFor={`${uid}-name`} className={sheetLabelCls}>ชื่อประเภทการลา <span className="text-red-600 dark:text-red-400">*</span></label>
+          <input id={`${uid}-name`} value={name} maxLength={NAME_MAX} autoFocus disabled={busy} autoComplete="off"
+            placeholder="เช่น ลาไปช่วยราชการ"
+            aria-required="true" aria-invalid={errs.name ? true : undefined} aria-describedby={errs.name ? `${uid}-name-err` : undefined}
+            onChange={(e) => { setName(e.target.value); setErrs((s) => ({ ...s, name: "" })); setErr("") }}
+            className={cx(sheetInputCls, errs.name && "!border-red-500 dark:!border-red-400")} />
+          {fieldErr("name")}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="min-w-0">
+            <label htmlFor={`${uid}-days`} className={sheetLabelCls}>จำนวนวัน/ปี <span className="text-red-600 dark:text-red-400">*</span></label>
+            <input id={`${uid}-days`} type="number" inputMode="numeric" min="0" step="1" value={days} disabled={busy}
+              aria-required="true" aria-invalid={errs.days ? true : undefined} aria-describedby={errs.days ? `${uid}-days-err` : undefined}
+              onChange={(e) => { setDays(e.target.value); setErrs((s) => ({ ...s, days: "" })) }}
+              className={cx(sheetInputCls, "tabular-nums", errs.days && "!border-red-500 dark:!border-red-400")} />
+            {fieldErr("days")}
+          </div>
+          <div className="min-w-0">
+            <label htmlFor={`${uid}-max`} className={sheetLabelCls}>ลาได้สูงสุดต่อครั้ง (วัน)</label>
+            <input id={`${uid}-max`} type="number" inputMode="numeric" min="1" step="1" value={maxDays} disabled={busy}
+              placeholder="ไม่จำกัด"
+              aria-invalid={errs.max ? true : undefined} aria-describedby={errs.max ? `${uid}-max-err` : undefined}
+              onChange={(e) => { setMaxDays(e.target.value); setErrs((s) => ({ ...s, max: "" })) }}
+              className={cx(sheetInputCls, "tabular-nums", errs.max && "!border-red-500 dark:!border-red-400")} />
+            {fieldErr("max")}
+          </div>
+        </div>
+        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          นับเป็นวันทำงาน · ลบประเภทไม่ได้ (ใบลาเก่าอ้างถึงอยู่) ใช้ปุ่ม "ปิดใช้งาน" แทน
+        </p>
+        {err && <p role="alert" className={errorTextCls}>{err}</p>}
+      </form>
+    </Sheet>
+  )
+}
+
 export default function HRLeaveTypesTab() {
+  const [addOpen, setAddOpen] = useState(false)
   const [leaveTypes, setLeaveTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -134,6 +226,18 @@ export default function HRLeaveTypesTab() {
   return (
     <div className="space-y-4">
       {error && <ErrorState message={error} onRetry={fetchLeaveTypes} />}
+      <Can perm="hr.leaveTypes.manage">
+        <div className="flex justify-end">
+          <button type="button" onClick={() => setAddOpen(true)} className={primaryBtnCls}>เพิ่มประเภทการลา</button>
+        </div>
+      </Can>
+      {addOpen && (
+        <AddLeaveTypeSheet
+          existing={leaveTypes}
+          onClose={() => setAddOpen(false)}
+          onCreated={() => { setAddOpen(false); fetchLeaveTypes() }}
+        />
+      )}
       {msg && (
         <p
           role="status"
@@ -203,6 +307,7 @@ export default function HRLeaveTypesTab() {
                       ) : (
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span className="truncate font-medium text-gray-900 dark:text-gray-100">{leaveName(lt) || "—"}</span>
+                          {lt.is_custom && <Badge tone="info">เพิ่มโดย HR</Badge>}
                           {renameSupported && <PencilBtn label={`แก้ชื่อ ${leaveName(lt)}`} onClick={() => startRename(lt)} />}
                         </div>
                       )}

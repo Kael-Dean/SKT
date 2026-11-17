@@ -18,6 +18,7 @@ import LeaveRegisterTable from "../../components/hr/LeaveRegisterTable"
 import lineIcon from "../../assets/line-icon.png"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
+import EmployeeHistoryCard from "../../components/hr/EmployeeHistoryCard"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
 import { getTenure, tenureText } from "../../lib/tenure"
@@ -512,6 +513,9 @@ export default function MyProfile() {
           </p>
         </div>
       )}
+
+      {/* ประวัติ: ตำแหน่ง / โยกย้าย / การลา / ขั้นเงินเดือน (อ่านอย่างเดียว) */}
+      <EmployeeHistoryCard base="/personnel/me" />
 
       {/* คำร้องแจ้งแก้ไขข้อมูลของฉัน + สถานะ — GET /personnel/me/issues */}
       <div className="rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5">

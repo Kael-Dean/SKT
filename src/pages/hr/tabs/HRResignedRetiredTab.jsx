@@ -2,6 +2,7 @@
 // 13D — Resigned/Retired Staff: list + filter + PDF
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../components/ui"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import SelectDropdown from "../../../components/SelectDropdown"
@@ -88,12 +89,7 @@ export default function HRResignedRetiredTab() {
     try {
       const qs = buildQs()
       const { blob, filename } = await apiDownload(`/hr/reports/resigned-retired-pdf${qs ? "?" + qs : ""}`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || "resigned-retired.pdf"
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : "resigned-retired.pdf")
     } catch (e) {
       setPdfErr(e.message || "ดาวน์โหลดไม่สำเร็จ")
     } finally {

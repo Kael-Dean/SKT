@@ -11,7 +11,7 @@ import ComboBox from "../../components/ComboBox"
 import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import { toast } from "../../components/ui"
-import { deliverBlob, openPopup } from "../../lib/files"
+import { closeDocWindow, prepareDocWindow, saveBlob, showBlob } from "../../lib/files"
 import DateInput from "../../components/ThaiDateField"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import PageTitle from "../../components/PageTitle"
@@ -1049,52 +1049,9 @@ function Documents() {
     if (Object.keys(errs).length) return
 
     const isPdf = isPdfType(report.type)
-    // หมายเหตุความปลอดภัย: ไม่ใช้ feature "noopener" ตรงนี้ เพราะ noopener จะทำให้
-    // window.open() คืนค่า null บนเบราว์เซอร์เป้าหมาย ซึ่งจะทำให้ flow พรีวิว PDF พัง
-    // (โค้ดด้านล่างต้องใช้ handle เพื่อเขียน placeholder, set location.href เป็น blob URL,
-    // focus/print และ close ตอน error) — แทนที่จะใช้ noopener เราจึง null ค่า opener
-    // ด้วยตัวเองเพื่อปิดช่องโหว่ reverse-tabnabbing โดยยังคงควบคุมหน้าต่างได้
-    const preOpenWin = isPdf ? openPopup() : null
-    if (preOpenWin) {
-      try {
-        preOpenWin.opener = null
-      } catch { /* ignore */ }
-    }
-
-    if (preOpenWin && isPdf) {
-      try {
-        preOpenWin.document.title = report.title || "Report"
-        // สร้าง placeholder ด้วย DOM API (createElement + textContent) แทน innerHTML
-        // เพื่อกันการ inject HTML — ไม่มีการนำข้อมูล user/dynamic มา assign ผ่าน innerHTML
-        const doc = preOpenWin.document
-        // The pre-opened tab is a blank document (white by default) — follow the
-        // app theme so the muted hint keeps its contrast in dark mode too.
-        const isDark = document.documentElement.classList.contains("dark")
-        if (isDark) {
-          doc.documentElement.style.colorScheme = "dark"
-          doc.body.style.background = "#0B0B0F"
-          doc.body.style.color = "#EDEDF0"
-        }
-        const wrap = doc.createElement("div")
-        wrap.style.fontFamily = "sans-serif"
-        wrap.style.padding = "16px"
-
-        const heading = doc.createElement("div")
-        heading.style.fontSize = "16px"
-        heading.style.fontWeight = "600"
-        heading.textContent = "กำลังเตรียมรายงาน…"
-
-        const hint = doc.createElement("div")
-        hint.style.marginTop = "6px"
-        hint.style.color = isDark ? "#9A9AA5" : "#64748b"
-        hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้กลับไปหน้ารายงานเพื่อดูสาเหตุ"
-
-        wrap.appendChild(heading)
-        wrap.appendChild(hint)
-
-        doc.body.replaceChildren(wrap)
-      } catch { /* ignore */ }
-    }
+    // เปิดแท็บไว้ก่อนภายในคลิก (Safari บน iPhone/iPad/Mac บล็อก window.open หลัง await)
+    // คืน null บน Android / แอปที่ติดตั้งบนมือถือ-ไอแพด → showBlob จะบันทึก/เปิด share sheet แทน
+    const preOpenWin = isPdf ? prepareDocWindow(report.title || "รายงาน") : null
 
     try {
       setDownloading(true)
@@ -1103,13 +1060,7 @@ function Documents() {
 
       if (report.type === "excel") {
         const { blob, filename } = await apiDownload(`${endpoint}?${params.toString()}`)
-        const link = document.createElement("a")
-        link.href = URL.createObjectURL(blob)
-        link.download = filename || `${report.key}_${filters.allTime ? "all-time" : `${filters.startDate || ""}_${filters.endDate || ""}`}.xlsx`
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-        setTimeout(() => URL.revokeObjectURL(link.href), 3000)
+        await saveBlob(blob, filename && filename !== "download" ? filename : `${report.key}_${filters.allTime ? "all-time" : `${filters.startDate || ""}_${filters.endDate || ""}`}.xlsx`)
         return
       }
 
@@ -1117,42 +1068,25 @@ function Documents() {
         if (report.type !== "hr_pdf") params.set("preview", "false")
 
         const { blob, filename } = await apiDownload(`${endpoint}?${params.toString()}`)
-        const url = URL.createObjectURL(blob)
-
-        if (preOpenWin) {
-          try {
-            preOpenWin.location.href = url
-            setTimeout(() => {
-              try {
-                preOpenWin.focus()
-                preOpenWin.print()
-              } catch { /* ignore */ }
-            }, 1200)
-          } catch { /* ignore */ }
-        } else {
-          await deliverBlob(blob, filename && filename !== "download" ? filename : `${report.key}.pdf`)
+        await showBlob(blob, filename && filename !== "download" ? filename : `${report.key}.pdf`, preOpenWin)
+        if (preOpenWin && !preOpenWin.closed) {
+          setTimeout(() => {
+            try {
+              preOpenWin.focus()
+              preOpenWin.print()
+            } catch { /* ignore */ }
+          }, 1200)
         }
-
-        setTimeout(() => URL.revokeObjectURL(url), 60_000)
         return
       }
 
       // json
       const json = await apiAuth(`${endpoint}?${params.toString()}`)
       setPreviewJson(json)
-      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
-      const link = document.createElement("a")
-      link.href = URL.createObjectURL(blob)
-      link.download = `${report.key}.json`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      setTimeout(() => URL.revokeObjectURL(link.href), 3000)
+      await saveBlob(new Blob([JSON.stringify(json, null, 2)], { type: "application/json" }), `${report.key}.json`)
     } catch (err) {
       console.error(err)
-      try {
-        preOpenWin?.close?.()
-      } catch { /* ignore */ }
+      closeDocWindow(preOpenWin)
       toast.error("เปิดรายงานไม่สำเร็จ", { description: reportErrorMessage(err) })
     } finally {
       setDownloading(false)

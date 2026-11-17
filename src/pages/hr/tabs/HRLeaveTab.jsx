@@ -2,6 +2,7 @@
 // อนุมัติ / ปฏิเสธ คำขอลา + ดาวน์โหลด PDF ใบลา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import DecisionModal from "../../../components/DecisionModal"
 import LeaveStageActions from "../../../components/LeaveStageActions"
 import ApprovalHistory from "../../../components/ApprovalHistory"
@@ -33,12 +34,7 @@ export default function HRLeaveTab() {
     setDownloadingId(leaveId)
     try {
       const { blob, filename } = await apiDownload(`/hr/employees/${employeeId}/leaves/${leaveId}/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave_${leaveId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave_${leaveId}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {

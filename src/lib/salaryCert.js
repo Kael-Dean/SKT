@@ -9,6 +9,7 @@
 // สถานะ `pending` เดิมไม่มีแล้ว — ใช้ isSalaryCertPending() แทนการเทียบ string
 // ─────────────────────────────────────────────────────────────────────────────
 import { apiDownload } from "./api"
+import { saveBlob } from "./files"
 
 export const SALARY_CERT_STATUS = Object.freeze({
   PENDING_SUPERVISOR: "pending_supervisor",
@@ -55,10 +56,5 @@ export const SUPERVISOR_OPINION_LABEL = Object.freeze({
 /** ดาวน์โหลด PDF จาก path ที่ให้มา แล้วสั่ง browser บันทึกไฟล์ */
 export async function downloadSalaryCertPdf(path, fallbackName) {
   const { blob, filename } = await apiDownload(path)
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename || fallbackName
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  await saveBlob(blob, filename && filename !== "download" ? filename : fallbackName)
 }

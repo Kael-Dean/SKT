@@ -3,6 +3,7 @@ import { cx, baseField, readonlyFieldCls } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback, useId, Children, cloneElement, isValidElement } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { countLeaveDays, countsCalendarDays, fmtDays, fmtLeaveDuration, fmtLeaveRowDuration, currentFiscalYearBE, leaveTypeLabel } from "../../lib/leaveDays"
 import { sortLeaveTypes } from "../../lib/leaveTypes"
 import { printPage } from "../../lib/files"
@@ -516,12 +517,7 @@ export default function LeaveRequest() {
     setDownloadingId(leaveId)
     try {
       const { blob, filename } = await apiDownload(`/personnel/me/leaves/${leaveId}/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave_${leaveId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave_${leaveId}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {

@@ -7,6 +7,7 @@
 // ใช้ทั้งในแท็บ "บันทึกออกจากงาน" และ popup ปุ่ม "ออกจากงาน" หน้าโปรไฟล์เจ้าหน้าที่ (<TerminationSheet>)
 import { useCallback, useEffect, useRef, useState } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { apiDetail } from "../../lib/apiErrors"
 import { borrowerName, money, thaiDate, todayIso, warningList } from "../../lib/loans"
 import { cx, baseField } from "../../lib/styles"
@@ -250,12 +251,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
     setPdfErr("")
     try {
       const { blob, filename } = await apiDownload(`/hr/employees/${empId}/termination-record/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `termination_${record.id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `termination_${record.id}.pdf`)
     } catch (e) {
       setPdfErr(apiDetail(e) || "ดาวน์โหลดไม่สำเร็จ")
     } finally {

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { AlertTriangle, CalendarDays, ChevronRight, Info, RotateCcw, X } from "lucide-react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import { useCan } from "../../../lib/permissions"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 import {
@@ -477,12 +478,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
     setDownloading(id)
     try {
       const { blob, filename } = await apiDownload(`/hr/payroll/${id}/payslip`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `payslip_${id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `payslip_${id}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลดสลิปไม่สำเร็จ", { description: err.message || undefined })
     } finally {

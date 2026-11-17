@@ -2,6 +2,7 @@
 // 13C — Leave Register: annual summary table + 2 PDF downloads
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import { leaveTypeName, leaveTypeLabel } from "../../../lib/leaveDays"
 import { sortLeaveTypes } from "../../../lib/leaveTypes"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
@@ -105,12 +106,7 @@ export default function HRLeaveRegisterTab() {
     try {
       const ep = type === "summary" ? "annual-summary-pdf" : "register-pdf"
       const { blob, filename } = await apiDownload(`/hr/leave/${ep}?${buildQs()}`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave-${type}-${fiscalYear}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave-${type}-${fiscalYear}.pdf`)
     } catch (e) {
       setPdfErr(e.message || "ดาวน์โหลดไม่สำเร็จ")
     } finally {

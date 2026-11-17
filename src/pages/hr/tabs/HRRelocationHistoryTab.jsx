@@ -3,6 +3,7 @@
 // 13F (HR side) — ดู detail + ดาวน์โหลด PDF ฟอร์มย้ายสาขา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import AllTimeToggle from "../../../components/AllTimeToggle"
 import { firstOfMonthIso, todayIso } from "../../../lib/allTime"
@@ -67,12 +68,7 @@ export default function HRRelocationHistoryTab() {
       if (toDate)   params.set("to_date", toDate)
       const qs = params.toString()
       const { blob, filename } = await apiDownload(`/hr/reports/relocation-history-pdf${qs ? "?" + qs : ""}`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || "relocation-history.pdf"
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : "relocation-history.pdf")
     } catch (e) {
       setPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {
@@ -120,12 +116,7 @@ export default function HRRelocationHistoryTab() {
     setDetailPdfErr("")
     try {
       const { blob, filename } = await apiDownload(`/hr/relocation-requests/${id}/form-pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `relocation_form_${id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `relocation_form_${id}.pdf`)
     } catch (e) {
       setDetailPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {

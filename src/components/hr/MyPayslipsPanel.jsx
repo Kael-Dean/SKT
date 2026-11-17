@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { ChevronRight, Download } from "lucide-react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { fmtPayMonth, money, parsePayMonth } from "../../lib/payroll"
 import { cx, focusRingCls, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
@@ -27,13 +28,8 @@ function useDownload() {
     setBusy(row.id)
     try {
       const { blob, filename } = await apiDownload(`/personnel/me/payroll/${row.id}/payslip`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
       const p = parsePayMonth(row.month)
-      a.download = filename || `payslip_${p ? `${p.year + 543}-${String(p.month).padStart(2, "0")}` : row.id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `payslip_${p ? `${p.year + 543}-${String(p.month).padStart(2, "0")}` : row.id}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลดสลิปไม่สำเร็จ", { description: err.message || undefined })
     } finally {

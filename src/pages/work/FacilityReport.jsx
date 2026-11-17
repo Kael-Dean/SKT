@@ -3,6 +3,7 @@ import { cx, baseField, neutralBtnCls } from "../../lib/styles"
 // รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { can } from "../../lib/permissions"
 import SelectDropdown from "../../components/SelectDropdown"
 import Portal from "../../components/Portal"
@@ -539,10 +540,7 @@ export default function FacilityReport() {
     setGeneratingPdf(true)
     try {
       const { blob, filename } = await apiDownload(path)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url; a.download = filename || `facility_report_${reportFileRange}.pdf`
-      a.click(); URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `facility_report_${reportFileRange}.pdf`)
     } catch (e) {
       let msg = e.message
       try { const d = JSON.parse(msg); msg = d?.detail || msg } catch { /* keep raw message */ }

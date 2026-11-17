@@ -159,9 +159,9 @@ function ProgramToggles({ value, onChange }) {
           className={[
             "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
             "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
-            "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
+            "shadow-sm hover:shadow-md",
             "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
-            value?.[key] ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0",
+            value?.[key] ? "ring-2 ring-emerald-400" : "ring-0",
           ].join(" ")}
         >
           <span

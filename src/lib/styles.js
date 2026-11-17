@@ -157,7 +157,8 @@ export const primaryBtnCls =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 h-11 md:pointer-fine:h-10 text-sm font-semibold " +
   "text-white shadow-sm transition-colors duration-200 cursor-pointer hover:bg-indigo-500 " +
   "dark:bg-indigo-600 dark:hover:bg-indigo-500 " +
-  "dark:shadow-[0_0_0_1px_rgb(129_140_248/.35),0_8px_24px_-8px_rgb(99_102_241/.6)] " +
+  // dark: a quiet top highlight only — no indigo halo under the button
+  "dark:shadow-[inset_0_1px_0_rgb(255_255_255/.12)] " +
   "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-indigo-600 dark:disabled:hover:bg-indigo-600 " +
   focusRingCls
 

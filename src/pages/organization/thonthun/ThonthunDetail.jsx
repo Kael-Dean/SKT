@@ -457,7 +457,7 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
                   "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
                   isSaving || !items.length
                     ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
-                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                    : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
                 )}
               >
                 รีเซ็ต
@@ -470,7 +470,7 @@ function ThonthunDetail({ branchId, branchName, yearBE, planId }) {
                   "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",
                   isSaving || !effectiveYear
                     ? "bg-slate-300 text-slate-700 cursor-not-allowed dark:bg-slate-700 dark:text-slate-400"
-                    : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98] cursor-pointer"
+                    : "bg-emerald-600 hover:bg-emerald-700 shadow-sm active:scale-[.98] cursor-pointer"
                 )}
               >
                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}

@@ -261,8 +261,8 @@ export default function HRLeaveTypesTab() {
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">ประเภทการลา</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">จำนวนวัน/ปี</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">สถานะ</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold whitespace-nowrap text-gray-500 dark:text-gray-400">จำนวนวัน/ปี</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold whitespace-nowrap text-gray-500 dark:text-gray-400">สถานะ</th>
                   <th className="px-4 py-3 w-28"></th>
                 </tr>
               </thead>
@@ -338,7 +338,7 @@ export default function HRLeaveTypesTab() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
-                          <span className="font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">{leaveDays(lt) ?? "—"} วัน</span>
+                          <span className="font-semibold whitespace-nowrap text-indigo-700 dark:text-indigo-300 tabular-nums">{leaveDays(lt) ?? "—"} วัน</span>
                           <PencilBtn label={`แก้ไขจำนวนวัน ${leaveName(lt)}`} onClick={() => startEdit(lt)} />
                         </div>
                       )}

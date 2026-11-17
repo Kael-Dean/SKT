@@ -3,6 +3,19 @@
 **จาก:** Frontend (SKT) · **ถึง:** Backend (`FeatureRichDevelopment/um_backend`) · **วันที่:** 2026-10-29
 **หน้าที่เกี่ยว:** `/hr/dashboard?tab=leave-types` (`src/pages/hr/tabs/HRLeaveTypesTab.jsx`)
 
+## 🚨 ตามงาน 2026-11-17 — PR 93 (`display_name`) ยังไม่ขึ้น production — ขอ merge + deploy
+
+HR ขอแก้ชื่อประเภทการลาในหน้า "ประเภทการลา" อีกรอบ. เช็ค server จริงวันนี้ (ทั้ง `api.amcsurin.com` และ `um-repo-…run.app`):
+
+- `GET /hr/leave-types` คืนแค่ `{ id, type, days, max_days, is_active }` — **ไม่มี key `display_name`**
+- `openapi.json` → `LeaveTypeUpdateRequest` มีแค่ `days`
+
+**FE พร้อมแล้ว ไม่ต้อง deploy FE เพิ่ม** (commit `ddab9db`): ปุ่มดินสอแก้ชื่อโผล่เองเมื่อ `GET` มี key `display_name`
+(ค่า `null` ก็ได้) · ยิง `PATCH { display_name }` (ส่ง `null` = กลับไปใช้ `type`) · 409 = ชื่อซ้ำกับชื่อที่แสดงของประเภทอื่น ·
+leave-balance FE จับคู่ logic key จาก `GET /hr/leave-types` ด้วย id แล้ว
+
+**ขอ:** merge um_backend PR 93 → deploy Cloud Run (prod ที่ `api.amcsurin.com`) → บอก FE แล้ว FE จะทดสอบ acceptance ส่วนที่ 1 ด้านล่างบน prod ให้
+
 ## 🔁 ตามงาน 2026-11-16 — ยังไม่มีใน backend, ขอส่วนที่ 1 (แก้ชื่อ) ก่อน
 
 เช็ค `openapi.json` ทั้ง `um-repo-…run.app` และ `api.amcsurin.com` วันนี้:

@@ -1,0 +1,477 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><title>SKT-HR คู่มือการใช้งาน งวด 4</title><style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap');
+@page{size:A4;margin:0}
+:root{--ink:#1f2937;--mut:#6b7280;--indigo:#3730a3;--indigo2:#4f46e5;--line:#e5e7eb;--amber-bg:#fffbeb;--amber:#b45309;--red:#dc2626}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;color:var(--ink);font-family:'Sarabun','Leelawadee UI','Tahoma',sans-serif;font-size:10.5pt;line-height:1.45}
+.page{width:210mm;height:297mm;position:relative;overflow:hidden;padding:12mm 14mm 16mm;page-break-after:always;break-after:page}
+.foot{position:absolute;left:14mm;right:14mm;bottom:7mm;display:flex;justify-content:space-between;font-size:8pt;color:var(--mut);border-top:1px solid var(--line);padding-top:2mm}
+.secbar{display:flex;justify-content:space-between;background:var(--indigo);color:#fff;padding:2.2mm 4mm;border-radius:2mm;font-weight:600;font-size:10pt}
+.secbar span+span{font-weight:400;opacity:.85}
+.head{display:flex;align-items:center;gap:3mm;margin:4mm 0 1.5mm}
+.num{flex:none;width:8mm;height:8mm;border-radius:2mm;background:#1e1b4b;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center}
+.head h2{margin:0;font-size:15pt;line-height:1.25;flex:1}
+.pill{flex:none;max-width:70mm;text-align:right;font-size:8pt;color:var(--indigo);background:#eef2ff;border-radius:99px;padding:1mm 3mm;line-height:1.3}
+.crumb{font-size:9pt;color:var(--mut);padding-bottom:2mm;border-bottom:1.2px solid #1e1b4b;margin-bottom:3mm}
+.crumb b{color:var(--ink)}
+.fig{margin:0 0 3mm}
+.fig figcaption{font-weight:600;font-size:9.5pt;color:var(--indigo);margin-bottom:1.5mm}
+.fig img{display:block;width:100%;border:1px solid var(--line);border-radius:2mm;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.fig.two img{width:150mm;margin:0 auto}
+.legend{list-style:none;margin:2.2mm 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:1.2mm 5mm;font-size:9pt}
+.fig.two .legend{font-size:8.5pt;gap:.8mm 5mm}
+.legend li{display:flex;gap:2mm;align-items:flex-start;break-inside:avoid}
+.legend .n{flex:none;width:4.6mm;height:4.6mm;border-radius:50%;background:var(--red);color:#fff;font-size:7.5pt;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:.5mm}
+.note{background:var(--amber-bg);border-left:1.2mm solid #f59e0b;color:#78350f;padding:2.2mm 3.5mm;border-radius:1.5mm;font-size:9pt;margin-top:2mm}
+.note b{color:var(--amber)}
+.h2{font-size:17pt;margin:6mm 0 4mm;color:#1e1b4b}
+.toc{width:100%;border-collapse:collapse;font-size:9pt}
+.toc td{padding:.55mm 2mm;border-bottom:1px dotted #cbd5e1}
+.toc td.r{text-align:right;width:14mm;color:var(--mut)}
+.toc tr.sec td{background:#eef2ff;color:var(--indigo);font-weight:700;border:0;padding:1.3mm 2mm}
+.toc tr.sec small{float:right;font-weight:400;color:var(--mut)}
+.notes{padding-left:5mm;line-height:1.7}
+.p-cover{padding:0;background:#fff}
+.cover-bar{height:60mm;background:linear-gradient(135deg,#312e81,#4f46e5);}
+.cover-body{padding:14mm 18mm}
+.eyebrow{color:var(--indigo2);font-weight:600;letter-spacing:.3px;margin-bottom:3mm}
+.cover h1{font-size:26pt;line-height:1.2;margin:0 0 2mm;color:#1e1b4b}
+.grp{font-size:17pt;color:var(--indigo);font-weight:600;margin-bottom:8mm}
+.cover-list{list-style:none;padding:0;margin:0 0 10mm}
+.cover-list li{display:flex;justify-content:space-between;padding:3mm 4mm;border:1px solid var(--line);border-radius:2mm;margin-bottom:2.5mm;font-size:12pt}
+.cover-list span{color:var(--mut);font-size:10pt}
+.meta{display:grid;grid-template-columns:30mm 1fr;gap:2mm 4mm;font-size:10.5pt}
+.meta dt{color:var(--mut)}.meta dd{margin:0}
+</style></head><body><section class="page p-cover">
+<div class="cover">
+  <div class="cover-bar"></div>
+  <div class="cover-body">
+    <div class="eyebrow">คู่มือการใช้งาน · งวดที่ 4 จาก 6</div>
+    <h1>ระบบบริหารทรัพยากรบุคคล (HR)</h1>
+    <div class="grp">กลุ่มกำกับดูแลและวินัย</div>
+    <ul class="cover-list">
+      <li><b>ระบบประเมินผล KPI</b><span>TOR ข้อ 3.12</span></li>
+      <li><b>ระบบตักเตือนพนักงานเรื่องระเบียบ</b><span>สัญญาข้อ 7.1 งวดที่ 4</span></li>
+      <li><b>ระบบรายงานปัญหาและการแก้ไขข้อมูล</b><span>TOR ข้อ 3.6</span></li>
+    </ul>
+    <dl class="meta">
+      <dt>สัญญาเลขที่</dt><dd>002/2569 (ลงวันที่ 4 กันยายน 2569)</dd>
+      <dt>ผู้ว่าจ้าง</dt><dd>สหกรณ์การเกษตรเพื่อการตลาดลูกค้า ธ.ก.ส.สุรินทร์ จำกัด</dd>
+      <dt>ชื่อแอป</dt><dd>AMC สกต.สุรินทร์</dd>
+      <dt>ภาพประกอบ</dt><dd>ถ่ายจากระบบทดสอบ (staging) ด้วยข้อมูลทดสอบ เมื่อวันที่ 17–18 พฤศจิกายน 2569 (หมวดวินัยถ่ายใหม่ตามระบบเวอร์ชันล่าสุด)</dd>
+    </dl>
+  </div>
+</div></section>
+<section class="page "><h2 class="h2">สารบัญ</h2><table class="toc"><tr class="sec"><td colspan="2">ระบบประเมินผล KPI<small>อ้างอิง TOR ข้อ 3.12</small></td></tr><tr><td>ภาพรวมการประเมินประจำปี</td><td class="r">3</td></tr><tr><td>บันทึกคะแนนรายบุคคล</td><td class="r">4</td></tr><tr><td>สรุปผลการประเมินทั้งปี</td><td class="r">5</td></tr><tr><td>ตรวจสอบและอนุมัติผลการประเมิน</td><td class="r">6</td></tr><tr><td>KPI ระดับสาขา / ฝ่าย</td><td class="r">7</td></tr><tr><td>ผลประกอบการของสหกรณ์</td><td class="r">8</td></tr><tr><td>แบบประเมินรายเดือน 12 รายการ</td><td class="r">9</td></tr><tr><td>ผลการประเมินของฉัน (พนักงาน)</td><td class="r">10</td></tr><tr class="sec"><td colspan="2">ระบบตักเตือนพนักงานเรื่องระเบียบ<small>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</small></td></tr><tr><td>รายการเรื่องร้องเรียนและการตักเตือน</td><td class="r">11</td></tr><tr><td>พิจารณาเรื่องและออกหนังสือตักเตือน</td><td class="r">12</td></tr><tr><td>ข้อระเบียบ พยาน และหมายเหตุในหนังสือ</td><td class="r">13</td></tr><tr><td>ฝ่ายบุคคลจัดทำหนังสือรายงานผู้จัดการ</td><td class="r">14</td></tr><tr><td>ผู้ช่วยผู้จัดการตรวจสอบและส่งต่อผู้จัดการ</td><td class="r">15</td></tr><tr><td>ผู้จัดการ: บันทึกวินัยและโทษทางวินัย (1/4)</td><td class="r">16</td></tr><tr><td>ฟอร์มบันทึกวินัย: ข้อระเบียบและการสอบสวน (2/4)</td><td class="r">17</td></tr><tr><td>ฟอร์มบันทึกวินัย: ผลการสอบสวนและมติ/คำสั่ง (3/4)</td><td class="r">18</td></tr><tr><td>ฟอร์มบันทึกวินัย: เลือกโทษและช่องเพิ่มของแต่ละโทษ (4/4)</td><td class="r">19</td></tr><tr><td>ส่วนการแจ้งผลและเอกสารแนบ แล้วบันทึกและปิดเรื่อง</td><td class="r">20</td></tr><tr><td>เรื่องที่ปิดแล้วและบันทึกวินัย</td><td class="r">21</td></tr><tr><td>แจ้งผลและบันทึกอุทธรณ์</td><td class="r">22</td></tr><tr><td>แจ้งเรื่องการกระทำผิดระเบียบ (พนักงาน)</td><td class="r">23</td></tr><tr><td>ติดตามเรื่องที่ฉันแจ้ง และประวัติการตักเตือน</td><td class="r">24</td></tr><tr><td>ตั้งค่าวินัย: หัวข้อระเบียบและเกณฑ์</td><td class="r">25</td></tr><tr><td>ข้อระเบียบ: รายการข้อที่หนังสือและบันทึกวินัยอ้างถึง</td><td class="r">26</td></tr><tr><td>ตั้งข้อระเบียบเริ่มต้นของหัวข้อ</td><td class="r">27</td></tr><tr><td>เพิ่ม / แก้ไขหัวข้อระเบียบ</td><td class="r">28</td></tr><tr class="sec"><td colspan="2">ระบบรายงานปัญหาและการแก้ไขข้อมูล<small>อ้างอิง TOR ข้อ 3.6</small></td></tr><tr><td>จุดเริ่มต้นแจ้งแก้ไขข้อมูลและคำร้องของฉัน (พนักงาน)</td><td class="r">29</td></tr><tr><td>กรอกแบบฟอร์ม "แจ้งแก้ไขข้อมูล"</td><td class="r">30</td></tr><tr><td>ตัวอย่างการกรอกและส่งคำร้อง</td><td class="r">31</td></tr><tr><td>รายการคำร้องของฝ่ายบุคคล</td><td class="r">32</td></tr><tr><td>อนุมัติหรือปฏิเสธคำร้อง</td><td class="r">33</td></tr><tr><td>กฎความโปร่งใส และการดูคำร้องที่พิจารณาแล้ว</td><td class="r">34</td></tr><tr><td>สถิติคำร้อง</td><td class="r">35</td></tr></table>
+  <div class="note"><b>วิธีอ่านภาพ</b> กรอบแดงและวงกลมเลขแดงในภาพคือจุดที่อธิบาย เลขในวงกลมตรงกับรายการหมายเลขใต้ภาพ</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 2 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">1</div><h2>ภาพรวมการประเมินประจำปี</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้จัดการ · ผช.ผจก. (ตามสิทธิ์ของแต่ละแท็บ)</div></div>
+  <div class="crumb">เมนู: ภาพรวมงานบุคคล → เงินเดือนและสวัสดิการ → <b>KPI</b></div>
+  <figure class="fig ">
+    
+    <img src="img/k1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ปีบัญชี</b> — เลือกปีที่ต้องการดู ปีบัญชีตั้งชื่อตามปีที่เริ่มต้น เช่น 2569 = 1 เม.ย. 2569 – 31 มี.ค. 2570</span></li><li><span class="n">2</span><span><b>ช่วงประเมิน (ให้คะแนน)</b> พร้อมสถานะของช่วง (เช่น "ปิดรับคะแนน (ยังไม่ถึงช่วง)") และลิงก์ "แก้ช่วงประเมิน" / "แจ้งผู้ประเมิน"</span></li><li><span class="n">3</span><span><b>ความคืบหน้า</b> — แถบรวมและจำนวนรายการในแต่ละสถานะ: กำลังประเมิน · ส่งกลับแก้ไข · รอ ผช.ผจก.ตรวจสอบ · รอผู้จัดการอนุมัติ · อนุมัติแล้ว</span></li><li><span class="n">4</span><span><b>แท็บการทำงาน 7 แท็บ</b> — ประเมิน · สรุปผล · ผช.ผจก. ตรวจสอบ · ผจก. อนุมัติ · ผลงานสาขา · ผลประกอบการ · แบบประเมินรายเดือน</span></li><li><span class="n">5</span><span><b>แถบแจ้งสถานะช่วงประเมิน</b> — เมื่อปิดรับคะแนนแล้ว จะแก้คะแนนได้เฉพาะรายการที่ส่งกลับแก้ไข</span></li><li><span class="n">6</span><span><b>ค้นหา / กรองสถานะ</b> — ค้นด้วยชื่อหรือรหัสเจ้าหน้าที่</span></li><li><span class="n">7</span><span><b>ตารางรายชื่อ</b> — คะแนนแต่ละส่วน (หส. / สาขา / ผช. / ผจก.) คะแนนรวม ระดับผล จำนวนขั้นที่ได้ และปุ่ม "บันทึกคะแนน"</span></li></ol>
+  </figure>
+  <div class="note">ส่วนที่ให้คะแนนและคะแนนเต็มขึ้นอยู่กับตำแหน่งของผู้ถูกประเมิน ส่วน "ผลงานสาขา" ระบบคำนวณให้อัตโนมัติจาก KPI ของสาขา</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 3 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">2</div><h2>บันทึกคะแนนรายบุคคล</h2><div class="pill">ผู้ใช้: หัวหน้าสาขา · ผช.ผจก. · ผจก. · คณะกรรมการ (ตามส่วนที่รับผิดชอบ)</div></div>
+  <div class="crumb">เมนู: KPI → แท็บ ประเมิน → <b>ปุ่ม บันทึกคะแนน</b></div>
+  <figure class="fig two">
+    <figcaption>หน้าต่าง "บันทึกคะแนน KPI" — แท็บ รายส่วน</figcaption>
+    <img src="img/k9.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>สถานะและเกณฑ์</b> — แสดงสถานะ (ที่นี่คือ "ส่งกลับแก้ไข") เกณฑ์การประเมินตามตำแหน่ง ระดับผล และเหตุผลที่ส่งกลับ</span></li><li><span class="n">2</span><span><b>สลับแท็บ</b> "รายส่วน" (ผู้ประเมินแต่ละระดับกรอกส่วนของตน) หรือ "คณะกรรมการ"</span></li><li><span class="n">3</span><span><b>ช่องคะแนนของหัวหน้าสาขา</b> (เต็ม 42)</span></li><li><span class="n">4</span><span><b>คะแนนจากแบบประเมินรายเดือน</b> — แสดงผลรวมจากแบบ 12 รายการ และปุ่ม "ใช้คะแนนจากแบบประเมินรายเดือน" เพื่อนำค่ามาใส่ให้</span></li><li><span class="n">5</span><span><b>ผลงานสาขา</b> (เต็ม 28) — ระบบคำนวณจาก KPI สาขา กรอกเองไม่ได้</span></li><li><span class="n">6</span><span><b>แบบประเมินตนเอง</b> ของผู้ถูกประเมิน — ใช้ประกอบการพิจารณาเท่านั้น ไม่นำไปคิดคะแนน</span></li><li><span class="n">7</span><span><b>ปุ่มปิด / บันทึกคะแนน</b></span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>แท็บ "คณะกรรมการ"</figcaption>
+    <img src="img/k10.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span>คณะกรรมการบันทึกแทนผู้ประเมินได้ทุกส่วนของตำแหน่งนี้ กรอกเฉพาะส่วนที่ต้องการ</span></li><li><span class="n">2</span><span>ช่องคะแนนของแต่ละส่วน (หัวหน้าสาขา · ผลงานสาขา · ผช.ผจก. · ผจก.)</span></li><li><span class="n">3</span><span><b>บันทึกคะแนนคณะกรรมการ</b></span></li></ol>
+  </figure>
+  <div class="note">เมื่อปิดรับคะแนนแล้ว ช่องบันทึกจะใช้ได้เฉพาะรายการที่ถูกส่งกลับแก้ไข</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 4 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">3</div><h2>สรุปผลการประเมินทั้งปี</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล</div></div>
+  <div class="crumb">เมนู: KPI → <b>แท็บ สรุปผล</b></div>
+  <figure class="fig ">
+    
+    <img src="img/k2.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>สรุปผลการประเมินทั้งปี</b> — คำนวณคะแนนรวม ขั้นที่ได้ และสิทธิ์ของทุกรายการที่คะแนนครบ ยังไม่เปลี่ยนเงินเดือนจนกว่าผู้จัดการอนุมัติ</span></li><li><span class="n">2</span><span><b>ปุ่มสรุปผลทั้งหมด</b> — ใช้ได้หลังสิ้นสุดช่วงประเมิน</span></li><li><span class="n">3</span><span><b>ข้อความเงื่อนไข</b> — "สรุปผลได้หลังสิ้นสุดช่วงประเมิน (10 เม.ย. 2570)"</span></li><li><span class="n">4</span><span><b>รายการรอสรุปผล</b> — แสดงเจ้าหน้าที่ คะแนนที่มี และคะแนนรวม</span></li></ol>
+  </figure>
+  <div class="note">หลังสรุปผล รายการจะเข้าสู่ขั้นตอน ผช.ผจก. ตรวจสอบ → ผจก. อนุมัติ ตามลำดับ</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 5 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">4</div><h2>ตรวจสอบและอนุมัติผลการประเมิน</h2><div class="pill">ผู้ใช้: ผู้ช่วยผู้จัดการ (ตรวจสอบ) · ผู้จัดการ (อนุมัติ)</div></div>
+  <div class="crumb">เมนู: KPI → <b>แท็บ ผช.ผจก. ตรวจสอบ / ผจก. อนุมัติ</b></div>
+  <figure class="fig two">
+    <figcaption>แท็บ "ผช.ผจก. ตรวจสอบ"</figcaption>
+    <img src="img/k3.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span>ตรวจคะแนน ขั้น และสิทธิ์ แล้วส่งต่อให้ผู้จัดการอนุมัติ</span></li><li><span class="n">2</span><span><b>ตรวจสอบแล้ว</b> — ส่งรายการที่ตรวจเสร็จต่อให้ผู้จัดการ</span></li><li><span class="n">3</span><span>ถ้าไม่มีรายการ จะขึ้น "ไม่มีรายการรอตรวจสอบ" (รายการเข้ามาหลังฝ่ายบุคคลสรุปผล)</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>แท็บ "ผจก. อนุมัติ"</figcaption>
+    <img src="img/k4.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span>ข้อความสรุปจำนวนรออนุมัติ — การอนุมัติจะปรับขั้นและเงินเดือน มีผล 1 เม.ย.</span></li><li><span class="n">2</span><span><b>อนุมัติ</b></span></li><li><span class="n">3</span><span>ถ้าไม่มีรายการ จะขึ้น "ไม่มีรายการรออนุมัติ" (รายการเข้ามาหลัง ผช.ผจก. ตรวจสอบแล้ว)</span></li></ol>
+  </figure>
+  <div class="note">ภาพทั้งสองเป็นสถานะ "ไม่มีรายการ" บน staging เพราะรายการเดียวในปีบัญชี 2569 ยังอยู่ที่สถานะ "ส่งกลับแก้ไข"</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 6 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">5</div><h2>KPI ระดับสาขา / ฝ่าย</h2><div class="pill">ผู้ใช้: ตามสิทธิ์ "บันทึก KPI สาขา" (ดูหน้า สิทธิ์ตามบทบาท)</div></div>
+  <div class="crumb">เมนู: KPI → <b>แท็บ ผลงานสาขา</b></div>
+  <figure class="fig ">
+    
+    <img src="img/k5.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>คำอธิบาย</b> — คะแนน KPI ของสาขา/ฝ่ายเต็ม 100 ใช้คำนวณส่วน "ผลงานสาขา" ของทุกคนในสาขาโดยอัตโนมัติ แก้ไขได้ถึงวันสิ้นสุดช่วงประเมิน</span></li><li><span class="n">2</span><span><b>ค้นหาสาขา/ฝ่าย</b></span></li><li><span class="n">3</span><span><b>กรองสาขา/ฝ่าย</b></span></li><li><span class="n">4</span><span><b>ตัวนับ</b> — จำนวนสาขา/ฝ่ายที่บันทึกแล้ว (ที่นี่ 2 จาก 17)</span></li><li><span class="n">5</span><span><b>6 องค์ประกอบ</b> — การมีส่วนร่วมของสมาชิก (10) · ตลาดออนไลน์ (10) · ผลการดำเนินงานตามเป้าหมายธุรกิจ (40) · การบริหารหนี้ (10) · การควบคุมภายใน (20) · ภาพลักษณ์องค์กร (10) รวมเต็ม 100</span></li><li><span class="n">6</span><span><b>แถวของแต่ละสาขา/ฝ่าย</b> — ช่องคะแนน คะแนนรวม และเวลาบันทึกล่าสุด</span></li><li><span class="n">7</span><span><b>บันทึก</b> — บันทึกคะแนนของสาขานั้น</span></li></ol>
+  </figure>
+  <div class="note">คะแนนรวมของสาขาแสดงเป็น —/100 จนกว่าจะกรอกครบทั้ง 6 องค์ประกอบ</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 7 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">6</div><h2>ผลประกอบการของสหกรณ์</h2><div class="pill">ผู้ใช้: ตามสิทธิ์ที่ระบบกำหนด</div></div>
+  <div class="crumb">เมนู: KPI → <b>แท็บ ผลประกอบการ</b></div>
+  <figure class="fig ">
+    
+    <img src="img/k6.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หัวข้อ</b> — บันทึกผลประกอบการของปีบัญชี พร้อมจำนวนผู้รอ +0.5 ขั้น บันทึกหลังปิดบัญชีปีก่อน</span></li><li><span class="n">2</span><span><b>กำไร</b> — ได้ +0.5 ขั้นตั้งแต่เดือนที่มีผล พร้อมเงินตกเบิกครั้งเดียว</span></li><li><span class="n">3</span><span><b>ขาดทุน</b> — ยกเลิก +0.5 ขั้นที่รอไว้</span></li><li><span class="n">4</span><span><b>เลขที่มติ/เอกสารอ้างอิง</b> (บังคับ)</span></li><li><span class="n">5</span><span><b>เดือนที่มีผล (งวดเงินเดือน)</b> (บังคับ) — ตั้งแต่ เม.ย. ของปีถัดไปเป็นต้นไป</span></li><li><span class="n">6</span><span><b>บันทึกผลประกอบการ</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้ยังไม่ได้กดบันทึก เพราะการบันทึกมีผลต่อขั้นและเงินเดือนของทุกคนในปีบัญชี</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 8 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">7</div><h2>แบบประเมินรายเดือน 12 รายการ</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · หัวหน้าสาขา/ฝ่าย (เฉพาะพนักงานในสาขาตน)</div></div>
+  <div class="crumb">เมนู: KPI → <b>แท็บ แบบประเมินรายเดือน</b></div>
+  <figure class="fig two">
+    <figcaption>ส่วนบน — เลือกเจ้าหน้าที่และดูสรุป</figcaption>
+    <img src="img/k7.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>เจ้าหน้าที่</b> — เลือกจากรายการ (ค้นหาด้วยชื่อ รหัส หรือตำแหน่งได้)</span></li><li><span class="n">2</span><span><b>สรุปคะแนน</b> — คะแนนส่วนบุคคล (เต็ม 100) จำนวนเดือนที่บันทึกแล้ว ชี้ความสามารถ (30) ผลการดำเนินงาน (30) ผลการดำเนินธุรกิจของสาขา (40)</span></li><li><span class="n">3</span><span><b>หัวคอลัมน์เดือน</b> เม.ย.–มี.ค. และ "เฉลี่ย" — เดือนปัจจุบันถูกไฮไลต์</span></li><li><span class="n">4</span><span><b>คอลัมน์เดือนที่กรอก</b> — ช่องคะแนนของแต่ละรายการ</span></li><li><span class="n">5</span><span><b>กลุ่มรายการ</b> "ชี้ความสามารถ" ข้อ 2.1–2.6 (ข้อละ 5 คะแนน)</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ส่วนล่าง — รายการที่เหลือและปุ่มบันทึก</figcaption>
+    <img src="img/k8.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span>กลุ่ม "ผลการดำเนินงาน" ข้อ 2.7–2.11 (10 · 10 · 5 · 3 · 2)</span></li><li><span class="n">2</span><span>กลุ่ม "ผลการดำเนินธุรกิจของสาขา" ข้อ 2.12 (เต็ม 40)</span></li><li><span class="n">3</span><span><b>รวมรายเดือน</b></span></li><li><span class="n">4</span><span><b>บันทึกเดือน</b> — เลือกเดือนที่หัวคอลัมน์ แล้วกรอกคะแนน ช่องว่าง = ไม่เปลี่ยน</span></li></ol>
+  </figure>
+  <div class="note">คะแนนเฉลี่ยของแต่ละรายการรวมเป็นคะแนนส่วนบุคคล (เต็ม 100) แล้วนำไปใช้ในหน้าต่าง "บันทึกคะแนน KPI" ได้</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 9 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบประเมินผล KPI</span><span>อ้างอิง TOR ข้อ 3.12</span></div>
+  <div class="head"><div class="num">8</div><h2>ผลการประเมินของฉัน (พนักงาน)</h2><div class="pill">ผู้ใช้: พนักงานทุกคน</div></div>
+  <div class="crumb">เมนู: หน้าหลัก → <b>ผลการประเมินของฉัน</b></div>
+  <figure class="fig two">
+    <figcaption>ปีบัญชี 2568 (ช่วงประเมินปิดแล้ว)</figcaption>
+    <img src="img/k11.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ปีบัญชี</b> — เลือกดูย้อนหลังได้</span></li><li><span class="n">2</span><span><b>ช่วงประเมิน</b> พร้อมสถานะ (ปิดแล้ว)</span></li><li><span class="n">3</span><span><b>ผลการประเมิน</b> — ผลจะแสดงที่นี่หลังผู้จัดการอนุมัติ (ก่อนนั้นมีไอคอนกุญแจ)</span></li><li><span class="n">4</span><span><b>แบบประเมินตนเอง</b> — ปิดรับแล้ว คุณไม่ได้ส่งแบบประเมินในปีนี้</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ปีบัญชี 2569 (ยังไม่เปิดช่วงประเมิน)</figcaption>
+    <img src="img/k12.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span>เลือกปีบัญชี 2569</span></li><li><span class="n">2</span><span>ช่วงประเมิน 1 มี.ค. – 10 เม.ย. 2570 สถานะ "ยังไม่เปิด"</span></li><li><span class="n">3</span><span>ผลการประเมินยังล็อกอยู่</span></li><li><span class="n">4</span><span>แบบประเมินตนเอง — บอกวันที่เปิดให้ประเมินตนเอง</span></li></ol>
+  </figure>
+  <div class="note">แบบประเมินตนเองของพนักงานใช้ประกอบการพิจารณาของผู้ประเมินเท่านั้น ไม่ถูกนำไปคิดเป็นคะแนน</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 10 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">1</div><h2>รายการเรื่องร้องเรียนและการตักเตือน</h2><div class="pill">ผู้ใช้: ผู้จัดการ · ผช.ผจก. · ฝ่ายบุคคล · หัวหน้าสาขา/ฝ่าย (เห็นเฉพาะเรื่องของตน)</div></div>
+  <div class="crumb">เมนู: ภาพรวมงานบุคคล → วินัย → <b>เรื่องร้องเรียน/ตักเตือน</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>แท็บสถานะ 4 แท็บ</b> — รอฉันพิจารณา · <b>รอจัดทำหนังสือรายงาน</b> (ขั้นของฝ่ายบุคคล) · ระหว่างพิจารณา · ปิดแล้ว</span></li><li><span class="n">2</span><span><b>กรองตามขั้นพิจารณา</b> — หัวหน้าสาขา/แผนก · ฝ่ายบุคคล (จัดทำหนังสือรายงาน) · ผู้ช่วยผู้จัดการ · ผู้จัดการ</span></li><li><span class="n">3</span><span><b>ตารางเรื่อง</b> — ผู้ถูกแจ้ง หัวข้อ วันเวลาเกิดเหตุ ขั้นพิจารณา และวันที่แจ้ง</span></li><li><span class="n">4</span><span><b>ขั้นพิจารณา</b> ปัจจุบันของเรื่องนั้น (เช่น ผู้ช่วยผู้จัดการ)</span></li><li><span class="n">5</span><span><b>พิจารณา</b> — เปิดหน้าต่างรายละเอียดของเรื่อง</span></li></ol>
+  </figure>
+  <div class="note">เรื่องร้ายแรง หรือเรื่องที่ตักเตือนครบแล้วยังฝ่าฝืน จะเริ่มที่ขั้น "ฝ่ายบุคคล" ก่อน (ไม่ไปที่ ผช.ผจก. โดยตรงเหมือนเดิม) ผู้ใช้แต่ละคนเห็นเฉพาะเรื่องในอำนาจหรือในสายงานของตน</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 11 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">2</div><h2>พิจารณาเรื่องและออกหนังสือตักเตือน</h2><div class="pill">ผู้ใช้: ผู้มีอำนาจตามขั้น (หัวหน้า · ผช.ผจก. · ผจก.)</div></div>
+  <div class="crumb">เมนู: เรื่องร้องเรียน/ตักเตือน → แท็บ รอฉันพิจารณา → <b>ปุ่ม พิจารณา</b></div>
+  <figure class="fig two">
+    <figcaption>รายละเอียดเรื่องและลำดับขั้นโทษ</figcaption>
+    <img src="img/d2.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ข้อมูลเรื่อง</b> — ผู้ถูกแจ้ง หัวข้อ เวลาเกิดเหตุ เวลาแจ้ง</span></li><li><span class="n">2</span><span><b>ผู้แจ้ง</b> — ผู้มีสิทธิ์เห็นจะเห็นชื่อ พร้อมข้อความ "ความลับ — ห้ามเปิดเผยต่อผู้ถูกแจ้ง" (ฝ่ายบุคคลไม่เห็นชื่อผู้แจ้ง)</span></li><li><span class="n">3</span><span><b>ลำดับขั้นโทษ</b> ของหัวข้อนั้น</span></li><li><span class="n">4</span><span><b>ขั้น 1–4 ระบบ "ออก" หนังสือให้</b> — ตักเตือนด้วยวาจา ครั้งที่ 1–3 และตักเตือนเป็นหนังสือ ขั้นที่ไฮไลต์คือขั้นที่ออกได้ครั้งนี้</span></li><li><span class="n">5</span><span><b>ขั้น 5–8 ระบบ "บันทึก" ผลเท่านั้น</b> — ภาคทัณฑ์ · พักงานโดยไม่จ่ายค่าจ้าง · ให้ออก · ไล่ออก ต้องผ่านคณะกรรมการสอบสวนนอกระบบ แล้วบันทึกที่ขั้นผู้จัดการ</span></li><li><span class="n">6</span><span><b>ยุติเรื่อง</b></span></li><li><span class="n">7</span><span><b>ตรวจสอบและส่งต่อผู้จัดการ</b> — ปุ่มของ ผช.ผจก. (ขั้นหัวหน้าจะขึ้นว่า "ส่งต่อฝ่ายบุคคล")</span></li><li><span class="n">8</span><span><b>ออกหนังสือตักเตือน...</b> — เปิดหน้าต่างยืนยันหนังสือ</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>หน้าต่าง "ออกหนังสือตักเตือน" (ส่วนบน)</figcaption>
+    <img src="img/d3.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>เลือกหนังสือ</b> (บังคับ) — แสดงเฉพาะขั้น 1–4</span></li><li><span class="n">2</span><span><b>สถานที่เกิดเหตุ</b> และ <b>วันสิ้นสุดเหตุ</b> (ถ้าต่อเนื่อง) — ไม่บังคับ</span></li><li><span class="n">3</span><span><b>พฤติการณ์</b> (พิมพ์ในหนังสือ) — ดึงจากรายละเอียดที่ผู้แจ้งเขียนให้ก่อน แก้เป็นข้อเท็จจริงที่ตรวจแล้วได้</span></li><li><span class="n">4</span><span><b>ข้อระเบียบที่ฝ่าฝืน</b> — ค้นหาแล้วติ๊กได้หลายข้อ ระบบติ๊กข้อเริ่มต้นของหัวข้อไว้ให้</span></li><li><span class="n">5</span><span><b>ยืนยัน</b> — ปุ่มบอกหนังสือที่จะออก (เช่น "ยืนยัน: เตือนวาจา 1")</span></li><li><span class="n">6</span><span><b>ย้อนกลับ</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้เปิดหน้าต่างเพื่อแสดงขั้นตอนเท่านั้น ไม่ได้กดยืนยัน เพื่อไม่ให้เปลี่ยนสถานะของเรื่องทดสอบ</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 12 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">3</div><h2>ข้อระเบียบ พยาน และหมายเหตุในหนังสือ</h2><div class="pill">ผู้ใช้: ผู้มีอำนาจตามขั้น</div></div>
+  <div class="crumb">เมนู: ออกหนังสือตักเตือน → <b>เลื่อนลงส่วนล่างของหน้าต่าง</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d3b.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>รายการข้อระเบียบ</b> (ระเบียบฯ พ.ศ. 2561) — ติ๊กข้อที่ฝ่าฝืน หนังสือจะพิมพ์ข้อเหล่านี้</span></li><li><span class="n">2</span><span><b>พยานคนที่ 1 / 2</b> — ไม่บังคับ ชื่อจะพิมพ์บนหนังสือ</span></li><li><span class="n">3</span><span><b>หมายเหตุในหนังสือ</b> — ไม่บังคับ</span></li><li><span class="n">4</span><span><b>ข้อความเตือน</b> — ภาคทัณฑ์ พักงาน ให้ออก และไล่ออก ต้องผ่านคณะกรรมการสอบสวน แล้วฝ่ายบุคคลบันทึกผล</span></li><li><span class="n">5</span><span><b>ยืนยัน</b> — ออกหนังสือ</span></li></ol>
+  </figure>
+  <div class="note">หนังสือเป็น PDF ตามแบบของสหกรณ์: ขั้น 1–3 = บันทึกการตักเตือนด้วยวาจา · ขั้น 4 = หนังสือตักเตือน (ระบุ "ให้โอกาสแล้ว N ครั้ง")</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 13 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">4</div><h2>ฝ่ายบุคคลจัดทำหนังสือรายงานผู้จัดการ</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล (สิทธิ์บันทึกผลวินัย) — ไม่ใช่เรื่องที่ตนเป็นผู้แจ้ง</div></div>
+  <div class="crumb">เมนู: เรื่องร้องเรียน/ตักเตือน → แท็บ รอจัดทำหนังสือรายงาน → <b>ปุ่ม จัดทำหนังสือรายงาน</b></div>
+  <figure class="fig two">
+    <figcaption>แท็บ "รอจัดทำหนังสือรายงาน"</figcaption>
+    <img src="img/h1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>แท็บ</b> รอจัดทำหนังสือรายงาน (มีตัวเลขเมื่อมีเรื่องรอ)</span></li><li><span class="n">2</span><span><b>ขั้นพิจารณา</b> — ฝ่ายบุคคล (จัดทำหนังสือรายงาน)</span></li><li><span class="n">3</span><span><b>จัดทำหนังสือรายงาน</b> — เปิดหน้าต่างกรอกหนังสือ</span></li><li><span class="n">4</span><span><b>ร้ายแรง</b> — ป้ายแสดงความผิดร้ายแรง</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>หน้าต่าง "จัดทำหนังสือรายงานผู้จัดการ"</figcaption>
+    <img src="img/h2.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>คำอธิบาย</b> — รายงานว่าตักเตือนครบแล้วยังฝ่าฝืน หรือเป็นความผิดร้ายแรง แล้วส่งต่อ ผช.ผจก. เพื่อตรวจสอบก่อนถึงผู้จัดการ</span></li><li><span class="n">2</span><span><b>เลขที่หนังสือ</b> (บังคับ)</span></li><li><span class="n">3</span><span><b>วันที่</b> (บังคับ) — เลือกวันที่ในอนาคตไม่ได้</span></li><li><span class="n">4</span><span><b>สรุปเรื่อง</b> (บังคับ)</span></li><li><span class="n">5</span><span><b>ส่งหนังสือรายงาน</b> — เรื่องไปที่ ผช.ผจก. และผู้เกี่ยวข้องได้รับแจ้ง</span></li><li><span class="n">6</span><span><b>ย้อนกลับ</b></span></li></ol>
+  </figure>
+  <div class="note">ฝ่ายบุคคลจัดทำหนังสือและบันทึกผลโดยไม่เห็นชื่อผู้แจ้ง ระบบไม่ให้จัดทำหนังสือรายงานของเรื่องที่ตนเป็นผู้แจ้งเอง</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 14 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">5</div><h2>ผู้ช่วยผู้จัดการตรวจสอบและส่งต่อผู้จัดการ</h2><div class="pill">ผู้ใช้: ผู้ช่วยผู้จัดการ</div></div>
+  <div class="crumb">เมนู: เรื่องร้องเรียน/ตักเตือน → แท็บ รอฉันพิจารณา → ปุ่ม พิจารณา → <b>ตรวจสอบและส่งต่อผู้จัดการ</b></div>
+  <figure class="fig two">
+    <figcaption>รายละเอียดเรื่องที่ขั้น ผช.ผจก.</figcaption>
+    <img src="img/a1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หนังสือรายงานผู้จัดการ (ฝ่ายบุคคล)</b> — เลขที่ วันที่ และสรุปเรื่อง แสดงที่ด้านบน</span></li><li><span class="n">2</span><span><b>ข้อมูลเรื่อง</b> และผู้แจ้ง (ความลับ)</span></li><li><span class="n">3</span><span><b>ลำดับขั้นโทษ</b> — ขั้น 1–4 ออกหนังสือได้ ขั้น 5–8 บันทึกที่ขั้นผู้จัดการ</span></li><li><span class="n">4</span><span><b>ยุติเรื่อง</b></span></li><li><span class="n">5</span><span><b>ตรวจสอบและส่งต่อผู้จัดการ</b> — ผช.ผจก. ตรวจแล้วส่งต่อ (ไม่ได้ตัดสินโทษขั้นสูง)</span></li><li><span class="n">6</span><span><b>ออกหนังสือตักเตือน...</b> — ผช.ผจก. ยังออกหนังสือตักเตือนขั้น 1–4 ได้</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>หน้าต่าง "ตรวจสอบและส่งต่อผู้จัดการ"</figcaption>
+    <img src="img/a2.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หนังสือรายงานของฝ่ายบุคคล</b> — แสดงให้อ่านก่อนส่งต่อ</span></li><li><span class="n">2</span><span><b>ผลการตรวจสอบ / ความเห็นถึงผู้จัดการ</b> (บังคับ) — ผู้จัดการเห็นข้อความนี้ในประวัติการดำเนินการ</span></li><li><span class="n">3</span><span><b>ยืนยันส่งต่อผู้จัดการ</b></span></li><li><span class="n">4</span><span><b>ย้อนกลับ</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้ส่งต่อเรื่องทดสอบจริงบน staging เพื่อให้เรื่องไปถึงขั้นผู้จัดการ (เรื่องทดสอบถูกยุติหลังถ่ายภาพเสร็จ)</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 15 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">6</div><h2>ผู้จัดการ: บันทึกวินัยและโทษทางวินัย (1/4)</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล หรือ ผู้จัดการ (สิทธิ์บันทึกผลวินัย) — เมื่อเรื่องอยู่ขั้นผู้จัดการ</div></div>
+  <div class="crumb">เมนู: เรื่องร้องเรียน/ตักเตือน → พิจารณา → <b>ปุ่ม บันทึกวินัยและโทษทางวินัย</b></div>
+  <figure class="fig two">
+    <figcaption>รายละเอียดเรื่องที่ขั้นผู้จัดการ</figcaption>
+    <img src="img/m1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หนังสือรายงานของฝ่ายบุคคล</b></span></li><li><span class="n">2</span><span><b>ลำดับขั้นโทษ</b> — ขั้น 5–8 บันทึกผ่านฟอร์มด้านล่าง ไม่ใช่ปุ่มออกหนังสือ</span></li><li><span class="n">3</span><span><b>ออกหนังสือตักเตือน...</b> — ยังใช้ได้สำหรับขั้น 1–4</span></li><li><span class="n">4</span><span><b>บันทึกวินัยและโทษทางวินัย</b> — เปิดฟอร์มบันทึกผลสอบสวนและโทษ (ปรากฏเมื่ออยู่ขั้นผู้จัดการและมีสิทธิ์บันทึก)</span></li><li><span class="n">5</span><span><b>ยุติเรื่อง</b></span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ฟอร์มส่วนที่ 1 ข้อเท็จจริง</figcaption>
+    <img src="img/r1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หนังสือรายงานของฝ่ายบุคคล</b> แสดงที่หัวฟอร์ม</span></li><li><span class="n">2</span><span><b>ข้อเท็จจริง</b> — วันที่เกิดเหตุ · ถึงวันที่ (ถ้าต่อเนื่อง) · สถานที่ · พฤติการณ์ (บังคับ ดึงจากเรื่องมาให้ก่อน)</span></li><li><span class="n">3</span><span><b>ย้อนกลับ</b></span></li><li><span class="n">4</span><span><b>บันทึกและปิดเรื่อง</b> — บันทึกแล้วเรื่องปิดทันที และแก้ได้เฉพาะส่วน "การแจ้งผล/อุทธรณ์" ภายหลัง</span></li></ol>
+  </figure>
+  <div class="note">ฟอร์มนี้มี 5 ส่วนในหน้าเดียว: 1 ข้อเท็จจริง · 2 การสอบสวน · 3 มติ/คำสั่ง (ซ่อนเมื่อไม่มีความผิด) · 4 การแจ้งผล · 5 เอกสารแนบ ภาพชุดนี้เปิดฟอร์มดูโดยไม่กดบันทึก</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 16 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">7</div><h2>ฟอร์มบันทึกวินัย: ข้อระเบียบและการสอบสวน (2/4)</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้จัดการ</div></div>
+  <div class="crumb">เมนู: บันทึกวินัยและโทษทางวินัย → <b>ส่วนที่ 1–2</b></div>
+  <figure class="fig two">
+    <figcaption>ข้อระเบียบที่ฝ่าฝืน และการเลือกว่าตั้งคณะกรรมการหรือไม่</figcaption>
+    <img src="img/r2.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ข้อระเบียบที่ฝ่าฝืน</b> — ติ๊กไว้ล่วงหน้าตามข้อเริ่มต้นของหัวข้อ แก้ได้ (ต้องมีอย่างน้อย 1 ข้อเมื่อมีความผิด)</span></li><li><span class="n">2</span><span><b>กฎหมายที่เกี่ยวข้อง</b> และ <b>หลักฐานภายนอก</b> — ไม่บังคับ</span></li><li><span class="n">3</span><span><b>ส่วนที่ 2 การสอบสวน</b> — เลือก "ตั้งคณะกรรมการสอบสวน" (อย่างน้อย 3 คน ข้อ 57) หรือ "ไม่ต้องตั้งคณะกรรมการ" (ตามข้อ 58 หรือโทษต่ำกว่าให้ออก)</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>เมื่อเลือกตั้งคณะกรรมการ</figcaption>
+    <img src="img/r3.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ผู้แต่งตั้ง</b> (คณะกรรมการดำเนินการ / ผู้จัดการ) · <b>เลขที่คำสั่ง</b> · <b>วันที่คำสั่ง</b> — บังคับ</span></li><li><span class="n">2</span><span><b>คณะกรรมการสอบสวน</b> — แถวละคน (ชื่อ ตำแหน่ง บทบาท: ประธาน / กรรมการ / กรรมการและเลขานุการ) เริ่มต้น 3 แถว</span></li><li><span class="n">3</span><span><b>เพิ่มกรรมการ</b> — ตัวนับแสดงจำนวนคนที่กรอกชื่อแล้ว</span></li><li><span class="n">4</span><span><b>วันที่สอบสวนเสร็จ</b> — ถ้าเกิน 30 วันนับจากคำสั่งแต่งตั้ง ระบบเตือนหลังบันทึก (ข้อ 57) แต่ไม่ขัดขวางการบันทึก</span></li></ol>
+  </figure>
+  <div class="note">ถ้าเลือก "ไม่ต้องตั้งคณะกรรมการ" จะต้องเลือกเหตุตามข้อ 58 (จำคุก · ล้มละลาย · รับสารภาพว่าทุจริต · ขาดงานเกิน 15 วัน) หรือ "โทษต่ำกว่าให้ออก" — โทษให้ออก/ไล่ออกใช้เหตุ "โทษต่ำกว่าให้ออก" ไม่ได้</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 17 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">8</div><h2>ฟอร์มบันทึกวินัย: ผลการสอบสวนและมติ/คำสั่ง (3/4)</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้จัดการ</div></div>
+  <div class="crumb">เมนู: บันทึกวินัยและโทษทางวินัย → <b>ส่วนที่ 2–3</b></div>
+  <figure class="fig two">
+    <figcaption>ผลการสอบสวน</figcaption>
+    <img src="img/r4.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>มีความผิด</b> — เปิดส่วนมติ/คำสั่งและโทษ</span></li><li><span class="n">2</span><span><b>ไม่มีความผิด (ยุติเรื่อง)</b> — ปิดเรื่องโดยไม่ลงโทษและไม่นับบนลำดับขั้น (ส่วนมติ/คำสั่งหายไป)</span></li><li><span class="n">3</span><span><b>สรุปผลการสอบสวน</b> (บังคับ)</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ส่วนที่ 3 มติ / คำสั่ง</figcaption>
+    <img src="img/r5.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ผู้มีอำนาจสั่ง</b> (คณะกรรมการดำเนินการ / ประธานกรรมการ / ผู้จัดการ) · <b>เลขที่มติ/คำสั่ง</b> · <b>วันที่</b> (ไม่เกินวันนี้)</span></li><li><span class="n">2</span><span><b>โทษ</b> และ <b>วันที่มีผล</b> — บังคับทั้งคู่</span></li><li><span class="n">3</span><span><b>ส่วนการแจ้งผล</b> — ไม่บังคับตอนนี้ บันทึกภายหลังได้</span></li></ol>
+  </figure>
+  <div class="note">หัวข้อที่เป็นโทษขั้นสูงใช้ผู้มีอำนาจใดก็ได้ตามที่ AMC กำหนดในมติ ระบบบันทึกตามที่เลือกโดยไม่จำกัดตามขั้น</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 18 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">9</div><h2>ฟอร์มบันทึกวินัย: เลือกโทษและช่องเพิ่มของแต่ละโทษ (4/4)</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้จัดการ</div></div>
+  <div class="crumb">เมนู: บันทึกวินัยและโทษทางวินัย → ส่วนที่ 3 → <b>ช่อง โทษ</b></div>
+  <figure class="fig two">
+    <figcaption>รายการโทษ</figcaption>
+    <img src="img/r6.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>โทษที่บันทึกได้ 5 อย่าง</b> — ตักเตือนเป็นหนังสือ (ขั้น 4) · ภาคทัณฑ์ (5) · พักงานโดยไม่จ่ายค่าจ้าง (6) · ให้ออก (7) · ไล่ออก (8)</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ตัวอย่างเมื่อเลือก "พักงานโดยไม่จ่ายค่าจ้าง"</figcaption>
+    <img src="img/r7.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ผู้มีอำนาจสั่ง · เลขที่และวันที่มติ/คำสั่ง</b></span></li><li><span class="n">2</span><span><b>โทษ</b> และ <b>วันที่มีผล</b></span></li><li><span class="n">3</span><span><b>ช่วงพักงาน</b> — ตั้งแต่วันที่ ถึงวันที่ (ตามระเบียบ 1–7 วัน) และงวดเงินเดือนต้องยังเป็นฉบับร่าง</span></li><li><span class="n">4</span><span><b>ผู้ถูกลงโทษยินยอมเป็นหนังสือแล้ว</b> (ข้อ 60) — ต้องติ๊กจึงบันทึกพักงานได้</span></li></ol>
+  </figure>
+  <div class="note">ภาคทัณฑ์มีช่อง "ทัณฑ์บน" · ให้ออก/ไล่ออกมีช่อง จ่ายค่าชดเชย ค่าจ้างงวดสุดท้าย และค่าเสียหาย แล้วระบบเปิดฟอร์ม "บันทึกการพ้นสภาพ" ให้กรอกไว้แล้ว · พักงานคำนวณงดจ่ายในเงินเดือนและคำนวณงวดที่สร้างแล้วใหม่ให้</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 19 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">10</div><h2>ส่วนการแจ้งผลและเอกสารแนบ แล้วบันทึกและปิดเรื่อง</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้จัดการ</div></div>
+  <div class="crumb">เมนู: บันทึกวินัยและโทษทางวินัย → <b>ส่วนที่ 4–5</b></div>
+  <figure class="fig ">
+    
+    <img src="img/r8.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ผู้ถูกลงโทษปฏิเสธการลงนาม</b> — ติ๊กเมื่อให้พยานลงชื่อรับรองว่าแจ้งแล้ว</span></li><li><span class="n">2</span><span><b>วันที่แจ้งผู้ถูกลงโทษ และพยานคนที่ 1 / 2</b> — ไม่บังคับ กรอกภายหลังได้ที่ "แจ้งผล / อุทธรณ์"</span></li><li><span class="n">3</span><span><b>เอกสารแนบ</b> — คำสั่งแต่งตั้ง · บันทึกถ้อยคำ · รายงานผลสอบสวน · มติ · หนังสือที่ลงนามแล้ว (PDF หรือรูป ไม่เกิน 5 ไฟล์)</span></li><li><span class="n">4</span><span><b>บันทึกและปิดเรื่อง</b> — แสดงคำเตือน (เช่น สอบสวนเกิน 30 วัน) และเปิดฟอร์มพ้นสภาพอัตโนมัติเมื่อให้ออก/ไล่ออก</span></li></ol>
+  </figure>
+  <div class="note">ภาพชุดนี้ไม่ได้กดบันทึก เพื่อไม่ให้เปลี่ยนสถานะของเรื่องทดสอบ</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 20 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">11</div><h2>เรื่องที่ปิดแล้วและบันทึกวินัย</h2><div class="pill">ผู้ใช้: ผู้จัดการ · ผช.ผจก. · ฝ่ายบุคคล</div></div>
+  <div class="crumb">เมนู: เรื่องร้องเรียน/ตักเตือน → แท็บ ปิดแล้ว → <b>ปุ่ม ดู</b></div>
+  <figure class="fig two">
+    <figcaption>แท็บ "ปิดแล้ว"</figcaption>
+    <img src="img/d4.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>แท็บ</b> ปิดแล้ว</span></li><li><span class="n">2</span><span><b>ตารางเรื่องที่ปิด</b></span></li><li><span class="n">3</span><span><b>ผล</b> — "ลงโทษแล้ว" · "ยุติเรื่อง" · "ยุติ · แจ้งเท็จ"</span></li><li><span class="n">4</span><span><b>เลขที่หนังสือรายงาน</b> ของฝ่ายบุคคล (บค. ลำดับ/ปี)</span></li><li><span class="n">5</span><span><b>ดู</b> — เปิดรายละเอียดอ่านอย่างเดียว</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>เรื่องที่ปิดพร้อม "บันทึกวินัยและโทษทางวินัย"</figcaption>
+    <img src="img/d5.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หนังสือรายงานผู้จัดการ (ฝ่ายบุคคล)</b></span></li><li><span class="n">2</span><span><b>การ์ดบันทึกวินัย</b> — โทษ ป้ายมีความผิด และวันที่มีผล</span></li><li><span class="n">3</span><span><b>บันทึก PDF</b> — ดาวน์โหลดบันทึกวินัยและโทษทางวินัย (5 ส่วน)</span></li><li><span class="n">4</span><span><b>แจ้งผล / อุทธรณ์</b> — บันทึกการแจ้งผลและผลอุทธรณ์</span></li><li><span class="n">5</span><span><b>สิทธิ์อุทธรณ์ (ข้อ 64)</b> — เมื่อบันทึกวันที่แจ้งแล้วระบบนับถอยหลัง 15 วัน</span></li><li><span class="n">6</span><span><b>มติ/คำสั่ง · ช่วงพักงาน · การสอบสวน</b> และข้อมูลอื่น ๆ ของบันทึก</span></li></ol>
+  </figure>
+  <div class="note">เรื่องที่ปิดแล้วอ่านย้อนหลังได้ แก้ผลการพิจารณาไม่ได้ ผลอุทธรณ์ที่บันทึกไม่เปลี่ยนโทษอัตโนมัติ — ฝ่ายบุคคลจัดการเองหากโทษถูกยกเลิกหรือลด</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 21 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">12</div><h2>แจ้งผลและบันทึกอุทธรณ์</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล</div></div>
+  <div class="crumb">เมนู: เรื่องที่ปิดแล้ว → <b>ปุ่ม แจ้งผล / อุทธรณ์</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d5b.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ปฏิเสธการลงนาม</b></span></li><li><span class="n">2</span><span><b>วันที่แจ้งผู้ถูกลงโทษ</b> — ใช้คำนวณกำหนดอุทธรณ์ (+15 วัน)</span></li><li><span class="n">3</span><span><b>พยานคนที่ 1 / 2</b> — พิมพ์ลงหนังสือลงโทษด้วย</span></li><li><span class="n">4</span><span><b>จำนวนบันทึกถ้อยคำ</b></span></li><li><span class="n">5</span><span><b>อุทธรณ์ (ข้อ 64)</b> — ติ๊กเมื่อผู้ถูกลงโทษยื่นอุทธรณ์ แล้วบันทึกวันที่ยื่น ผล และวันที่ตัดสิน</span></li><li><span class="n">6</span><span><b>บันทึก</b></span></li><li><span class="n">7</span><span><b>ยกเลิก</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้ไม่ได้กดบันทึก — วันที่แจ้งและพยานจะไปปรากฏบน PDF หนังสือของโทษนั้นด้วย</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 22 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">13</div><h2>แจ้งเรื่องการกระทำผิดระเบียบ (พนักงาน)</h2><div class="pill">ผู้ใช้: พนักงานทุกคน</div></div>
+  <div class="crumb">เมนู: หน้าหลัก → แจ้งเรื่อง / ประวัติการตักเตือน → <b>แท็บ แจ้งเรื่อง</b></div>
+  <figure class="fig two">
+    <figcaption>ส่วนบนของแบบฟอร์ม</figcaption>
+    <img src="img/d6.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>3 แท็บ</b> — แจ้งเรื่อง · เรื่องที่ฉันแจ้ง · ประวัติการตักเตือนของฉัน</span></li><li><span class="n">2</span><span><b>ผู้ที่ต้องการแจ้ง</b> (บังคับ) — เลือกเจ้าหน้าที่</span></li><li><span class="n">3</span><span><b>หัวข้อระเบียบที่ฝ่าฝืน</b> (บังคับ)</span></li><li><span class="n">4</span><span><b>วันและเวลาที่เกิดเหตุ</b> (บังคับ) — ใช้ปฏิทินของระบบ แสดงปี พ.ศ.</span></li><li><span class="n">5</span><span><b>รายละเอียด</b> (บังคับ, ไม่เกิน 2,000 ตัวอักษร) — ให้เขียนเฉพาะข้อเท็จจริง</span></li><li><span class="n">6</span><span><b>กล่องข้อมูลความเป็นส่วนตัว</b> — ชื่อผู้แจ้งเห็นได้เฉพาะหัวหน้าของผู้ถูกแจ้ง ผช.ผจก. และ ผจก. ฝ่ายบุคคลและผู้ถูกแจ้งไม่เห็น · เรื่องส่งถึงหัวหน้าของผู้ถูกแจ้งก่อน เรื่องร้ายแรงส่งถึงฝ่ายบุคคลก่อน แล้วต่อถึง ผช.ผจก. · ผู้แจ้งจะได้รับแจ้งเมื่อพิจารณาแล้ว โดยไม่แสดงผลการลงโทษ</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ส่วนล่างของแบบฟอร์ม</figcaption>
+    <img src="img/d7.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หลักฐาน</b> (ไม่บังคับ) — รูปถ่ายหรือเอกสาร PDF · PDF, JPG, PNG, WEBP ไม่เกิน 5.0 MB ต่อไฟล์ สูงสุด 5 ไฟล์</span></li><li><span class="n">2</span><span><b>ล้างแบบฟอร์ม</b> และ <b>ส่งเรื่อง</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้ไม่ได้กด "ส่งเรื่อง" เพื่อไม่ให้สร้างเรื่องร้องเรียนทดสอบเพิ่ม</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 23 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">14</div><h2>ติดตามเรื่องที่ฉันแจ้ง และประวัติการตักเตือน</h2><div class="pill">ผู้ใช้: พนักงานทุกคน</div></div>
+  <div class="crumb">เมนู: แจ้งเรื่อง / ประวัติการตักเตือน → <b>แท็บ เรื่องที่ฉันแจ้ง / ประวัติการตักเตือนของฉัน</b></div>
+  <figure class="fig two">
+    <figcaption>แท็บ "เรื่องที่ฉันแจ้ง"</figcaption>
+    <img src="img/d8.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ข้อความอธิบาย</b> — แสดงเฉพาะสถานะ ผลการพิจารณาเป็นความลับของผู้ถูกแจ้ง</span></li><li><span class="n">2</span><span><b>รีเฟรช</b></span></li><li><span class="n">3</span><span><b>รายการเรื่องที่แจ้ง</b> — ชื่อผู้ถูกแจ้ง หัวข้อ เวลาเกิดเหตุ วันที่แจ้ง และเลขที่เรื่อง</span></li><li><span class="n">4</span><span><b>พิจารณาแล้ว</b> (ป้ายเขียว)</span></li><li><span class="n">5</span><span><b>อยู่ระหว่างพิจารณา</b> (ป้ายเหลือง)</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>แท็บ "ประวัติการตักเตือนของฉัน"</figcaption>
+    <img src="img/d9.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>คำอธิบาย</b> — โทษที่ได้รับและหนังสือแต่ละฉบับ การพักงานหรือโทษที่หนักกว่าในปีงบประมาณมีผลต่อการเลื่อนขั้นประจำปี</span></li><li><span class="n">2</span><span><b>สถานะว่าง</b> — "ไม่มีประวัติการตักเตือน" เมื่อไม่เคยได้รับโทษทางวินัย</span></li></ol>
+  </figure>
+  <div class="note">เมื่อมีประวัติ จะแสดงโทษและหนังสือแต่ละฉบับให้ดาวน์โหลดได้ที่แท็บนี้</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 24 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">15</div><h2>ตั้งค่าวินัย: หัวข้อระเบียบและเกณฑ์</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: ภาพรวมงานบุคคล → ตั้งค่า → <b>ตั้งค่าวินัย</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d10.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หัวข้อระเบียบ</b> — รายการหัวข้อที่ใช้อยู่ ป้าย "ร้ายแรง" ใช้กับความผิดร้ายแรง</span></li><li><span class="n">2</span><span><b>เพิ่มหัวข้อ</b></span></li><li><span class="n">3</span><span><b>แสดงที่ปิดใช้</b> — ดูหัวข้อที่ปิดใช้แล้ว (จำนวนในวงเล็บ)</span></li><li><span class="n">4</span><span><b>ข้อระเบียบเริ่มต้น</b> — ตั้งข้อที่ติ๊กไว้ล่วงหน้าของหัวข้อนั้น (แสดงจำนวนข้อใต้ชื่อหัวข้อ)</span></li><li><span class="n">5</span><span><b>แก้ไข / ปิดใช้</b> ของแต่ละหัวข้อ</span></li><li><span class="n">6</span><span><b>กันการแจ้งเรื่องถี่เกินไป</b> — จำกัดจำนวนเรื่องที่แจ้งได้ต่อวันและต่อสัปดาห์ต่อคน</span></li><li><span class="n">7</span><span><b>การนับโทษ</b> — นับโทษย้อนหลังกี่วัน (0 = นับตลอดอายุงาน)</span></li><li><span class="n">8</span><span><b>พักงาน (ขั้น 6)</b> — งดจ่ายค่าจ้างวันทำงานที่พัก กำหนดพักอย่างน้อยและไม่เกินกี่วัน</span></li><li><span class="n">9</span><span><b>คำนำหน้าเลขที่หนังสือ</b> — พร้อมตัวอย่างเลขที่ที่จะออก</span></li></ol>
+  </figure>
+  <div class="note">ถ้อยคำเรียกการหักค่าจ้างในระบบนี้ใช้คำว่า "งดจ่าย" ตามที่ TOR กำหนด</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 25 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">16</div><h2>ข้อระเบียบ: รายการข้อที่หนังสือและบันทึกวินัยอ้างถึง</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: ตั้งค่าวินัย → <b>ส่วน ข้อระเบียบ (ใต้หัวข้อระเบียบ)</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d10b.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ข้อระเบียบ</b> — จำนวนข้อที่ใช้อยู่ และคำอธิบายการใช้งาน</span></li><li><span class="n">2</span><span><b>เพิ่มข้อระเบียบ</b> — กรอกเลขข้อ ข้อความ ปีระเบียบ (เริ่มต้น 2561) และลำดับ</span></li><li><span class="n">3</span><span><b>แสดงที่ปิดใช้</b></span></li><li><span class="n">4</span><span><b>กลุ่มตามปีของระเบียบ</b> เช่น ระเบียบฯ พ.ศ. 2561 เรียงตามลำดับ</span></li><li><span class="n">5</span><span><b>แต่ละข้อ</b> — เลขข้อและข้อความเต็ม</span></li><li><span class="n">6</span><span><b>แก้ไข / ปิดใช้</b> — ลบไม่ได้ ปิดใช้แล้วข้อหายจากรายการเลือกแต่ยังอยู่บนหนังสือเก่า</span></li></ol>
+  </figure>
+  <div class="note">เลขข้อซ้ำในปีระเบียบเดียวกันไม่ได้ ระบบแจ้งว่า "มีข้อระเบียบ ... อยู่แล้ว"</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 26 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">17</div><h2>ตั้งข้อระเบียบเริ่มต้นของหัวข้อ</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: ตั้งค่าวินัย → หัวข้อระเบียบ → <b>ปุ่ม ข้อระเบียบเริ่มต้น</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d10c.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>คำอธิบาย</b> — ข้อที่เลือกจะถูกติ๊กไว้ล่วงหน้าในหนังสือตักเตือนและบันทึกวินัยของเรื่องหัวข้อนี้ ผู้ออกหนังสือแก้ได้</span></li><li><span class="n">2</span><span><b>ค้นหา</b> เลขข้อหรือข้อความ</span></li><li><span class="n">3</span><span><b>รายการข้อระเบียบ</b> — ติ๊กได้หลายข้อ</span></li><li><span class="n">4</span><span><b>จำนวนที่เลือก</b></span></li><li><span class="n">5</span><span><b>บันทึก</b> — ใช้แทนรายการเดิมทั้งชุด (ไม่เลือกเลย = ล้างข้อเริ่มต้น)</span></li><li><span class="n">6</span><span><b>ยกเลิก</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้ปิดหน้าต่างโดยไม่บันทึก จึงไม่เปลี่ยนข้อเริ่มต้นของหัวข้อใด</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 27 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบตักเตือนพนักงานเรื่องระเบียบ</span><span>อ้างอิง สัญญาข้อ 7.1 งวดที่ 4</span></div>
+  <div class="head"><div class="num">18</div><h2>เพิ่ม / แก้ไขหัวข้อระเบียบ</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: ตั้งค่าวินัย → <b>ปุ่ม เพิ่มหัวข้อ (หรือ แก้ไข)</b></div>
+  <figure class="fig ">
+    
+    <img src="img/d11.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ชื่อหัวข้อ</b> (บังคับ) — เช่น มาทำงานสาย</span></li><li><span class="n">2</span><span><b>คำอธิบาย</b> (ไม่บังคับ) — ระเบียบที่อ้างอิงหรือขอบเขตของหัวข้อ ผู้แจ้งเห็นข้อความนี้ตอนเลือกหัวข้อ</span></li><li><span class="n">3</span><span><b>ความผิดร้ายแรง</b> — เมื่อเปิด เรื่องจะเริ่มที่ ผช.ผจก. และผู้พิจารณาเลือกโทษข้ามขั้นได้</span></li><li><span class="n">4</span><span><b>ยกเลิก / บันทึก</b></span></li></ol>
+  </figure>
+  <div class="note">ภาพนี้ปิดหน้าต่างโดยไม่บันทึก จึงไม่มีหัวข้อทดสอบเพิ่มในระบบ</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 28 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">1</div><h2>จุดเริ่มต้นแจ้งแก้ไขข้อมูลและคำร้องของฉัน (พนักงาน)</h2><div class="pill">ผู้ใช้: พนักงานทุกคน</div></div>
+  <div class="crumb">เมนู: หน้าหลัก → <b>ข้อมูลส่วนตัว</b></div>
+  <figure class="fig two">
+    <figcaption>หน้า "ข้อมูลส่วนตัว"</figcaption>
+    <img src="img/i1.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>แจ้งแก้ไขข้อมูล</b> — ปุ่มเปิดแบบฟอร์มคำร้อง (ส้ม)</span></li><li><span class="n">2</span><span><b>ข้อมูลบัญชี</b> — ข้อมูลที่แสดงอยู่ ถ้าไม่ถูกต้องให้ใช้ปุ่มด้านบน</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ส่วน "คำร้องแจ้งแก้ไขข้อมูลของฉัน" ท้ายหน้า</figcaption>
+    <img src="img/i5.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>รายการคำร้องของฉัน</b> เรียงจากใหม่ไปเก่า</span></li><li><span class="n">2</span><span><b>รอพิจารณา</b> — ป้ายเหลือง พร้อมวันที่ส่ง</span></li><li><span class="n">3</span><span><b>ข้อมูลที่แจ้ง</b> — หมวด ค่าใหม่ที่ขอแก้ และรายละเอียด</span></li><li><span class="n">4</span><span><b>ไม่อนุมัติ</b> — ป้ายแดง</span></li><li><span class="n">5</span><span><b>เหตุผลที่ไม่อนุมัติ</b> — ข้อความสีแดงจากผู้พิจารณา</span></li><li><span class="n">6</span><span><b>แก้ไขแล้ว</b> — ป้ายเขียว</span></li></ol>
+  </figure>
+  <div class="note">เมื่อฝ่ายบุคคลพิจารณาแล้ว พนักงานจะได้รับการแจ้งเตือนและเห็นสถานะที่ส่วนนี้</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 29 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">2</div><h2>กรอกแบบฟอร์ม "แจ้งแก้ไขข้อมูล"</h2><div class="pill">ผู้ใช้: พนักงานทุกคน</div></div>
+  <div class="crumb">เมนู: ข้อมูลส่วนตัว → <b>ปุ่ม แจ้งแก้ไขข้อมูล</b></div>
+  <figure class="fig two">
+    <figcaption>ขั้นที่ 1 — เริ่มจากเลือกหมวดหมู่</figcaption>
+    <img src="img/i2.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หมวดหมู่</b> (บังคับ)</span></li><li><span class="n">2</span><span><b>ค่าปัจจุบัน (ที่ผิด)</b> — ค่าที่แสดงอยู่ตอนนี้</span></li><li><span class="n">3</span><span><b>ค่าที่ถูกต้อง</b> (บังคับ)</span></li><li><span class="n">4</span><span><b>รายละเอียดเพิ่มเติม</b> (ถ้ามี)</span></li><li><span class="n">5</span><span><b>ไฟล์แนบ</b> (ไม่บังคับ) — รูปบัตรประชาชน สมุดบัญชี หรือเอกสารที่ยืนยันค่าที่ถูกต้อง ไม่เกิน 5 ไฟล์ ไฟล์ละไม่เกิน 5.0 MB</span></li><li><span class="n">6</span><span><b>ยกเลิก</b></span></li><li><span class="n">7</span><span><b>ส่งคำร้อง</b></span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>เมื่อกดเลือกหมวดหมู่</figcaption>
+    <img src="img/i3.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>รายการหมวดหมู่</b> — ข้อมูลส่วนตัว · ที่อยู่ · บัญชีผู้ใช้ · ข้อมูลการเงิน · ครอบครัว · การศึกษา · ประวัติการทำงาน · ประวัติคดีความ</span></li></ol>
+  </figure>
+  <div class="note">หลังเลือกหมวดหมู่ ระบบจะเพิ่มช่อง "ข้อมูลที่ต้องการแก้" ให้เลือกรายการข้อมูลในหมวดนั้น (เช่น เบอร์โทรศัพท์ · LINE ID · เลขบัญชีธนาคาร)</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 30 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">3</div><h2>ตัวอย่างการกรอกและส่งคำร้อง</h2><div class="pill">ผู้ใช้: พนักงานทุกคน</div></div>
+  <div class="crumb">เมนู: แจ้งแก้ไขข้อมูล → กรอกข้อมูล → <b>ส่งคำร้อง</b></div>
+  <figure class="fig ">
+    
+    <img src="img/i4.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>หมวดหมู่</b> = ข้อมูลส่วนตัว</span></li><li><span class="n">2</span><span><b>ข้อมูลที่ต้องการแก้</b> = เบอร์โทรศัพท์</span></li><li><span class="n">3</span><span><b>ค่าปัจจุบัน (ที่ผิด)</b></span></li><li><span class="n">4</span><span><b>ค่าที่ถูกต้อง</b></span></li><li><span class="n">5</span><span><b>รายละเอียดเพิ่มเติม</b></span></li><li><span class="n">6</span><span><b>ส่งคำร้อง</b> — เมื่อส่งสำเร็จ ระบบแสดง "ส่งคำร้องแล้ว" และบอกว่าติดตามสถานะได้ที่ "คำร้องของฉัน"</span></li></ol>
+  </figure>
+  <div class="note">ข้อมูลในภาพเป็นค่าทดสอบ (ขึ้นต้นด้วย "(ทดสอบ)") บน staging</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 31 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">4</div><h2>รายการคำร้องของฝ่ายบุคคล</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: ภาพรวมงานบุคคล → ระบบ → <b>รายงานปัญหา</b></div>
+  <figure class="fig ">
+    
+    <img src="img/i6.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>แท็บสถานะ</b> — ค้างพิจารณา (พร้อมตัวเลข) · แก้ไขแล้ว · ปฏิเสธ · ทั้งหมด</span></li><li><span class="n">2</span><span><b>เกินกำหนด</b> — จำนวนคำร้องที่ค้างเกินกำหนด</span></li><li><span class="n">3</span><span><b>กรองหมวดหมู่</b></span></li><li><span class="n">4</span><span><b>ตารางคำร้อง</b> — พนักงาน/สาขา ข้อมูลที่แจ้ง ค่าเดิม→ค่าใหม่ ไฟล์แนบ วันที่ส่ง และสถานะ</span></li><li><span class="n">5</span><span><b>ค่าเดิม → ค่าใหม่</b> — ค่าเดิมถูกขีดฆ่า ค่าใหม่ตัวหนา</span></li><li><span class="n">6</span><span><b>พิจารณา</b> — เปิดหน้าต่างอนุมัติ/ปฏิเสธ</span></li></ol>
+  </figure>
+  <div class="note">เมนูข้างซ้ายของงานบุคคลมีตัวเลขที่ "รายงานปัญหา" บอกจำนวนคำร้องที่ค้างอยู่</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 32 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">5</div><h2>อนุมัติหรือปฏิเสธคำร้อง</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: รายงานปัญหา → <b>ปุ่ม พิจารณา</b></div>
+  <figure class="fig two">
+    <figcaption>หน้าต่างพิจารณาคำร้อง</figcaption>
+    <img src="img/i7.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ค่าเดิม (ที่พนักงานเห็น)</b></span></li><li><span class="n">2</span><span><b>ค่าใหม่</b> ที่พนักงานขอแก้</span></li><li><span class="n">3</span><span><b>วันที่ส่ง และรายละเอียด</b></span></li><li><span class="n">4</span><span><b>ไฟล์แนบ</b> — กดดูหลักฐานได้ (ที่นี่ไม่มีไฟล์แนบ)</span></li><li><span class="n">5</span><span><b>ปฏิเสธ</b> — ไปขั้นกรอกเหตุผล</span></li><li><span class="n">6</span><span><b>อนุมัติและบันทึก</b> — อนุมัติคำร้องและบันทึกค่าใหม่ (สถานะเปลี่ยนเป็น "แก้ไขแล้ว")</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>ขั้นกรอกเหตุผลที่ปฏิเสธ</figcaption>
+    <img src="img/i8.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>เหตุผลที่ปฏิเสธ</b> (บังคับ)</span></li><li><span class="n">2</span><span>ข้อความนี้พนักงานจะเห็นในการแจ้งเตือน</span></li><li><span class="n">3</span><span><b>ย้อนกลับ</b></span></li><li><span class="n">4</span><span><b>ยืนยันปฏิเสธ</b></span></li></ol>
+  </figure>
+  <div class="note">ในภาพ ระบบไม่ได้ปฏิเสธจริง เพราะผู้พิจารณาเป็นเจ้าของคำร้องเอง (ดูหน้าถัดไป)</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 33 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">6</div><h2>กฎความโปร่งใส และการดูคำร้องที่พิจารณาแล้ว</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: รายงานปัญหา → แท็บ ปฏิเสธ / แก้ไขแล้ว → <b>ปุ่ม ดู</b></div>
+  <figure class="fig two">
+    <figcaption>ตัวอย่างข้อความเมื่อพยายามตัดสินคำร้องของตนเอง</figcaption>
+    <img src="img/i9.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span>ระบบแจ้งว่า "ไม่สามารถอนุมัติหรือปฏิเสธคำขอแก้ไขข้อมูลของตนเองได้" — ต้องให้ผู้อื่นที่มีสิทธิ์เป็นผู้พิจารณา</span></li></ol>
+  </figure><figure class="fig two">
+    <figcaption>รายละเอียดคำร้องที่พิจารณาแล้ว (อ่านอย่างเดียว)</figcaption>
+    <img src="img/i10.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>ค่าเดิม → ค่าใหม่</b></span></li><li><span class="n">2</span><span><b>วันที่ส่ง / วันที่พิจารณา</b> (เช่น เสร็จในวันเดียว)</span></li><li><span class="n">3</span><span><b>เหตุผล / ความเห็น</b> ของผู้พิจารณา</span></li></ol>
+  </figure>
+  <div class="note">การแยกผู้ยื่นกับผู้พิจารณาออกจากกันช่วยให้การแก้ไขข้อมูลบุคคลตรวจสอบย้อนหลังได้</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 34 / 36</span></div></section>
+<section class="page p-feat">
+  <div class="secbar"><span>ระบบรายงานปัญหาและการแก้ไขข้อมูล</span><span>อ้างอิง TOR ข้อ 3.6</span></div>
+  <div class="head"><div class="num">7</div><h2>สถิติคำร้อง</h2><div class="pill">ผู้ใช้: ฝ่ายบุคคล · ผู้ดูแลระบบ</div></div>
+  <div class="crumb">เมนู: ภาพรวมงานบุคคล → ระบบ → <b>สถิติคำร้อง</b></div>
+  <figure class="fig ">
+    
+    <img src="img/i11.jpg" alt="">
+    <ol class="legend"><li><span class="n">1</span><span><b>เลือกปีและเดือน</b> — นับตามวันที่ส่งคำร้อง</span></li><li><span class="n">2</span><span><b>การ์ดสรุป</b> — คำร้องทั้งหมด (แยกค้าง/แก้ไข/ปฏิเสธ) · พิจารณาทันกำหนด (3 วัน) · ค้างเกินกำหนด · เวลาพิจารณาเฉลี่ย</span></li><li><span class="n">3</span><span><b>ข้อมูลที่แจ้งแก้บ่อย</b> — จัดอันดับตามชนิดข้อมูล</span></li><li><span class="n">4</span><span><b>ตามสาขา</b> — จำนวนคำร้องของแต่ละสาขา</span></li><li><span class="n">5</span><span><b>เมนู สถิติคำร้อง</b> ในกลุ่ม "ระบบ"</span></li><li><span class="n">6</span><span><b>เมนู รายงานปัญหา</b> พร้อมตัวเลขค้าง</span></li></ol>
+  </figure>
+  <div class="note">ใช้ติดตามคุณภาพข้อมูลบุคลากรและความรวดเร็วในการพิจารณา</div><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 35 / 36</span></div></section>
+<section class="page "><h2 class="h2">หมายเหตุการใช้งานและข้อมูลที่ใช้ถ่ายภาพ</h2>
+  <ul class="notes">
+    <li>ภาพประกอบทั้งหมดถ่ายจากระบบทดสอบ (staging) ด้วยบัญชีผู้ดูแลระบบ และข้อมูลทดสอบ ไม่ใช่ข้อมูลจริงของสหกรณ์</li>
+    <li>สิทธิ์ของแต่ละบทบาทเป็นไปตามตาราง "สิทธิ์ตามบทบาท" ในระบบ (เมนู สิทธิ์ตามบทบาท — ผู้ดูแลระบบเปิดดูได้) ผู้ใช้ที่ไม่มีสิทธิ์จะไม่เห็นเมนูหรือปุ่มนั้น</li>
+    <li>ชื่อผู้แจ้งเรื่องวินัยเป็นความลับ: ผู้ถูกแจ้งและฝ่ายบุคคลไม่เห็นชื่อผู้แจ้ง</li>
+    <li>ข้อความเกี่ยวกับการหักค่าจ้างจากการพักงานใช้คำว่า "งดจ่าย" ตามที่ TOR กำหนด</li>
+    <li>ภาพที่เป็นหน้าต่างยืนยัน (ลงโทษ / บันทึกผลประกอบการ / ส่งเรื่อง) ถ่ายเพื่อแสดงขั้นตอนโดยไม่กดบันทึก เพื่อไม่ให้ข้อมูลทดสอบเปลี่ยน</li>
+    <li>หากพบข้อมูลไม่ถูกต้องในระบบ ให้ใช้ปุ่ม "แจ้งแก้ไขข้อมูล" ในหน้า ข้อมูลส่วนตัว</li>
+  </ul><div class="foot"><span>คู่มือการใช้งาน ระบบบริหารทรัพยากรบุคคล (HR) งวดที่ 4 · สัญญาเลขที่ 002/2569</span><span>หน้า 36 / 36</span></div></section></body></html>

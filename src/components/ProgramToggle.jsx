@@ -8,7 +8,7 @@ export default function ProgramToggle({ checked, onChange, label, className = ""
     <label
       className={[
         "group flex min-h-[60px] min-w-0 cursor-pointer items-center gap-3.5 rounded-xl border px-4 py-3 transition-colors duration-200",
-        "focus-within:ring-2 focus-within:ring-indigo-400",
+        "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-400",
         on
           ? "border-gray-900/70 bg-white dark:border-white/45 dark:bg-raised"
           : "border-gray-200 bg-white hover:border-gray-300 dark:border-line dark:bg-surface dark:hover:border-line-strong",

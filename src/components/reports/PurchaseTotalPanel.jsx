@@ -115,9 +115,9 @@ export default function PurchaseTotalPanel({
   return (
     <section
       aria-label="ยอดรับซื้อตามตัวกรอง"
-      className="mt-5 rounded-2xl bg-emerald-50/60 p-4 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:ring-emerald-400/30"
+      className="mt-5 rounded-2xl bg-gray-50 p-4 ring-1 ring-inset ring-gray-200 dark:bg-surface dark:ring-line"
     >
-      <div className="text-sm font-medium text-emerald-800 dark:text-emerald-200">ยอดรับซื้อตามตัวกรอง</div>
+      <div className="text-sm font-medium text-gray-700 dark:text-gray-300">ยอดรับซื้อตามตัวกรอง</div>
 
       <div className="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div aria-live="polite" aria-busy={loading} className={cx("min-w-0", FIGURES_MIN_H)}>

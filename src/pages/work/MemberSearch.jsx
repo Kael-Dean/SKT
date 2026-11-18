@@ -152,12 +152,12 @@ function ProgramBadges({ row }) {
 /** Toggle โครงการ (โหมดแก้ไข) */
 function ProgramToggles({ value, onChange }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {PROGRAMS.map(({ key, label }) => (
         <label
           key={key}
           className={[
-            "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
+            "group relative flex min-w-0 items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
             "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
             "shadow-sm hover:shadow-md",
             "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
@@ -186,7 +186,7 @@ function ProgramToggles({ value, onChange }) {
             checked={!!value?.[key]}
             onChange={(e) => onChange(key, e.target.checked)}
           />
-          <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">{label}</span>
+          <span className="min-w-0 flex-1 text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">{label}</span>
           <span
             className={[
               "pointer-events-none absolute inset-0 rounded-2xl transition-opacity",

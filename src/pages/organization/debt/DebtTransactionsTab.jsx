@@ -6,8 +6,7 @@ import AllTimeToggle from "../../../components/AllTimeToggle"
 import { firstOfMonthIso, todayIso } from "../../../lib/allTime"
 import {
   cx, baseField, modalCardCls, modalTitleCls,
-  resetBtnCls, secondaryBtnCls, cardCls, badgeCls,
-} from "../../../lib/styles"
+  resetBtnCls, secondaryBtnCls, cardCls, badgeCls, editBtnCls } from "../../../lib/styles"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import DebtEntryModal from "./DebtEntryModal"
 import {
@@ -224,9 +223,7 @@ export default function DebtTransactionsTab({ roleId, branches, programs, fiscal
                         <td className="px-4 py-3 text-right">
                           {canMutate(e) ? (
                             <div className="inline-flex items-center gap-2">
-                              <button onClick={() => setModal({ mode: "edit", record: e })} className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer">
-                                แก้ไข
-                              </button>
+                              <button onClick={() => setModal({ mode: "edit", record: e })} className={editBtnCls}>แก้ไข</button>
                               <button onClick={() => { setDeleteMsg(""); setModal({ mode: "delete", record: e }) }} className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer">
                                 ลบ
                               </button>

@@ -4,7 +4,7 @@ import ProgramToggle from "../../components/ProgramToggle"
 import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 import { SkeletonTableRows, ErrorState, EmptyState, Sheet, SearchField, DataList, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import { cx, baseField, readonlyFieldCls, neutralBtnCls, secondaryBtnCls, submitBtnCls } from "../../lib/styles"
+import { cx, baseField, readonlyFieldCls, neutralBtnCls, submitBtnCls, editBtnCls } from "../../lib/styles"
 import DateInput from "../../components/ThaiDateField"
 import PageTitle from "../../components/PageTitle"
 
@@ -485,9 +485,7 @@ const MemberSearch = () => {
             ปิด
           </button>
           {!active.__resigned && (
-            <button type="button" onClick={() => setEditing(true)} className={cx(secondaryBtnCls, "h-12 py-0 text-sm md:pointer-fine:h-10")}>
-              แก้ไข
-            </button>
+            <button type="button" onClick={() => setEditing(true)} className={editBtnCls}>แก้ไข</button>
           )}
         </>
       ) : (
@@ -570,11 +568,8 @@ const MemberSearch = () => {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); openModal(r, { edit: true }) }}
-                  className={cx(secondaryBtnCls, "h-11 px-4 py-0 text-sm")}
-                  aria-label={`แก้ไข ${fullName(r)}`}
-                >
-                  แก้ไข
-                </button>
+                  
+                  aria-label={`แก้ไข ${fullName(r)}`} className={editBtnCls}>แก้ไข</button>
               )}
               emptyState={error ? null : dq ? emptyNone : emptyBefore}
             />

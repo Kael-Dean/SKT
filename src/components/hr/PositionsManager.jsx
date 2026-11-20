@@ -8,9 +8,10 @@ import { apiAuth } from "../../lib/api"
 import SelectDropdown from "../SelectDropdown"
 import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../ui"
 import HrModal, { Notice } from "./HrModal"
+import { editBtnCls } from "../../lib/styles"
 import {
   TIER_OPTIONS, tierName, errText, detailText, POSITIONS_PATH,
-  inputCls, labelCls, primaryBtn, secondaryBtn, dangerBtn, linkBtn, cardCls, thCls,
+  inputCls, labelCls, primaryBtn, secondaryBtn, dangerBtn, cardCls, thCls,
 } from "./positionUtils"
 
 const COLS = 4
@@ -241,7 +242,7 @@ export default function PositionsManager() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                        <button type="button" onClick={() => openEdit(p)} className={linkBtn} aria-label={`แก้ไขตำแหน่ง ${p.title}`}>แก้ไข</button>
+                        <button type="button" onClick={() => openEdit(p)}  aria-label={`แก้ไขตำแหน่ง ${p.title}`} className={editBtnCls}>แก้ไข</button>
                         {active && (
                           <button
                             type="button"

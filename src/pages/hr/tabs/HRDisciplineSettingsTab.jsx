@@ -13,8 +13,7 @@ import { apiDetail } from "../../../lib/apiErrors"
 import { useCan } from "../../../lib/permissions"
 import { asArray, fmtDateTime } from "../../../lib/discipline"
 import {
-  cx, baseField, cardCls, errorTextCls, focusRingCls, neutralBtnCls, primaryBtnCls, readonlyFieldCls,
-} from "../../../lib/styles"
+  cx, baseField, cardCls, errorTextCls, focusRingCls, neutralBtnCls, primaryBtnCls, readonlyFieldCls, editBtnCls } from "../../../lib/styles"
 import { Badge, ConfirmDialog, EmptyState, ErrorState, Sheet, Skeleton, toast } from "../../../components/ui"
 import ClausesSection, { TopicClausesSheet } from "./HRDisciplineClausesSection"
 
@@ -234,10 +233,7 @@ function TopicsSection({ canEdit }) {
                       </button>
                     )}
                     {!inactive && (
-                      <button type="button" onClick={() => setEditing(t)} aria-label={`แก้ไขหัวข้อ ${t.name}`}
-                        className={cx(linkBtn, "text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10")}>
-                        <Pencil aria-hidden="true" className="size-3.5" /> แก้ไข
-                      </button>
+                      <button type="button" onClick={() => setEditing(t)} aria-label={`แก้ไขหัวข้อ ${t.name}`} className={editBtnCls}>แก้ไข</button>
                     )}
                     {inactive ? (
                       <button type="button" onClick={() => reactivate(t)} disabled={rowBusy === t.id}

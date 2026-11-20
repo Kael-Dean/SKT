@@ -25,8 +25,7 @@ import {
   neutralBtnCls,
   primaryBtnCls,
   secondaryBtnCls,
-  spinnerCls,
-} from "../../lib/styles"
+  spinnerCls, editBtnCls } from "../../lib/styles"
 import {
   Badge,
   Card,
@@ -471,10 +470,7 @@ export default function RiceSpecManage() {
   const rowActions = (s) =>
     canManage ? (
       <div className="flex items-center justify-end gap-1">
-        <button type="button" className={rowBtnCls} onClick={() => openEdit(s)} aria-label={`แก้ไข ${s.prod_name || `รหัส ${s.id}`}`}>
-          <Pencil className="size-4" aria-hidden="true" />
-          แก้ไข
-        </button>
+        <button type="button"  onClick={() => openEdit(s)} aria-label={`แก้ไข ${s.prod_name || `รหัส ${s.id}`}`} className={editBtnCls}>แก้ไข</button>
         <button type="button" className={hideBtnCls} onClick={() => askHide(s)} aria-label={`ปิดการแสดง ${s.prod_name || `รหัส ${s.id}`}`}>
           <EyeOff className="size-4" aria-hidden="true" />
           ปิดการแสดง

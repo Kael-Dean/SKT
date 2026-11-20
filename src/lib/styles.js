@@ -153,6 +153,13 @@ export const tabPanelCls =
 /** Primary action (indigo — the one accent).
  *  Dark: stays on indigo-600 (white text 6.5:1; indigo-500 was 4.6:1) with a
  *  hairline indigo edge + soft downward glow instead of a lighter fill. */
+/** ปุ่ม "แก้ไข" มาตรฐานของทั้งเว็บ (พื้นอินดิโกอ่อน) — ใช้ทุกจุดที่เป็นปุ่มแก้ไขข้อมูล ห้ามทำสไตล์เอง */
+export const editBtnCls =
+  "inline-flex items-center justify-center gap-1.5 rounded-lg bg-indigo-100 px-3 py-1.5 min-h-touch md:pointer-fine:min-h-0 text-xs font-semibold " +
+  "text-indigo-700 transition-colors duration-200 cursor-pointer hover:bg-indigo-200 " +
+  "dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed " +
+  focusRingCls
+
 export const primaryBtnCls =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 h-11 md:pointer-fine:h-10 text-sm font-semibold " +
   "text-white shadow-sm transition-colors duration-200 cursor-pointer hover:bg-indigo-500 " +

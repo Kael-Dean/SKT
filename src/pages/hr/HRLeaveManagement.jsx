@@ -96,13 +96,6 @@ export default function HRLeaveManagement() {
             {loading ? "กำลังโหลด..." : `${tab === "pending" ? `รออนุมัติ ${requests.length} รายการ` : `ทั้งหมด ${requests.length} รายการ`}`}
           </p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-          <span className="relative inline-flex h-2 w-2 text-emerald-500 dark:text-emerald-400">
-            <span className="status-ping" aria-hidden="true" />
-            <span className="inline-flex h-2 w-2 rounded-full bg-current" />
-          </span>
-          เชื่อมต่อ API แล้ว
-        </div>
       </div>
 
       {banner && (

@@ -5,7 +5,7 @@
 // number. Desktop (≥md) no longer renders a summary here — Buy.jsx shows the
 // sticky <OrderSummaryPanel> instead (R2), which replaced the 21-tile grid.
 // ─────────────────────────────────────────────────────────────────────────────
-import { cx, cardCls, sectionTitleCls, focusRingCls } from "../../../lib/styles"
+import { cx, cardCls, sectionTitleCls, editBtnCls } from "../../../lib/styles"
 import { thb, nf, toNumber, moneyToNumber, maskId13 } from "./buyShared"
 
 export default function BuySummary({ form, onEdit }) {
@@ -23,11 +23,8 @@ function Group({ title, step, onEdit, children }) {
           <button
             type="button"
             onClick={() => onEdit(step)}
-            className={cx("-my-2 -mr-2 inline-flex min-h-touch items-center rounded-lg px-2 text-sm font-medium normal-case tracking-normal text-indigo-600 dark:text-indigo-300", focusRingCls)}
-            aria-label={`แก้ไข${title}`}
-          >
-            แก้ไข
-          </button>
+            
+            aria-label={`แก้ไข${title}`} className={editBtnCls}>แก้ไข</button>
         )}
       </div>
       <dl className="grid grid-cols-[minmax(0,7.5rem)_1fr] gap-x-3 gap-y-1.5">{children}</dl>

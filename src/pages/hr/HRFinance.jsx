@@ -6,6 +6,7 @@ import { ErrorState, EmptyState, SkeletonTableRows, SkeletonStat } from "../../c
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import PageTitle from "../../components/PageTitle"
 import { getTenure, tenureText } from "../../lib/tenure"
+import { editBtnCls } from "../../lib/styles"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -41,12 +42,6 @@ export default function HRFinance() {
             {loading ? "กำลังโหลด..." : `ยอดเงินเดือนรวม: `}
             {!loading && <span className="font-semibold text-indigo-700 dark:text-indigo-300 tabular-nums">{fmt(totalPayroll)} บาท/เดือน</span>}
           </p>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-          เชื่อมต่อ API แล้ว
         </div>
       </div>
 
@@ -123,11 +118,7 @@ export default function HRFinance() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
-                        onClick={() => openEdit(e)}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition cursor-pointer"
-                      >
-                        แก้ไข
-                      </button>
+                        onClick={() => openEdit(e)} className={editBtnCls}>แก้ไข</button>
                     </td>
                   </tr>
                 )

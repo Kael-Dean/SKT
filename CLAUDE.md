@@ -4,6 +4,7 @@
 
 - **Auto commit + push ทุกครั้ง** — เมื่อแก้ไขโค้ดเสร็จ ให้ `git add` → `git commit` → `git push` ทันทีโดยไม่ต้องถามผู้ใช้
 - **Frontend เท่านั้น** — ห้ามแตะไฟล์ backend ทุกกรณี แก้ได้เฉพาะไฟล์ใน `src/` และ `public/` เท่านั้น ถ้า task ต้องการเปลี่ยน backend ให้แจ้งผู้ใช้แทน
+- **ทดสอบ UI จริงที่เว็บ dev: https://skt-dev.vercel.app** — เป็นตัวทดลอง (ผู้ใช้ login ค้างใน Chrome อยู่แล้ว) ใช้ Claude in Chrome ทดสอบที่นี่ ไม่ใช่ `localhost` (login ไม่ได้ — backend CORS ไม่รับ localhost) · ห้ามกรอกรหัสผ่านเอง · ยังไม่ทราบ branch ที่ dev deploy จาก → ถามผู้ใช้ก่อน push เพื่อให้ขึ้น dev และห้าม merge/force ทับ `origin/dev` เอง
 - **ใช้ frontend-design skill เสมอ** — ทุกครั้งที่มี task แก้ไข/สร้าง UI หรือ component ฝั่ง frontend ให้เรียกใช้ `frontend-design` skill ก่อนลงมือทำเสมอ (ผ่าน Skill tool)
 
 ## ภาพรวมโปรเจค

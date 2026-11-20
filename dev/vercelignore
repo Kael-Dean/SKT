@@ -1,0 +1,10 @@
+# Upload only what the build needs — keeps Brief/, handoff/, .claude/, env files, etc. off Vercel
+/*
+!src
+!public
+!index.html
+!package.json
+!package-lock.json
+!vite.config.js
+!eslint.config.js
+!vercel.json

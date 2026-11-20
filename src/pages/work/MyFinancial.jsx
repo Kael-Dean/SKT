@@ -11,7 +11,8 @@ import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { useCan } from "../../lib/permissions"
-import { money, reserveRateText, toNum } from "../../lib/payroll"
+import { money, toNum } from "../../lib/payroll"
+import { SavingsBlock, LoansBlock } from "../../components/hr/FinanceSavingsLoans"
 import { fmtDate, fmtLevel, reasonLabel } from "../../components/hr/positionUtils"
 import { cardCls, cx, focusRingCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SkeletonText } from "../../components/ui"
@@ -32,7 +33,6 @@ const INCOME_ON_FILE = [
 const DEDUCTIONS_ON_FILE = [
   // null = ไม่ได้ขอให้หัก (0)
   { key: "tax_withholding_override", label: "ภาษีเงินได้", always: true, onlyIfPresent: true, nullIsZero: true },
-  { key: "reserve_rate_pct", label: "เงินสะสม", always: true, onlyIfPresent: true, text: reserveRateText },
   { key: "current_ss", label: "ประกันสังคม", always: true },
   { key: "current_loan", label: "หนี้เงินกู้กองทุนสงเคราะห์เจ้าหน้าที่", always: true },
 ]
@@ -141,6 +141,10 @@ function OnFileCard() {
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                 กยศ. สหกรณ์ออมทรัพย์ ชมรมเจ้าหน้าที่ และอื่นๆ เปลี่ยนทุกเดือน ดูยอดจริงได้ในสลิปเงินเดือน
               </p>
+            </div>
+            <div className="md:col-span-2 grid gap-5 border-t border-gray-100 pt-5 dark:border-line md:grid-cols-2 md:gap-8">
+              <SavingsBlock fin={data} />
+              <LoansBlock fin={data} />
             </div>
           </div>
         )}

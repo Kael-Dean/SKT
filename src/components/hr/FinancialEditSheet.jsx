@@ -210,7 +210,9 @@ export default function FinancialEditSheet({ open, employeeId, employeeName, fin
               const id = `${uid}-${key}`
               // ลูกจ้างรายวัน: payroll ไม่ใช้เงินเดือน → ล็อกช่องไว้ (ค่าเดิมยังถูกส่งกลับไปเหมือนเดิม)
               const salaryUnused = key === "current_salary" && isDaily
-              const hint = salaryUnused ? "ไม่ใช้กับลูกจ้างรายวัน" : errors[key] ? undefined : f.hint
+              // มีสัญญากู้ในระบบ → ยอดที่แสดงมาจากสัญญา แก้ตรงนี้ไม่มีผล (PR 105)
+              const loanLocked = key === "current_loan" && Array.isArray(baseline?.loans) && baseline.loans.length > 0
+              const hint = salaryUnused ? "ไม่ใช้กับลูกจ้างรายวัน" : loanLocked ? "ยอดมาจากสัญญากู้ในระบบ — แก้ตรงนี้ไม่มีผล" : errors[key] ? undefined : f.hint
               const hintId = hint ? `${id}-hint` : undefined
               const errId = errors[key] ? `${id}-err` : undefined
               return (
@@ -226,10 +228,10 @@ export default function FinancialEditSheet({ open, employeeId, employeeName, fin
                     value={form[key]}
                     onChange={(e) => set(key, e.target.value)}
                     placeholder={f.placeholder}
-                    readOnly={salaryUnused}
+                    readOnly={salaryUnused || loanLocked}
                     aria-invalid={errors[key] ? true : undefined}
                     aria-describedby={[hintId, errId].filter(Boolean).join(" ") || undefined}
-                    className={cx(inputCls, salaryUnused && fieldDisabled, errors[key] && "!border-red-500 dark:!border-red-400")}
+                    className={cx(inputCls, (salaryUnused || loanLocked) && fieldDisabled, errors[key] && "!border-red-500 dark:!border-red-400")}
                   />
                   {hint && <p id={hintId} className={cx(helpTextCls, "md:text-xs")}>{hint}</p>}
                   {errors[key] && <p id={errId} className={errorTextCls}>{errors[key]}</p>}

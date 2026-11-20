@@ -17,6 +17,7 @@ import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
+import FinanceSavingsLoans from "../../components/hr/FinanceSavingsLoans"
 import GuaranteeBankEditSheet from "../../components/hr/GuaranteeBankEditSheet"
 import Can from "../../components/Can"
 import { can } from "../../lib/permissions"
@@ -416,8 +417,9 @@ export default function HRPersonnelDetail() {
             <InfoRow label="ภาษีเงินได้" value={fmt(fin.tax_withholding_override ?? 0)} />
           )}
           {fin.reserve_rate_pct !== undefined && (
-            <InfoRow label="เงินสะสม %" value={reserveRateText(fin.reserve_rate_pct)} />
+            <InfoRow label="อัตราเงินสะสม" value={reserveRateText(fin.reserve_rate_pct)} />
           )}
+          <FinanceSavingsLoans fin={fin} className="mt-5 border-t border-gray-100 pt-5 dark:border-line" />
         </div>
       )}
 

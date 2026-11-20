@@ -1,5 +1,5 @@
 // src/pages/hr/HRPersonnelDetail.jsx
-import { cx, baseField } from "../../lib/styles"
+import { cx, baseField, editBtnCls } from "../../lib/styles"
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState, useCallback } from "react"
 import ReactDOM from "react-dom"
@@ -376,11 +376,7 @@ export default function HRPersonnelDetail() {
                 <button
                   type="button"
                   onClick={() => setGbnOpen(true)}
-                  aria-label="แก้ไขเลขบัญชีค้ำประกัน"
-                  className="min-h-touch md:pointer-fine:min-h-0 px-2 rounded-lg text-sm font-medium text-indigo-600 hover:text-indigo-500 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-900/30 transition-colors duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                >
-                  แก้ไข
-                </button>
+                  aria-label="แก้ไขเลขบัญชีค้ำประกัน" className={editBtnCls}>แก้ไข</button>
               </span>
             </div>
           </Can>

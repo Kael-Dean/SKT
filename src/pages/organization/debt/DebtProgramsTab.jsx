@@ -3,8 +3,7 @@ import { apiAuth } from "../../../lib/api"
 import Portal from "../../../components/Portal"
 import {
   cx, baseField, labelCls, modalCardCls, modalTitleCls,
-  submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls,
-} from "../../../lib/styles"
+  submitBtnCls, secondaryBtnCls, resetBtnCls, cardCls, editBtnCls } from "../../../lib/styles"
 import { Badge, EmptyState } from "../../../components/ui"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import { canManagePrograms } from "./debtEntryMeta"
@@ -141,11 +140,7 @@ export default function DebtProgramsTab({ roleId, programs, onProgramsChanged })
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-2">
                         <button
-                          onClick={() => openEdit(p)}
-                          className="rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer"
-                        >
-                          แก้ไข
-                        </button>
+                          onClick={() => openEdit(p)} className={editBtnCls}>แก้ไข</button>
                         <button
                           onClick={() => openDelete(p)}
                           className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors cursor-pointer"

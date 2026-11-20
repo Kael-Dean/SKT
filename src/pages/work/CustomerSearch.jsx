@@ -19,10 +19,8 @@ import {
   readonlyFieldCls,
   labelCls,
   neutralBtnCls,
-  secondaryBtnCls,
   submitBtnCls,
-  spinnerCls,
-} from "../../lib/styles"
+  spinnerCls, editBtnCls } from "../../lib/styles"
 import PageTitle from "../../components/PageTitle"
 
 /** ไอคอนแว่นขยาย (inline SVG — currentColor, ไม่มี emoji) */
@@ -401,9 +399,7 @@ const CustomerSearch = () => {
         <button type="button" onClick={closeModal} className={cx(neutralBtnCls, "h-12 md:pointer-fine:h-10")}>
           ปิด
         </button>
-        <button type="button" onClick={() => setEditing(true)} className={cx(secondaryBtnCls, "h-12 md:pointer-fine:h-10 !py-0 !text-sm")}>
-          แก้ไข
-        </button>
+        <button type="button" onClick={() => setEditing(true)} className={editBtnCls}>แก้ไข</button>
       </div>
     )
   ) : null
@@ -463,9 +459,7 @@ const CustomerSearch = () => {
                   ]}
                   onClick={(r) => openModal(r)}
                   actions={(r) => (
-                    <button type="button" onClick={() => openModal(r, { edit: true })} className={cx(secondaryBtnCls, "h-11 !py-0 !text-sm")}>
-                      แก้ไข
-                    </button>
+                    <button type="button" onClick={() => openModal(r, { edit: true })} className={editBtnCls}>แก้ไข</button>
                   )}
                 />
               )

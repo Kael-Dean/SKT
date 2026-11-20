@@ -12,7 +12,7 @@ import { Pencil, Plus } from "lucide-react"
 import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
 import { asArray, clauseCode } from "../../../lib/discipline"
-import { cx, baseField, cardCls, errorTextCls, focusRingCls, neutralBtnCls, primaryBtnCls } from "../../../lib/styles"
+import { cx, baseField, cardCls, errorTextCls, focusRingCls, neutralBtnCls, primaryBtnCls, editBtnCls } from "../../../lib/styles"
 import { Badge, EmptyState, ErrorState, Sheet, Skeleton, toast } from "../../../components/ui"
 import ClausePicker from "../../../components/hr/discipline/ClausePicker"
 import { invalidateClauses } from "../../../components/hr/discipline/disciplineData"
@@ -235,10 +235,7 @@ export default function ClausesSection({ canEdit }) {
                       {canEdit && (
                         <div className="flex shrink-0 items-center gap-1">
                           {!inactive && (
-                            <button type="button" onClick={() => setEditing(c)} aria-label={`แก้ไข ${c.code}`}
-                              className={cx(linkBtn, "text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10")}>
-                              <Pencil aria-hidden="true" className="size-3.5" /> แก้ไข
-                            </button>
+                            <button type="button" onClick={() => setEditing(c)} aria-label={`แก้ไข ${c.code}`} className={editBtnCls}>แก้ไข</button>
                           )}
                           <button type="button" onClick={() => toggleActive(c)} disabled={rowBusy === c.id}
                             aria-label={`${inactive ? "เปิดใช้" : "ปิดใช้"} ${c.code}`}

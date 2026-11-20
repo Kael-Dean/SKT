@@ -19,8 +19,7 @@ import { ChevronDown } from "lucide-react"
 import { Stepper, StickyActionBar, ConfirmDialog, DataList, Badge, toast } from "../../../components/ui"
 import {
   cx, labelCls, helpTextCls, errorTextCls, cardCls, sectionTitleCls, neutralBtnCls, secondaryBtnCls,
-  segmentedCls, segmentedItemCls, segmentedItemActiveCls, focusRingCls, baseField, fieldErrorCls
-} from "../../../lib/styles"
+  segmentedCls, segmentedItemCls, segmentedItemActiveCls, focusRingCls, baseField, fieldErrorCls, editBtnCls } from "../../../lib/styles"
 import { validateCustomer, validateSpec, validateTrailers, trailersHaveErrors, describeErrors, STEP_OF_KEY, TRAILER_ERROR_KEY_ORDER } from "./salesValidation"
 import { nf, thb, round2, onlyDigits, refDocLabel, fieldId, errId, describedBy } from "./salesShared"
 import {
@@ -64,9 +63,7 @@ function ReviewCard({ title, onEdit, children }) {
       <div className="mb-3 flex items-center justify-between gap-3 border-b border-indigo-100 pb-1 dark:border-indigo-900/40">
         <h3 className={cx(sectionTitleCls, "mb-0 border-b-0 pb-0")}>{title}</h3>
         {onEdit && (
-          <button type="button" onClick={onEdit} className={cx("-my-2 min-h-touch px-2 text-sm font-medium text-indigo-600 dark:text-indigo-400", focusRingCls, "rounded-lg")}>
-            แก้ไข
-          </button>
+          <button type="button" onClick={onEdit} className={editBtnCls}>แก้ไข</button>
         )}
       </div>
       {children}

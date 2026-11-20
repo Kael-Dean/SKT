@@ -7,9 +7,10 @@ import SelectDropdown from "../SelectDropdown"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../ui"
 import HrModal, { Notice } from "./HrModal"
 import { clearSalaryCaches } from "./salaryData"
+import { editBtnCls } from "../../lib/styles"
 import {
   TIER_OPTIONS, tierName, thb, fmtLevel, errText, tierQuery,
-  inputCls, labelCls, primaryBtn, secondaryBtn, linkBtn, cardCls, thCls,
+  inputCls, labelCls, primaryBtn, secondaryBtn, cardCls, thCls,
 } from "./positionUtils"
 
 export default function SalaryLadderPanel({ defaultTier = "1" }) {
@@ -138,7 +139,7 @@ export default function SalaryLadderPanel({ defaultTier = "1" }) {
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100">{thb(row.salary_amount)}</td>
                       <td className="px-4 py-2 text-right">
-                        <button type="button" onClick={() => openEdit(row)} className={linkBtn} aria-label={`แก้ไขเงินเดือนขั้น ${fmtLevel(row.level)}`}>แก้ไข</button>
+                        <button type="button" onClick={() => openEdit(row)}  aria-label={`แก้ไขเงินเดือนขั้น ${fmtLevel(row.level)}`} className={editBtnCls}>แก้ไข</button>
                       </td>
                     </tr>
                   ))}

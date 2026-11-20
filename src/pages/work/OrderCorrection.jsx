@@ -4,8 +4,7 @@ import { apiAuth } from "../../lib/api";
 import { getUser } from "../../lib/auth";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  cx, baseField, labelCls, helpTextCls, submitBtnCls, resetBtnCls, spinnerCls, primaryBtnCls, neutralBtnCls, dangerBtnCls,
-} from "../../lib/styles";
+  cx, baseField, labelCls, helpTextCls, submitBtnCls, resetBtnCls, spinnerCls, neutralBtnCls, dangerBtnCls, editBtnCls } from "../../lib/styles";
 import { SkeletonTableRows, Sheet, DataList, Badge, EmptyState, ConfirmDialog, toast } from "../../components/ui";
 import ComboBox from "../../components/ComboBox";
 import ProductFormPicker, { SpecChips } from "../../components/ProductFormPicker";
@@ -1034,11 +1033,7 @@ function OrderCorrection() {
                       <td className="px-3 py-2 text-right">
                         <button
                           type="button"
-                          onClick={() => openModal(r)}
-                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
-                        >
-                          แก้ไข
-                        </button>
+                          onClick={() => openModal(r)} className={editBtnCls}>แก้ไข</button>
                       </td>
                     </tr>
                   );
@@ -1068,11 +1063,7 @@ function OrderCorrection() {
                       <td className="px-3 py-2 text-right">
                         <button
                           type="button"
-                          onClick={() => openModal(r)}
-                          className="whitespace-nowrap rounded-2xl bg-emerald-600/90 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-emerald-700/50 hover:bg-emerald-600 active:scale-[.98] dark:bg-emerald-500/85 dark:hover:bg-emerald-500"
-                        >
-                          แก้ไข
-                        </button>
+                          onClick={() => openModal(r)} className={editBtnCls}>แก้ไข</button>
                       </td>
                     </tr>
                   );
@@ -1189,9 +1180,7 @@ function OrderCorrection() {
               >
                 {deleting ? "กำลังลบ…" : "ลบออเดอร์"}
               </button>
-              <button type="button" onClick={() => setEditing(true)} className={cx(primaryBtnCls, "h-12 md:pointer-fine:h-10")}>
-                แก้ไข
-              </button>
+              <button type="button" onClick={() => setEditing(true)} className={editBtnCls}>แก้ไข</button>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">

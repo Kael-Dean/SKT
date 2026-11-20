@@ -1,5 +1,5 @@
 // src/pages/hr/tabs/HRHolidayCalendarTab.jsx
-import { cx, baseField } from "../../../lib/styles"
+import { cx, baseField, editBtnCls } from "../../../lib/styles"
 // ปฏิทินวันหยุด (3N) — GET/POST /hr/holidays, PATCH/DELETE /hr/holidays/{id},
 // POST /hr/holidays/copy-year
 //
@@ -370,7 +370,7 @@ export default function HRHolidayCalendarTab({ readOnly = false }) {
                     {canManage && <td className="px-4 py-3 text-right whitespace-nowrap">
                       {!inactive && (
                         <>
-                          <button onClick={() => openEdit(h)} className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">แก้ไข</button>
+                          <button onClick={() => openEdit(h)} className={editBtnCls}>แก้ไข</button>
                           <button onClick={() => { setCancelModal({ holiday: h }); setCancelErr("") }} className="ml-4 text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-800">ยกเลิก</button>
                         </>
                       )}

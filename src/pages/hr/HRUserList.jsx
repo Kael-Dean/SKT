@@ -77,10 +77,6 @@ export default function HRUserList() {
             {loading ? "กำลังโหลด…" : `เจ้าหน้าที่ ${users.length} คน · ใช้งานอยู่ ${activeCount} คน`}
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-          <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" aria-hidden="true" />
-          เชื่อมต่อ API แล้ว
-        </span>
       </div>
 
       {error && <ErrorState message={error} onRetry={fetchUsers} />}

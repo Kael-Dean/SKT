@@ -1,5 +1,5 @@
 // src/pages/work/FacilityReport.jsx
-import { cx, baseField, neutralBtnCls } from "../../lib/styles"
+import { cx, baseField, neutralBtnCls, editBtnCls } from "../../lib/styles"
 // รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
@@ -876,11 +876,7 @@ export default function FacilityReport() {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       <button
-                        onClick={() => setFacilityModal({ facility: f })}
-                        className="px-3 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50 transition cursor-pointer"
-                      >
-                        แก้ไข
-                      </button>
+                        onClick={() => setFacilityModal({ facility: f })} className={editBtnCls}>แก้ไข</button>
                       <button
                         onClick={() => handleDeleteFacility(f.id)}
                         className="px-3 py-1 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 transition cursor-pointer"
@@ -930,11 +926,7 @@ export default function FacilityReport() {
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
                           <button
-                            onClick={() => setItemModal({ item })}
-                            className="px-3 py-1 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-200 dark:hover:bg-amber-900/50 transition cursor-pointer"
-                          >
-                            แก้ไข
-                          </button>
+                            onClick={() => setItemModal({ item })} className={editBtnCls}>แก้ไข</button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
                             className="px-3 py-1 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 transition cursor-pointer"

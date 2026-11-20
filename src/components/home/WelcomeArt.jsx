@@ -72,22 +72,190 @@ function Lantern({ x, y, s = 1, d = 0 }) {
   )
 }
 
-function Krathong({ x, y, s = 1, d = 0 }) {
+/* ── กระทงใบตอง (อ้างอิงกระทงจริง: กลีบใบตองพับแหลม · บานไม่รู้โรยม่วง · ดาวเรือง ·
+   ดอกรักขาว · กรวยใบตอง · เทียนส้ม · ธูป 3 ดอก) วาดมุม 3/4 ฐานกว้าง ~150 หน่วย ──── */
+
+const TAU = Math.PI * 2
+// จุดบนวงรี (มุมมองเอียง) — แยกครึ่งหลัง/หน้าเพื่อวาดซ้อนให้ถูกลำดับ
+function ring(n, rx, ry, cy = 0, phase = 0) {
+  return Array.from({ length: n }, (_, i) => {
+    const t = phase + (i / n) * TAU
+    return { i, t, x: rx * Math.cos(t), y: cy + ry * Math.sin(t), front: Math.sin(t) >= 0 }
+  })
+}
+const back = (pts) => pts.filter((p) => !p.front).sort((a, b) => a.y - b.y)
+const front = (pts) => pts.filter((p) => p.front).sort((a, b) => a.y - b.y)
+
+const LEAVES_OUT = ring(16, 46, 12, 0)
+const LEAVES_IN = ring(16, 37, 9.5, -5, Math.PI / 16)
+const AMARANTH = ring(16, 49, 12.5, 3, Math.PI / 16)
+const MARIGOLD = ring(11, 30, 8, -24, 0.2)
+
+function Leaf({ p, size = 30, detail = true }) {
+  // กลีบใบตองพับแหลม "ตั้งขึ้น" เอียงออกนิด ๆ (ทรงมงกุฎแบบกระทงจริง) + ดอกเล็กขาวเรียงขอบ
+  const dx = Math.cos(p.t) * 0.7
+  const dy = -0.8 + Math.sin(p.t) * 0.22
+  const a = (Math.atan2(dy, dx) * 180) / Math.PI + 90
+  const len = size * (0.8 + 0.2 * Math.abs(Math.cos(p.t)))
+  const w = 7.5
+  return (
+    <g transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${a.toFixed(1)})`}>
+      <path d={`M${-w},2 Q${-w - 1},${-len * 0.5} 0,${-len} Q${w + 1},${-len * 0.5} ${w},2 Q0,5 ${-w},2Z`} fill="url(#wa-leaf)" />
+      <path d={`M0,${-len} Q${w * 0.55},${-len * 0.5} ${w * 0.6},2 L0,3Z`} fill="#14532d" opacity=".28" />
+      <path d={`M0,1 L0,${-len * 0.9}`} stroke="#bbf7d0" strokeWidth=".9" opacity=".6" />
+      {detail && (
+        <g fill="#fffbeb">
+          <circle cy={-len - 1} r="1.9" />
+          <circle cx={-w * 0.75} cy={-len * 0.42} r="1.3" />
+          <circle cx={w * 0.75} cy={-len * 0.42} r="1.3" />
+        </g>
+      )}
+    </g>
+  )
+}
+
+function Amaranth({ p }) {
+  return (
+    <g transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}>
+      <ellipse rx="4.6" ry="5.6" fill="url(#wa-ama)" />
+      <ellipse cx="-1.4" cy="-2" rx="1.4" ry="1.8" fill="#f5d0fe" opacity=".75" />
+    </g>
+  )
+}
+
+function Marigold({ p }) {
+  return (
+    <g transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}>
+      <circle r="9.6" fill="url(#wa-mari)" />
+      <circle r="7" fill="none" stroke="#c2410c" strokeWidth="1.1" strokeDasharray="1.2 1.8" opacity=".55" />
+      <circle r="4.2" fill="none" stroke="#c2410c" strokeWidth="1" strokeDasharray="1.1 1.6" opacity=".45" />
+      <circle cx="-2.6" cy="-3.6" r="2.4" fill="#fef08a" opacity=".7" />
+    </g>
+  )
+}
+
+function CrownFlower({ x, y, s = 1 }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
+      {[0, 72, 144, 216, 288].map((a) => (
+        <ellipse key={a} cy="-2.6" rx="1.9" ry="3" fill="#fff" transform={`rotate(${a})`} />
+      ))}
+      <circle r="1.5" fill="#e9d5ff" />
+    </g>
+  )
+}
+
+const CROWN = [[-14, -21, 0.95], [14, -21, 0.95], [-7, -25, 1], [7, -25, 1], [0, -27, 0.9], [-19, -16, 0.85], [19, -16, 0.85], [-9, -17, 1], [9, -17, 1], [0, -19, 1.05]]
+
+function KrathongDefs() {
+  return (
+    <defs>
+      <linearGradient id="wa-leaf" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#4ade80" />
+        <stop offset=".55" stopColor="#16a34a" />
+        <stop offset="1" stopColor="#14532d" />
+      </linearGradient>
+      <radialGradient id="wa-mari" cx=".4" cy=".35" r=".7">
+        <stop offset="0" stopColor="#fde047" />
+        <stop offset=".55" stopColor="#f59e0b" />
+        <stop offset="1" stopColor="#ea580c" />
+      </radialGradient>
+      <radialGradient id="wa-ama" cx=".4" cy=".35" r=".75">
+        <stop offset="0" stopColor="#e879f9" />
+        <stop offset=".6" stopColor="#a21caf" />
+        <stop offset="1" stopColor="#701a75" />
+      </radialGradient>
+      <linearGradient id="wa-candle" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#c2410c" />
+        <stop offset=".35" stopColor="#fdba74" />
+        <stop offset="1" stopColor="#ea580c" />
+      </linearGradient>
+      <radialGradient id="wa-halo">
+        <stop offset="0" stopColor="#fef3c7" stopOpacity=".9" />
+        <stop offset=".4" stopColor="#fde68a" stopOpacity=".35" />
+        <stop offset="1" stopColor="#fde68a" stopOpacity="0" />
+      </radialGradient>
+      <linearGradient id="wa-trunk" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#bef264" />
+        <stop offset="1" stopColor="#4d7c0f" />
+      </linearGradient>
+    </defs>
+  )
+}
+
+function Krathong({ x, y, s = 1, d = 0, detail = true }) {
+  const incense = [
+    [7, -24, 30, -98],
+    [9, -24, 37, -94],
+    [11, -24, 44, -90],
+  ]
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      {/* เงาสะท้อนแสงเทียนบนน้ำ (อยู่กับที่ ไม่โยกตามกระทง) */}
+      <g opacity=".45">
+        {[[8, 15, 0], [14, 10, -0.6], [20, 6, -1.2]].map(([yy, w, dd]) => (
+          <g key={yy} transform={`translate(-3 ${yy})`}>
+            <rect x={-w / 2} y="-1" width={w} height="2" rx="1" fill="#fde68a" className="wa-shimmer" style={delay(dd)} />
+          </g>
+        ))}
+      </g>
       <g className="wa-bob" style={delay(d)}>
-        <ellipse rx="26" ry="5" fill="#d9f99d" opacity=".5" />
-        <g transform="translate(0 -2)">
-          {[-64, -32, 0, 32, 64].map((a) => (
-            <ellipse key={a} cy="-8" rx="4.6" ry="9" fill="#fff" opacity=".88" transform={`rotate(${a})`} />
-          ))}
-          {[-34, 0, 34].map((a) => (
-            <ellipse key={a} cy="-5" rx="3.2" ry="6.5" fill="#fbcfe8" opacity=".95" transform={`rotate(${a})`} />
-          ))}
+        <ellipse cy="9" rx="58" ry="7" fill="#1e1b4b" opacity=".22" />
+        {/* ฐานหยวกกล้วย (มีความหนา) */}
+        <ellipse cy="6" rx="46" ry="12" fill="url(#wa-trunk)" />
+        <ellipse cy="2" rx="46" ry="12" fill="#d9f99d" />
+        {/* ครึ่งหลัง (ไกลก่อน): บานไม่รู้โรย → กลีบนอก → กลีบใน → ดาวเรือง */}
+        {back(AMARANTH).map((p) => <Amaranth key={`a${p.i}`} p={p} />)}
+        {back(LEAVES_OUT).map((p) => <Leaf key={`o${p.i}`} p={p} detail={detail} />)}
+        {back(LEAVES_IN).map((p) => <Leaf key={`n${p.i}`} p={p} size={24} detail={detail} />)}
+        {back(MARIGOLD).map((p) => <Marigold key={`m${p.i}`} p={p} />)}
+        {/* ยอดกองดาวเรือง + กรวยใบตอง + ดอกรัก */}
+        {[[-11, -31], [11, -31], [0, -28]].map(([mx, my]) => (
+          <Marigold key={`c${mx}`} p={{ x: mx, y: my }} />
+        ))}
+        <path d="M-10,-30 Q-7,-50 0,-61 Q7,-50 10,-30 Q0,-26 -10,-30Z" fill="url(#wa-leaf)" />
+        <path d="M0,-32 L0,-58" stroke="#bbf7d0" strokeWidth=".9" opacity=".5" />
+        {/* เทียน */}
+        <rect x="-8" y="-104" width="8" height="80" rx="2.5" fill="url(#wa-candle)" />
+        <ellipse cx="-4" cy="-104" rx="4" ry="1.4" fill="#fed7aa" />
+        <path d="M-4,-104 L-4,-108" stroke="#3f3f46" strokeWidth="1" strokeLinecap="round" />
+        <circle cx="-4" cy="-114" r="18" fill="url(#wa-halo)" />
+        <g transform="translate(-4 -113)">
+          <path d="M0,-9 C4,-3 4.2,2.5 0,5 C-4.2,2.5 -4,-3 0,-9Z" fill="#fbbf24" className="wa-flicker" style={delay(d)} />
         </g>
-        <rect x="-1" y="-17" width="2" height="9" rx="1" fill="#fff" />
-        <circle cy="-20" r="9" fill="#fde68a" opacity=".22" />
-        <ellipse cy="-20" rx="1.8" ry="3.2" fill="#fde68a" className="wa-flicker" style={delay(d)} />
+        <g transform="translate(-4 -112)">
+          <path d="M0,-4.5 C2,-1.5 2.2,1.5 0,3 C-2.2,1.5 -2,-1.5 0,-4.5Z" fill="#fffbeb" className="wa-flicker" style={delay(d - 0.3)} />
+        </g>
+        {/* ธูป 3 ดอก + ควัน */}
+        {incense.map(([x1, y1, x2, y2], i) => (
+          <g key={i}>
+            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#a16207" strokeWidth="1.5" strokeLinecap="round" />
+            <line x1={x1 + (x2 - x1) * 0.62} y1={y1 + (y2 - y1) * 0.62} x2={x2} y2={y2} stroke="#7f1d1d" strokeWidth="2" strokeLinecap="round" />
+            <circle cx={x2} cy={y2} r="1.7" fill="#fb923c" className="wa-twinkle" style={delay(-i * 0.7)} />
+            {detail && (
+              <g transform={`translate(${x2} ${y2 - 2})`}>
+                <path
+                  d="M0,0 C-4,-7 4,-13 0,-21 C-4,-29 3,-35 0,-43"
+                  stroke="#fff"
+                  strokeWidth="1.3"
+                  strokeLinecap="round"
+                  fill="none"
+                  opacity=".3"
+                  className="wa-smoke"
+                  style={delay(-i * 1.4)}
+                />
+              </g>
+            )}
+          </g>
+        ))}
+        {/* ครึ่งหน้า (ใกล้ทีหลัง): ดาวเรือง → กลีบใน → กลีบนอก → บานไม่รู้โรยที่ขอบฐาน */}
+        {front(MARIGOLD).map((p) => <Marigold key={`M${p.i}`} p={p} />)}
+        <g transform="translate(0 -11)">
+          {CROWN.map(([cx, cy, cs], i) => <CrownFlower key={i} x={cx} y={cy} s={cs} />)}
+        </g>
+        {front(LEAVES_IN).map((p) => <Leaf key={`N${p.i}`} p={p} size={19} detail={detail} />)}
+        {front(LEAVES_OUT).map((p) => <Leaf key={`O${p.i}`} p={p} detail={detail} />)}
+        {front(AMARANTH).map((p) => <Amaranth key={`A${p.i}`} p={p} />)}
       </g>
     </g>
   )
@@ -108,18 +276,138 @@ function Loykrathong() {
           <stop offset="1" stopColor="#f59e0b" />
         </linearGradient>
       </defs>
-      <circle cx={sx(800)} cy="52" r="62" fill="url(#wa-moon)" opacity=".35" />
-      <circle cx={sx(800)} cy="52" r="23" fill="#fff4cc" opacity=".92" />
-      {[[560, 34, 0], [615, 70, 1.1], [680, 28, 2.2], [735, 62, 0.6], [905, 36, 1.7], [520, 78, 2.8], [955, 70, 0.3]].map(
-        ([x, y, d], i) => <Star key={i} x={sx(x)} y={y} d={d} />,
+      <KrathongDefs />
+      {/* พระจันทร์เต็มดวงคืนเพ็ญเดือนสิบสอง */}
+      <circle cx="420" cy="50" r="64" fill="url(#wa-moon)" opacity=".35" />
+      <circle cx="420" cy="50" r="24" fill="#fff4cc" opacity=".94" />
+      <circle cx="412" cy="44" r="4" fill="#f5e6b3" opacity=".6" />
+      <circle cx="428" cy="58" r="3" fill="#f5e6b3" opacity=".5" />
+      {[[150, 40, 0], [250, 72, 1.1], [330, 24, 2.2], [520, 30, 0.6], [690, 60, 1.7], [790, 28, 2.8], [200, 110, 1.4]].map(
+        ([x, y, d], i) => <Star key={i} x={x} y={y} d={d} />,
       )}
-      {[[560, 150, 1, -2], [620, 120, 0.8, -6], [690, 165, 1.1, -9], [760, 130, 0.7, -4], [840, 160, 0.9, -12], [510, 105, 0.6, -7]].map(
-        ([x, y, s, d], i) => <Lantern key={i} x={sx(x)} y={y} s={s * 1.15} d={d} />,
+      {[[170, 130, 0.8, -2], [300, 100, 0.65, -6], [500, 128, 0.75, -9], [720, 84, 0.6, -4], [800, 136, 0.55, -12]].map(
+        ([x, y, s, d], i) => <Lantern key={i} x={x} y={y} s={s} d={d} />,
       )}
       <Waves y={168} />
-      <Krathong x={sx(650)} y={178} s={1.1} d={0} />
-      <Krathong x={sx(790)} y={188} s={0.7} d={-2} />
-      <Krathong x={sx(560)} y={190} s={0.55} d={-3} />
+      {/* กระทงเล็กลอยห่าง ๆ + กระทงหลักเต็มรายละเอียด */}
+      <Krathong x={230} y={190} s={0.3} d={-2} detail={false} />
+      <Krathong x={790} y={191} s={0.3} d={-3.5} detail={false} />
+      <Krathong x={400} y={192} s={0.36} d={-1.2} detail={false} />
+      <Krathong x={600} y={184} s={0.88} d={0} />
+    </>
+  )
+}
+
+/* ── งานช้างสุรินทร์ (กลาง–ปลาย พ.ย.): ขบวนช้างแต่งผ้าคลุมแดง-ทอง ใต้ธงราว ──────── */
+
+const FLAG_COLORS = ["#ef4444", "#facc15", "#22c55e", "#f8fafc", "#3b82f6", "#f97316"]
+
+function Bunting({ x0, y0, cx, cy, x1, y1, n = 22 }) {
+  // ธงสามเหลี่ยมห้อยตามเส้นเชือกโค้ง (quadratic bezier)
+  const pts = Array.from({ length: n }, (_, i) => {
+    const t = (i + 0.5) / n
+    const u = 1 - t
+    return { i, x: u * u * x0 + 2 * u * t * cx + t * t * x1, y: u * u * y0 + 2 * u * t * cy + t * t * y1 }
+  })
+  return (
+    <g>
+      <path d={`M${x0} ${y0} Q${cx} ${cy} ${x1} ${y1}`} stroke="#e0e7ff" strokeWidth="1" fill="none" opacity=".5" />
+      {pts.map((p) => (
+        <g key={p.i} transform={`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`}>
+          <path
+            d="M-6,0 L6,0 L0,13Z"
+            fill={FLAG_COLORS[p.i % FLAG_COLORS.length]}
+            opacity=".85"
+            className="wa-flag"
+            style={delay(-(p.i % 5) * 0.5)}
+          />
+        </g>
+      ))}
+    </g>
+  )
+}
+
+function Elephant({ x, y, s = 1, d = 0, lead = false }) {
+  // ช้างหันซ้าย เท้าอยู่ที่ y=0 กว้าง ~130 สูง ~88
+  return (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+      <ellipse cy="1" rx="58" ry="4" fill="#1e1b4b" opacity=".25" />
+      <g className="wa-walk" style={delay(d)}>
+        {/* ขาฝั่งไกล */}
+        <path d="M-27,-34 L-26,0 L-15,0 L-14,-30Z" fill="#8f88bf" />
+        <path d="M24,-34 L25,0 L36,0 L41,-38Z" fill="#8f88bf" />
+        {/* หาง */}
+        <path d="M58,-56 Q67,-44 63,-28" stroke="#a49dd0" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+        <ellipse cx="63" cy="-26" rx="2" ry="3" fill="#6e67a3" />
+        {/* ลำตัว + หัว + งวง */}
+        <path
+          d="M44,-72 C24,-86 -14,-86 -30,-74 C-44,-82 -62,-76 -66,-60 C-70,-46 -68,-30 -72,-16 C-74,-8 -72,-2 -66,-2 C-61,-2 -61,-7 -63,-11 C-61,-24 -57,-36 -53,-44 C-50,-40 -45,-38 -41,-38 L-40,-30 C-20,-24 18,-24 34,-30 C50,-32 62,-44 60,-58 C58,-68 52,-72 44,-72Z"
+          fill="url(#wa-ele)"
+        />
+        {/* ขาฝั่งใกล้ + กำไลทอง + เล็บ */}
+        <path d="M-40,-36 L-38,0 L-26,0 L-24,-30Z" fill="url(#wa-ele)" />
+        <path d="M33,-34 L35,0 L47,0 L52,-40Z" fill="url(#wa-ele)" />
+        <rect x="-39" y="-10" width="14" height="3" rx="1" fill="#fbbf24" />
+        <rect x="34.4" y="-10" width="13" height="3" rx="1" fill="#fbbf24" />
+        {[-36, -31.5, -27, 37, 41.5, 46].map((nx) => (
+          <path key={nx} d={`M${nx - 1.6},0 a1.6,1.6 0 0 1 3.2,0Z`} fill="#f5f3ff" />
+        ))}
+        {/* หู */}
+        <path d="M-36,-72 C-22,-77 -15,-58 -20,-46 C-24,-38 -34,-40 -40,-48 C-42,-58 -40,-68 -36,-72Z" fill="#b3acdc" />
+        <path d="M-36,-72 C-22,-77 -15,-58 -20,-46" stroke="#ede9fe" strokeWidth="1" fill="none" opacity=".6" />
+        {/* งา + ตา */}
+        <path d="M-46,-40 Q-52,-33 -61,-34" stroke="#fffbeb" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+        <circle cx="-54" cy="-62" r="1.7" fill="#312e81" />
+        {/* ผ้าคลุมหลังแดง ขอบทอง ระบาย */}
+        <path d="M-16,-81 C4,-88 30,-86 46,-73 L44,-48 L-14,-48Z" fill="#dc2626" />
+        <path d="M-14,-53 L44,-53 L44,-48 L-14,-48Z" fill="#fbbf24" />
+        <path d="M-16,-81 C4,-88 30,-86 46,-73" stroke="#fbbf24" strokeWidth="2" fill="none" />
+        {Array.from({ length: 10 }, (_, i) => (
+          <path key={i} d={`M${-14 + i * 5.8},-48 l2.9,4.5 l2.9,-4.5Z`} fill="#fbbf24" />
+        ))}
+        <path d="M15,-74 L22,-66 L15,-58 L8,-66Z" fill="#fbbf24" />
+        <circle cx="15" cy="-66" r="2.2" fill="#dc2626" />
+        {/* ผ้าหน้าผาก + พู่ */}
+        <path d="M-60,-74 C-52,-83 -40,-81 -34,-75 L-46,-55Z" fill="#dc2626" />
+        <path d="M-60,-74 C-52,-83 -40,-81 -34,-75" stroke="#fbbf24" strokeWidth="1.6" fill="none" />
+        <circle cx="-46" cy="-54" r="2.4" fill="#fbbf24" />
+        {/* ควาญบนคอ (เฉพาะตัวนำขบวน) */}
+        {lead && (
+          <g>
+            <path d="M-32,-79 C-32,-90 -21,-90 -21,-79Z" fill="#f97316" />
+            <circle cx="-26.5" cy="-93" r="4.2" fill="#fcd9b6" />
+            <path d="M-31.5,-95 Q-26.5,-101 -21.5,-95Z" fill="#1e1b4b" />
+          </g>
+        )}
+      </g>
+    </g>
+  )
+}
+
+function ElephantFestival() {
+  return (
+    <>
+      <defs>
+        <linearGradient id="wa-ele" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ece9fb" />
+          <stop offset="1" stopColor="#a8a1d4" />
+        </linearGradient>
+        <radialGradient id="wa-sunwarm">
+          <stop offset="0" stopColor="#fde68a" stopOpacity=".55" />
+          <stop offset="1" stopColor="#fde68a" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <circle cx="560" cy="120" r="200" fill="url(#wa-sunwarm)" opacity=".5" />
+      <Bunting x0={60} y0={8} cx={460} cy={58} x1={880} y1={6} n={19} />
+      {/* ลานดินงานแสดงช้าง */}
+      <path d="M-1200 200 V186 L0 186 Q300 178 600 184 T1300 182 V200Z" fill="#fff" opacity=".1" />
+      <Sparkle x={200} y={70} s={0.6} d={0} />
+      <Sparkle x={890} y={88} s={0.55} d={-1.2} fill="#fff" />
+      <Sparkle x={330} y={120} s={0.5} d={-2} fill="#fff" />
+      <Elephant x={770} y={188} s={0.62} d={-0.9} />
+      <Elephant x={565} y={188} s={0.82} d={-0.45} />
+      <Elephant x={350} y={188} s={0.9} d={0} lead />
+      <Elephant x={170} y={190} s={0.5} d={-0.2} />
     </>
   )
 }
@@ -317,7 +605,11 @@ const SCENES = {
   hot: Hot,
   rain: Rain,
   loykrathong: Loykrathong,
+  elephant: ElephantFestival,
 }
+
+// มือถือ: จุดเริ่ม crop (หน่วย viewBox) ต่อฉาก — ให้ของเด่นอยู่ราว 70% ทางขวาของการ์ด
+const PHONE_X = { loykrathong: 300, elephant: 270 }
 
 const FADE_DESKTOP = "linear-gradient(to right, transparent 0%, #000 34%)"
 // มือถือ: ข้อความอยู่ซ้ายของการ์ด → ปล่อยลายไว้ครึ่งขวา
@@ -336,7 +628,7 @@ export default function WelcomeArt({ season }) {
       <svg
         className="h-full w-full"
         // desktop: ฉากกว้างชิดขวา · มือถือ: ตัดเฉพาะส่วนกลางของฉาก
-        viewBox={phone ? "380 0 440 200" : "0 0 1200 200"}
+        viewBox={phone ? `${PHONE_X[season] ?? 380} 0 440 200` : "0 0 1200 200"}
         preserveAspectRatio={phone ? "xMidYMid slice" : "xMaxYMid meet"}
         focusable="false"
       >

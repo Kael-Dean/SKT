@@ -36,6 +36,8 @@ import DaysWorkedSheet from "../../../components/hr/DaysWorkedSheet"
 import StatusMsg from "../../../components/hr/StatusMsg"
 import HRPayrollPayoutSheet from "./HRPayrollPayoutSheet"
 import { EstimatedChip } from "../../../components/hr/PayslipEstimated"
+import PayrollShortfallSheet, { ShortfallPaidChip } from "../../../components/hr/PayrollShortfall"
+import { downloadShortfallPdf } from "../../../lib/shortfall"
 import HRPayrollReviewPanel from "./HRPayrollReviewPanel"
 import HRPayrollExternalPanel from "./HRPayrollExternalPanel"
 import { keepBackState, useDrill } from "../../../lib/drill"
@@ -87,7 +89,7 @@ const ACTIONS = {
 
 // ─── Period card ─────────────────────────────────────────────────────────────
 
-function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, onAction, onReturn, onGenerateOne, onDaysWorked, onOpenExternal }) {
+function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, onAction, onReturn, onGenerateOne, onDaysWorked, onOpenExternal, onOpenShortfall, onPrintShortfall }) {
   const status = period?.status ?? "draft"
   const isDraft = status === "draft"
   const label = fmtPayMonth(ym.year, ym.month, { long: true })
@@ -97,6 +99,8 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, o
   const known = !loading && !error
   const step = known ? periodActionOf(period ?? { status }, perms) : { action: null, canReturn: false }
   const externalMissing = toNum(period?.external_missing)
+  // จำนวนคนที่เงินเดือนสุทธิติดลบ (PR 107) — ส่งตรวจไม่ได้จนกว่าจะบันทึกการชำระส่วนขาดครบ
+  const negativeNet = toNum(period?.negative_net)
   const waitingOn = periodWaitingOn(period ?? { status })
 
   const meta = [
@@ -120,6 +124,8 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, o
         </button>,
       )
     }
+    // เข้าดู/ยกเลิกการชำระส่วนขาดได้เสมอ แม้ไม่มีใครติดลบแล้ว (negative_net = 0 หลังชำระครบ)
+    if (perms.generate && count > 0) hrBtns.push(<button key="shortfall" type="button" onClick={onOpenShortfall} className={neutralBtnCls}>ส่วนขาดติดลบ</button>)
     if (perms.generate) hrBtns.push(<button key="one" type="button" onClick={onGenerateOne} className={neutralBtnCls}>สร้างรายคน</button>)
     if (perms.bulk) hrBtns.push(<button key="bulk" type="button" onClick={() => onAction("bulk")} className={neutralBtnCls}>สร้างทั้งหมด</button>)
     if (perms.generate && count > 0) {
@@ -133,8 +139,9 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, o
           key="submit"
           type="button"
           onClick={() => onAction("submit")}
-          disabled={externalMissing > 0}
-          aria-describedby={externalMissing > 0 ? "payroll-external-missing" : undefined}
+          disabled={externalMissing > 0 || negativeNet > 0}
+          title={negativeNet > 0 ? `เงินเดือนสุทธิติดลบ ${negativeNet} คน — บันทึกการชำระส่วนขาดก่อนส่งตรวจ` : undefined}
+          aria-describedby={negativeNet > 0 ? "payroll-negative-net" : externalMissing > 0 ? "payroll-external-missing" : undefined}
           className={primaryBtnCls}
         >
           ส่งตรวจสอบ
@@ -220,6 +227,19 @@ function PeriodCard({ ym, period, loading, error, onRetry, rows, perms, daily, o
             ไปบันทึก
           </button>
         </p>
+      )}
+
+      {known && isDraft && negativeNet > 0 && (
+        <div id="payroll-negative-net" role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-900 ring-1 ring-inset ring-red-200 dark:bg-red-500/10 dark:text-red-100 dark:ring-red-400/30">
+          <p className="flex items-start gap-1.5 font-semibold">
+            <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
+            <span>เงินเดือนสุทธิติดลบ <span className="tabular-nums">{negativeNet}</span> คน — ต้องให้เจ้าหน้าที่ชำระส่วนขาดก่อนส่งตรวจ</span>
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2 pl-5.5">
+            <button type="button" onClick={onPrintShortfall} className={cx(primaryBtnCls, "!h-10 !px-3 !text-sm")}>พิมพ์รายชื่อส่งการเงิน</button>
+            <button type="button" onClick={onOpenShortfall} className={cx(neutralBtnCls, "!h-10 !px-3 !text-sm")}>ดูรายชื่อและบันทึกการชำระ</button>
+          </div>
+        </div>
       )}
 
       {(buttons.length > 0 || note) && (
@@ -377,6 +397,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
   const [actionErr, setActionErr] = useState("")
   const [returning, setReturning] = useState(null)
   const [genOpen, setGenOpen] = useState(false)
+  const [shortfallOpen, setShortfallOpen] = useState(false)
   const [detail, setDetail] = useState(null)
   const [downloading, setDownloading] = useState(null)
   const [skipped, setSkipped] = useState([])
@@ -547,6 +568,16 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
         onGenerateOne={() => setGenOpen(true)}
         onDaysWorked={() => setDaysOpen(true)}
         onOpenExternal={onOpenExternal}
+        onOpenShortfall={() => setShortfallOpen(true)}
+        onPrintShortfall={() => downloadShortfallPdf(ym)}
+      />
+      <PayrollShortfallSheet
+        open={shortfallOpen}
+        onClose={() => setShortfallOpen(false)}
+        year={ym.year}
+        month={ym.month}
+        canPay={can("hr.payroll.adjust") && isDraft}
+        onChanged={() => { fetchPeriod(); fetchPayrolls(); onPeriodChanged?.() }}
       />
 
       <SkippedPanel
@@ -564,6 +595,8 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
           title={(p) => p.employee_name}
           subtitle={(p) => (
             <>
+              {toNum(p.shortfall_paid) > 0 && <ShortfallPaidChip record={p} className="mr-2" />}
+              {toNum(netOf(p)) < 0 && <span className="mr-2 font-medium text-red-700 dark:text-red-300">สุทธิติดลบ</span>}
               {[p.branch_name || `รหัส ${p.user_id}`, p.days_worked != null && `รายวัน ${daysWorkedText(p)}`].filter(Boolean).join(" · ")}
               {notKeyed(p) && <span className="block text-amber-700 dark:text-amber-300">ยังไม่บันทึกหักภายนอก</span>}
             </>
@@ -602,7 +635,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
                     <td className="px-4 py-2.5">
                       <button type="button" onClick={() => setDetail(p)} className={cx("group flex items-center gap-1 rounded text-left cursor-pointer", focusRingCls)}>
                         <span>
-                          <span className="block font-medium text-gray-900 group-hover:text-indigo-700 dark:text-gray-100 dark:group-hover:text-indigo-300">{p.employee_name}<EstimatedChip record={p} className="ml-2 align-middle" /></span>
+                          <span className="block font-medium text-gray-900 group-hover:text-indigo-700 dark:text-gray-100 dark:group-hover:text-indigo-300">{p.employee_name}<EstimatedChip record={p} className="ml-2 align-middle" /><ShortfallPaidChip record={p} className="ml-2 align-middle" /></span>
                           <span className="block text-xs text-gray-500 dark:text-gray-400">
                             {p.branch_name || `รหัส ${p.user_id}`}
                             {p.days_worked != null && <span className="tabular-nums"> · รายวัน {daysWorkedText(p)}</span>}
@@ -614,7 +647,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(gross(p))}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{ded(p) == null ? "—" : money(ded(p))}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-gray-900 dark:text-gray-100">{money(netOf(p))}</td>
+                    <td className={cx("px-4 py-2.5 text-right font-semibold tabular-nums", toNum(netOf(p)) < 0 ? "text-red-700 dark:text-red-300" : "text-gray-900 dark:text-gray-100")}>{money(netOf(p))}</td>
                     <td className="px-4 py-2.5 text-right">
                       {perms.slip && (
                         <button

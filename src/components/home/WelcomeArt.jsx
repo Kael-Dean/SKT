@@ -615,10 +615,13 @@ const FADE_DESKTOP = "linear-gradient(to right, transparent 0%, #000 34%)"
 // มือถือ: ข้อความอยู่ซ้ายของการ์ด → ปล่อยลายไว้ครึ่งขวา
 const FADE_PHONE = "linear-gradient(to right, transparent 30%, #000 70%)"
 
-export default function WelcomeArt({ season }) {
+/** tile: ภาพย่อในแกลเลอรีลาย (ไม่มีข้อความทับ → ไม่ต้องจางซ้าย, ตัดเฉพาะช่วงที่มีลาย) */
+export default function WelcomeArt({ season, tile = false }) {
   const phone = useIsPhone()
   const Scene = SCENES[season] ?? Rain
-  const fade = phone ? FADE_PHONE : FADE_DESKTOP
+  const fade = tile ? "none" : phone ? FADE_PHONE : FADE_DESKTOP
+  const viewBox = tile ? "60 0 860 200" : phone ? `${PHONE_X[season] ?? 380} 0 440 200` : "0 0 1200 200"
+  const aspect = tile || phone ? "xMidYMid slice" : "xMaxYMid meet"
   return (
     <div
       aria-hidden="true"
@@ -628,8 +631,8 @@ export default function WelcomeArt({ season }) {
       <svg
         className="h-full w-full"
         // desktop: ฉากกว้างชิดขวา · มือถือ: ตัดเฉพาะส่วนกลางของฉาก
-        viewBox={phone ? `${PHONE_X[season] ?? 380} 0 440 200` : "0 0 1200 200"}
-        preserveAspectRatio={phone ? "xMidYMid slice" : "xMaxYMid meet"}
+        viewBox={viewBox}
+        preserveAspectRatio={aspect}
         focusable="false"
       >
         <Rings />

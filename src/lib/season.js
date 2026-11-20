@@ -14,6 +14,18 @@ export const SEASON_LABEL = {
   elephant: "งานช้างสุรินทร์",
 }
 
+/** ลำดับตามปฏิทิน + ช่วงวันที่ที่แสดงในแกลเลอรีลาย (ต้องตรงกับ getSeason) */
+export const SEASON_ORDER = ["newyear", "cool", "hot", "songkran", "rain", "elephant", "loykrathong"]
+export const SEASON_RANGE = {
+  newyear: "20 ธ.ค. – 5 ม.ค.",
+  cool: "6 ม.ค. – 14 ก.พ. · 1–19 ธ.ค.",
+  hot: "15 ก.พ. – 14 พ.ค.",
+  songkran: "10–16 เม.ย.",
+  rain: "15 พ.ค. – 9 พ.ย.",
+  elephant: "10–22 พ.ย.",
+  loykrathong: "23–30 พ.ย.",
+}
+
 export function getSeason(now = new Date()) {
   if (import.meta.env.DEV && typeof window !== "undefined") {
     const q = new URLSearchParams(window.location.search).get("season")

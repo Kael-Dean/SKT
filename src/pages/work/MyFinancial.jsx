@@ -1,7 +1,7 @@
 // src/pages/work/MyFinancial.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // ข้อมูลการเงินของฉัน (self-service) — api-handoff 2026-10-17 §2
-//   a) GET /personnel/me/financial        ค่าที่บันทึกไว้: เงินเดือน ค่าตำแหน่ง และรายการหักประจำ
+//   a) GET /personnel/me/financial        เงินสะสม + เงินกู้ (การ์ดเงินเดือน/รายการหักประจำเอาออกแล้ว พ.ย. 2026 — ดูจากสลิปแทน)
 //   b) GET /personnel/me/payroll[/{id}]   สลิปรายเดือน (เฉพาะงวดที่อนุมัติ/ปิดแล้ว) → MyPayslipsPanel
 //   c) GET /personnel/me/salary-history   ประวัติการเลื่อนขั้น (เป็น "ขั้น" ไม่ใช่บาท)
 // ยอดจริงของแต่ละเดือนมาจากสลิป (b) — การ์ดบน (a) เป็นค่าตั้งต้นในทะเบียน ไม่คำนวณยอดสุทธิจากการ์ดนี้
@@ -11,7 +11,6 @@ import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { useCan } from "../../lib/permissions"
-import { money, toNum } from "../../lib/payroll"
 import { SavingsBlock, LoansBlock } from "../../components/hr/FinanceSavingsLoans"
 import { fmtDate, fmtLevel, reasonLabel } from "../../components/hr/positionUtils"
 import { cardCls, cx, focusRingCls } from "../../lib/styles"
@@ -21,56 +20,12 @@ import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
 import { getTenure, tenureText } from "../../lib/tenure"
 
-// ─── a) ค่าที่บันทึกไว้ ────────────────────────────────────────────────────────
-// `always` = แสดงแม้เป็น 0 (ให้เห็นว่าไม่มีรายการนี้), ไม่งั้นแสดงเฉพาะที่มีค่า
-// `onlyIfPresent` = ซ่อนเมื่อ backend ยังไม่ส่ง field นี้ · `text` = แสดงเป็นข้อความแทนจำนวนเงิน (ไม่มีเครื่องหมายลบ)
-const INCOME_ON_FILE = [
-  { key: "current_salary", label: "เงินเดือน", always: true, strong: true },
-  { key: "position_allowance", label: "ค่าตำแหน่ง", always: true },
-  { key: "current_pending", label: "เงินเพิ่มอื่น ๆ" },
-]
-
-const DEDUCTIONS_ON_FILE = [
-  // null = ไม่ได้ขอให้หัก (0)
-  { key: "tax_withholding_override", label: "ภาษีเงินได้", always: true, onlyIfPresent: true, nullIsZero: true },
-  { key: "current_ss", label: "ประกันสังคม", always: true },
-  { key: "current_loan", label: "หนี้เงินกู้กองทุนสงเคราะห์เจ้าหน้าที่", always: true },
-]
-
+// ─── a) เงินสะสม + เงินกู้ในทะเบียน ─────────────────────────────────────────────
 function fmtUpdated(iso) {
   if (!iso) return null
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
   return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" })
-}
-
-function OnFileLines({ title, lines, fin, minus }) {
-  const shown = lines.filter((l) => (l.onlyIfPresent && fin[l.key] === undefined ? false : l.always || toNum(fin[l.key]) !== 0))
-  return (
-    <section aria-label={title}>
-      <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400">{title}</h3>
-      <dl className="mt-1.5 divide-y divide-gray-100 dark:divide-line">
-        {shown.map((l) => {
-          const v = l.nullIsZero ? (fin[l.key] ?? 0) : fin[l.key]
-          const zero = !l.text && toNum(v) === 0
-          return (
-            <div key={l.key} className="flex items-baseline justify-between gap-4 py-2 text-sm">
-              <dt className={cx(l.strong ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300")}>{l.label}</dt>
-              <dd
-                className={cx(
-                  "tabular-nums text-right",
-                  zero && !l.strong ? "text-gray-500 dark:text-gray-400" : "text-gray-900 dark:text-gray-100",
-                  l.strong && "text-base font-semibold",
-                )}
-              >
-                {l.text ? l.text(v) : v == null && !l.strong ? "—" : zero && !l.strong ? "ไม่มี" : `${minus ? "−" : ""}${money(v ?? 0)}`}
-              </dd>
-            </div>
-          )
-        })}
-      </dl>
-    </section>
-  )
 }
 
 function OnFileCard() {
@@ -111,7 +66,7 @@ function OnFileCard() {
   return (
     <section aria-labelledby="fin-onfile-h" className={cx(cardCls, "p-5")}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id="fin-onfile-h" className="text-base font-semibold text-gray-900 dark:text-gray-100">เงินเดือนและรายการหักประจำ</h2>
+        <h2 id="fin-onfile-h" className="text-base font-semibold text-gray-900 dark:text-gray-100">เงินสะสมและเงินกู้</h2>
         {state === "ready" && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {tenure && <>อายุงาน <span className="tabular-nums">{tenureText(tenure)}</span></>}
@@ -121,7 +76,7 @@ function OnFileCard() {
         )}
       </div>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-        ค่าที่ฝ่ายบุคคลบันทึกไว้ในทะเบียน (บาท/เดือน) — ยอดที่ได้รับจริงของแต่ละเดือนดูจากสลิปเงินเดือนด้านบน
+        ข้อมูลที่ฝ่ายบุคคลบันทึกไว้ในทะเบียน — ยอดหักจริงของแต่ละเดือนดูจากสลิปเงินเดือนด้านบน
       </p>
 
       <div className="mt-4">
@@ -135,17 +90,8 @@ function OnFileCard() {
           </p>
         ) : (
           <div className="grid gap-5 md:grid-cols-2 md:gap-8">
-            <OnFileLines title="รายได้ประจำ" lines={INCOME_ON_FILE} fin={data} />
-            <div>
-              <OnFileLines title="รายการหักประจำ" lines={DEDUCTIONS_ON_FILE} fin={data} minus />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                กยศ. สหกรณ์ออมทรัพย์ ชมรมเจ้าหน้าที่ และอื่นๆ เปลี่ยนทุกเดือน ดูยอดจริงได้ในสลิปเงินเดือน
-              </p>
-            </div>
-            <div className="md:col-span-2 grid gap-5 border-t border-gray-100 pt-5 dark:border-line md:grid-cols-2 md:gap-8">
-              <SavingsBlock fin={data} />
-              <LoansBlock fin={data} />
-            </div>
+            <SavingsBlock fin={data} />
+            <LoansBlock fin={data} />
           </div>
         )}
       </div>

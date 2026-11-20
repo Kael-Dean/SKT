@@ -5,21 +5,31 @@
 // (role via &mockRole=5 staff | 3 HR | 1 Super Admin + act-as-role; default 5), off with ?mockOnboarding=0.
 // Login with any username/password. Unmatched requests answer 200 [] so pages render.
 // State resets on reload unless ?mockKeep=1 (kept in sessionStorage).
+// Client demo build (npm run build:demo, VITE_DEMO=1): installOnboardingMock({ demo: true }) is
+// always on, answers every request (also the Thai address JSON) and starts from the login page.
 // ─────────────────────────────────────────────────────────────────────────────
+import { logout } from "../lib/auth"
 import { PERMISSION_MATRIX, POSITION_ROLES } from "../lib/rbacMatrix"
+import { demoFixture } from "./demoFixtures"
 
 const FLAG = "mock_onboarding"
 const ROLE_FLAG = "mock_onboarding_role"
 const STORE = "mock_onboarding_state"
 
-const SECTION_KEYS = ["account", "personal", "address", "family", "education", "work", "criminal"]
+const SECTION_KEYS = ["account", "personal", "address", "family", "education", "work", "criminal", "license"]
 const M_STATUS = ["โสด", "สมรส", "หย่า", "หม้าย", "แยกกันอยู่"]
-const NEW_ROW_KEY = { education: ["ed_level", "inst_name"], work: ["company_name"], criminal: ["charge"], family: ["first_name", "relationship"] }
+const NEW_ROW_KEY = { education: ["ed_level", "inst_name"], work: ["company_name"], criminal: ["charge"], family: ["first_name", "relationship", "name_title", "legal_status"], license: ["license_type", "license_no"] }
 const ROW_COLS = {
   education: ["ed_level", "inst_name", "from_date", "to_date"],
   work: ["company_name", "position", "from_date", "to_date"],
   criminal: ["charge", "court", "case_date", "outcome"],
-  family: ["first_name", "last_name", "relationship", "birthday", "is_twin"],
+  family: ["first_name", "last_name", "relationship", "birthday", "is_twin", "name_title", "legal_status", "is_deceased", "deceased_date"],
+  license: ["license_type", "license_no", "expiry_date"],
+}
+const LEGAL = {
+  บิดา: ["บิดาชอบด้วยกฎหมาย", "บิดาไม่ชอบด้วยกฎหมาย", "บิดาบุญธรรม"], มารดา: ["มารดาชอบด้วยกฎหมาย", "มารดาบุญธรรม"],
+  คู่สมรส: ["จดทะเบียนสมรส", "ไม่ได้จดทะเบียนสมรส"], อดีตคู่สมรส: ["จดทะเบียนหย่า", "แยกกันโดยไม่ได้จดทะเบียนหย่า"],
+  บุตร: ["บุตรชอบด้วยกฎหมาย", "บุตรบุญธรรม", "บุตรนอกสมรส"],
 }
 const SCALAR_COLS = {
   account: ["first_name", "last_name", "email", "th_first_name", "th_last_name"],
@@ -27,13 +37,13 @@ const SCALAR_COLS = {
   address: ["h_address", "mhoo", "soi", "road", "district", "sub_district", "province", "postal_code"],
 }
 
-function seed() {
+function seed({ demo = false } = {}) {
   return {
     completed_at: null,
     tour_completed_at: null,
     exempt: false,
-    confirmed: { account: "2026-10-23T03:11:20+00:00" },
-    none: { work: false, criminal: false },
+    confirmed: demo ? {} : { account: "2026-10-23T03:11:20+00:00" }, // demo walks all 7 from 0/7
+    none: { work: false, criminal: false, license: false },
     nextId: 100,
     values: {
       account: { first_name: "Somchai", last_name: "Jaidee", email: null, th_first_name: "นายสมชาย", th_last_name: "ใจดี" },
@@ -47,11 +57,13 @@ function seed() {
       education: [{ id: 5, ed_level: "ปริญญาตรี", inst_name: "มหาวิทยาลัยราชภัฏสุรินทร์", from_date: "2008-06-01", to_date: "2012-03-31" }],
       work: [],
       criminal: [],
+      license: [],
     },
   }
 }
 
 let db = null
+let demoMode = false
 function load() {
   if (db) return db
   try {
@@ -85,11 +97,14 @@ function missingOf(key) {
       const m = []
       if (v.personal.m_status === "สมรส" && !v.family.some((r) => r.relationship === "คู่สมรส")) m.push("spouse_row")
       if ((v.personal.children_number ?? 0) !== v.family.filter((r) => r.relationship === "บุตร").length) m.push("children_count")
+      if (v.personal.m_status === "หย่า" && !v.family.some((r) => r.relationship === "อดีตคู่สมรส" && !r.is_deceased)) m.push("ex_spouse_row")
+      if (v.family.some((r) => !r.hr_verified && r.can_delete && (!r.name_title || !r.legal_status))) m.push("family_details")
       return m
     }
     case "education": return v.education.length ? [] : ["rows"]
     case "work":
-    case "criminal": return v[key].length || db.none[key] ? [] : ["rows"]
+    case "criminal":
+    case "license": return v[key].length || db.none[key] ? [] : ["rows"]
     default: return []
   }
 }
@@ -122,7 +137,7 @@ const err422 = (msg, field) => json(422, { detail: [{ loc: ["body", field ?? "x"
 function fakeJwt(role, actRole = null) {
   const b64 = (o) => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/=+$/, "")
   const act = actRole ? { role: actRole, act_role: actRole, real_role: 1 } : {}
-  return `${b64({ alg: "none" })}.${b64({ sub: "mock", user_id: 42, username: "mock", role_id: role, branch: 3, exp: 4102444800, ...act })}.x`
+  return `${b64({ alg: "none" })}.${b64({ sub: "somchai", user_id: 42, username: "somchai", role_id: role, branch: 3, exp: 4102444800, ...act })}.x`
 }
 
 // Super Admin "act as role" (mockRole=1) — acted role kept in localStorage so reloads keep acting
@@ -152,7 +167,8 @@ function actAsRoleMock(path, method, body) {
 }
 
 function putSection(key, body) {
-  if (db.completed_at) return json(409, { detail: "ใช้เมนูแจ้งแก้ไขข้อมูล" })
+  const lockedKey = key !== "license" // licenses stay editable after completion
+  if (db.completed_at && lockedKey) return json(409, { detail: "ใช้เมนูแจ้งแก้ไขข้อมูล" })
   if (SCALAR_COLS[key]) {
     for (const k of Object.keys(body)) if (!SCALAR_COLS[key].includes(k)) return err422(`extra field not permitted`, k)
     if (key === "personal" && body.m_status != null && !M_STATUS.includes(body.m_status)) return err422("m_status ไม่ถูกต้อง", "m_status")
@@ -162,7 +178,7 @@ function putSection(key, body) {
   }
   const rows = db.values[key]
   if (!rows) return json(404, { detail: "ไม่พบหัวข้อ" })
-  if ("none" in body && !["work", "criminal"].includes(key)) return json(422, { detail: "none ใช้ได้เฉพาะ work และ criminal" })
+  if ("none" in body && !["work", "criminal", "license"].includes(key)) return json(422, { detail: "none ใช้ได้เฉพาะ work, criminal และ license" })
   for (const id of body.delete_ids ?? []) {
     const row = rows.find((r) => r.id === id)
     if (!row) return json(404, { detail: "ไม่พบข้อมูล" })
@@ -170,7 +186,18 @@ function putSection(key, body) {
   }
   for (const r of body.rows ?? []) {
     for (const k of Object.keys(r)) if (k !== "id" && !ROW_COLS[key].includes(k)) return err422("extra field not permitted", k)
-    if (key === "family" && r.relationship != null && !["บิดา", "มารดา", "คู่สมรส", "บุตร"].includes(r.relationship)) return err422("relationship ไม่ถูกต้อง", "relationship")
+    if (key === "family" && r.relationship != null && !LEGAL[r.relationship]) return err422("relationship ไม่ถูกต้อง", "relationship")
+    if (key === "family") {
+      const merged = { ...(rows.find((x) => x.id === r.id) ?? {}), ...r }
+      if (merged.legal_status && !(LEGAL[merged.relationship] ?? []).includes(merged.legal_status)) return json(422, { detail: "สถานะทางกฎหมายไม่ตรงกับความสัมพันธ์" })
+      if (merged.is_deceased && !merged.deceased_date) return err422("ต้องระบุวันที่เสียชีวิต", "deceased_date")
+    }
+    if (key === "license") {
+      const merged = { ...(rows.find((x) => x.id === r.id) ?? {}), ...r }
+      const life = String(merged.license_type ?? "").endsWith("ตลอดชีพ")
+      if (life && merged.expiry_date) return json(422, { detail: "ใบขับขี่ตลอดชีพไม่มีวันหมดอายุ" })
+      if (!life && !merged.expiry_date) return json(422, { detail: "ต้องระบุวันหมดอายุ" })
+    }
     if (r.id == null) {
       for (const k of NEW_ROW_KEY[key]) if (blank(r[k])) return json(422, { detail: `${k} จำเป็นสำหรับรายการใหม่ (${key})` })
     }
@@ -205,15 +232,24 @@ let UNVERIFIED = [
   { id: 102, user_id: 44, employee_name: "ประเสริฐ ดีงาม", branch_id: 5, branch_name: "สาขาปราสาท", first_name: "มาลี", last_name: "ดีงาม", relationship: "คู่สมรส", birthday: "1991-07-07", is_twin: false, added_by: 44, created_at: "2026-10-24T05:00:00+00:00" },
 ]
 
+// demo build (file://): the Thai address JSON in public/ cannot be fetched, serve it from the bundle
+const THAI_DATA = {
+  "province.json": () => import("../../public/data/thai/province.json"),
+  "district.json": () => import("../../public/data/thai/district.json"),
+  "sub_district.json": () => import("../../public/data/thai/sub_district.json"),
+}
+
 async function handle(url, init) {
-  const u = new URL(url, location.origin)
+  const u = new URL(url, location.href) // file:// origin is "null" — resolve against the page URL
+  const thai = u.pathname.match(/\/data\/thai\/([a-z_]+\.json)$/)
+  if (thai && THAI_DATA[thai[1]]) return json(200, (await THAI_DATA[thai[1]]()).default)
   // strip the dev base (/api, /api-proxy from .env.development.local)
   const path = u.pathname.replace(/^\/api(-proxy)?(?=\/)/, "")
   const method = (init?.method || "GET").toUpperCase()
   const body = init?.body && typeof init.body === "string" ? JSON.parse(init.body) : {}
   const role = Number(localStorage.getItem(ROLE_FLAG) || 5)
   load()
-  await new Promise((r) => setTimeout(r, 250)) // feel real latency
+  await new Promise((r) => setTimeout(r, demoMode ? 120 : 250)) // feel real latency (demo: snappier tour)
 
   if (role === 1) {
     const r = actAsRoleMock(path, method, body)
@@ -221,14 +257,17 @@ async function handle(url, init) {
   }
   if (path === "/auth/login_json") return json(200, { access_token: fakeJwt(role), token_type: "bearer", account_status: "register" })
   if (path === "/auth/me/permissions") return json(404, { detail: "Not Found" }) // → role-table fallback
-  if (path === "/personnel/me") return json(200, { first_name: "สมชาย", last_name: "ใจดี", username: "mock", role_id: role, personnel_info: db.values.personal })
+  if (path === "/personnel/me") {
+    const [, me] = demoFixture(path, "GET", u, body, db.values)
+    return json(200, { ...me, role_id: role })
+  }
   if (path === "/personnel/me/report-issue/fields") return json(200, [
     { category: "personal_info", category_label: "ข้อมูลส่วนตัว", fields: [
       { field: "cid", label: "เลขบัตรประชาชน", input_type: "text" }, { field: "hired", label: "วันเริ่มงาน", input_type: "date" },
       { field: "th_first_name", label: "ชื่อ (ภาษาไทย)", input_type: "text" }, { field: "underlying_disease", label: "โรคประจำตัว", input_type: "text" }] },
     { category: "family", category_label: "ครอบครัว", fields: [{ field: "family_other", label: "ข้อมูลครอบครัวไม่ถูกต้อง (ระบุในรายละเอียด)", input_type: "textarea" }] },
   ])
-  if (path === "/personnel/me/report-issue") return json(200, { status: "created", id: 1 })
+  if (path === "/personnel/me/report-issue") return json(...demoFixture(path, method, u, body, db.values))
   if (path === "/personnel/me/leave-balance") return json(200, { year: 2569, balance: [
     { leave_type_id: 1, leave_type_name: "ลาป่วย", is_active: true, quota: "30", used: "2", remaining: "28" },
     { leave_type_id: 2, leave_type_name: "ลากิจ", is_active: true, quota: "6", used: "1", remaining: "5" },
@@ -293,10 +332,32 @@ async function handle(url, init) {
   if (deps) return json(200, UNVERIFIED.filter((r) => r.user_id === Number(deps[1])).map((r) => ({ ...r, hr_verified: false })))
   if (path === "/hr/dashboard") return json(200, { total_employees: 178, status_breakdown: { onboarding: { done: 120, in_progress: 30, not_started: 25, exempt: 3 } } })
 
+  // self-service pages (leave, payslips, loans, welfare, profile …) — see ./demoFixtures.js
+  const fixture = demoFixture(path, method, u, body, db.values)
+  if (fixture) return json(...fixture)
+
   return json(200, method === "GET" ? [] : {})
 }
 
-export function installOnboardingMock() {
+export function installOnboardingMock({ demo = false } = {}) {
+  if (demo) {
+    demoMode = true
+    // client demo: always on, staff role, every launch starts at the login page with a fresh person
+    localStorage.removeItem(ACT_FLAG)
+    localStorage.setItem(ROLE_FLAG, "5")
+    logout()
+    // "fresh person" also means no gate answer or unsaved typing kept from the previous run
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("onboarding_gate:") || k.startsWith("onboarding_draft:"))
+      .forEach((k) => localStorage.removeItem(k))
+    db = seed({ demo: true })
+    const real = window.fetch.bind(window)
+    window.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input.url
+      return url.startsWith("data:") || url.startsWith("blob:") ? real(input, init) : handle(url, init)
+    }
+    return
+  }
   const qs = new URLSearchParams(location.search)
   if (qs.has("mockOnboarding")) {
     if (qs.get("mockOnboarding") === "1") localStorage.setItem(FLAG, "1")

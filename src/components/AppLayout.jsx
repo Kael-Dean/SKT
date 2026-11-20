@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom"
 import Sidebar from "./Sidebar"
 import Topbar from "./Topbar"
 import Toaster from "./ui/Toaster"
+import PullToRefresh from "./PullToRefresh"
 import PageLoader from "./ui/PageLoader"
 import { recordVisit } from "../lib/recentRoutes"
 import { loadMyPermissions, useMyPermissionsVersion } from "../lib/myPermissions"
@@ -15,7 +16,6 @@ import { loadOnboarding, useOnboarding } from "../lib/onboarding"
 import TourOverlay from "./onboarding/TourOverlay"
 import SearchIntroGate from "./onboarding/SearchIntroGate"
 import InstallIntroGate from "./onboarding/InstallIntroGate"
-import { useAppUpdateCheck } from "../lib/appUpdate"
 import { toast } from "./ui/toast"
 import { TOUR_SIDEBAR_EVENT, useTourState } from "../lib/tourState"
 import { usePreview } from "../lib/previewMode"
@@ -79,7 +79,6 @@ const AppLayout = () => {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(getInitialDark)
-  useAppUpdateCheck()
   useOnlineToast()
   // หน้าตารางหนักอ่าน SidebarContext — defer เพื่อไม่ให้ re-render บล็อกเฟรมแรกของ drawer slide
   const deferredSidebarOpen = useDeferredValue(isSidebarOpen)
@@ -236,6 +235,8 @@ const AppLayout = () => {
 
       {/* Global toast host (toast.success/error/… from components/ui/toast.js) */}
       <Toaster />
+      {/* ดึงหน้าจอลงเพื่อรีเฟรช — เฉพาะแอปที่ติดตั้งบนมือถือ */}
+      <PullToRefresh />
       {/* Self-service tour (onboarding) — overlays the real pages, mounts only while a tour runs */}
       <TourOverlay />
       {/* One-time intro of the header search — its overlay is a lazy chunk */}

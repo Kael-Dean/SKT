@@ -6,6 +6,8 @@ import {
   daysWorkedText, money, netOf, toNum, totalDeductions,
 } from "../../lib/payroll"
 import { cx } from "../../lib/styles"
+import { EstimatedBanner } from "./PayslipEstimated"
+import { thaiDate } from "../../lib/loans"
 
 const shownLines = (lines, record) => lines.filter((l) => l.key === "base_salary" || toNum(record[l.key]) !== 0)
 
@@ -50,6 +52,7 @@ export default function PayoutLines({ record, className = "" }) {
   const deductions = totalDeductions(record)
   return (
     <div className={cx("space-y-4", className)}>
+      <EstimatedBanner record={record} />
       <div className="grid gap-4 md:grid-cols-2 md:gap-6">
         <Lines title="รายได้" lines={INCOME_LINES} record={record} />
         <div className="space-y-4">
@@ -67,6 +70,19 @@ export default function PayoutLines({ record, className = "" }) {
           <dt className="text-gray-600 dark:text-gray-400">รายการหักรวม</dt>
           <dd className="tabular-nums text-gray-900 dark:text-gray-100">{deductions == null ? "—" : `−${money(deductions)}`}</dd>
         </div>
+        {toNum(record.shortfall_paid) > 0 && (
+          <div className="flex items-baseline justify-between gap-4 py-0.5">
+            <dt className="min-w-0 break-words text-gray-600 dark:text-gray-400">
+              อื่นๆ — เจ้าหน้าที่ชำระส่วนขาด
+              {(record.shortfall_paid_note || record.shortfall_paid_on) && (
+                <span className="block text-xs text-gray-500 dark:text-gray-400">
+                  {[record.shortfall_paid_note, record.shortfall_paid_on && thaiDate(record.shortfall_paid_on)].filter(Boolean).join(" · ")}
+                </span>
+              )}
+            </dt>
+            <dd className="shrink-0 tabular-nums text-gray-900 dark:text-gray-100">+{money(record.shortfall_paid)}</dd>
+          </div>
+        )}
         <div className="mt-1.5 flex items-baseline justify-between gap-4 border-t border-gray-200 pt-2 dark:border-line">
           <dt className="font-semibold text-gray-900 dark:text-gray-100">รับสุทธิ</dt>
           <dd className="text-base font-bold tabular-nums text-emerald-700 dark:text-emerald-300">{money(netOf(record))}</dd>

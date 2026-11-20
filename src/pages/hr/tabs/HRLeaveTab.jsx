@@ -2,6 +2,7 @@
 // อนุมัติ / ปฏิเสธ คำขอลา + ดาวน์โหลด PDF ใบลา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import DecisionModal from "../../../components/DecisionModal"
 import LeaveStageActions from "../../../components/LeaveStageActions"
 import ApprovalHistory from "../../../components/ApprovalHistory"
@@ -9,6 +10,7 @@ import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadg
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../../components/ui"
 import { cx, tabPanelCls } from "../../../lib/styles"
 import { stageOf } from "../../../lib/approval"
+import { fmtLeaveRowDuration } from "../../../lib/leaveDays"
 import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../../lib/approvalActions"
 
 
@@ -32,12 +34,7 @@ export default function HRLeaveTab() {
     setDownloadingId(leaveId)
     try {
       const { blob, filename } = await apiDownload(`/hr/employees/${employeeId}/leaves/${leaveId}/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave_${leaveId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave_${leaveId}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
@@ -64,7 +61,7 @@ export default function HRLeaveTab() {
   const onDecisionDone = (mode) => {
     const r = decision.req
     setDecision(null)
-    const what = { approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]
+    const what = { approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ อนุมัติ ของ", unjust: "บันทึกผลตรวจ ไม่อนุมัติ ของ" }[mode]
     setBanner({
       tone: "success",
       text: `${what}ใบลาของ ${requesterName(r)} แล้ว`,
@@ -166,7 +163,7 @@ export default function HRLeaveTab() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
-                      <p className="font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">{r.total_days} วัน</p>
+                      <p className="font-bold text-indigo-700 dark:text-indigo-300 ">{fmtLeaveRowDuration(r)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">วันที่ยื่น</p>
@@ -195,7 +192,7 @@ export default function HRLeaveTab() {
                   )}
                   {r.justification === "unjust" && r.justification_note && (
                     <p className="text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-1.5">
-                      ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                      ผลตรวจ ไม่อนุมัติ: {r.justification_note}
                     </p>
                   )}
                   {historyId === r.id && (
@@ -255,7 +252,7 @@ export default function HRLeaveTab() {
           kind={KIND.LEAVE}
           req={decision.req}
           title={`${requesterName(decision.req)} — ${decision.req.leave_type_name ?? "ใบลา"}`}
-          summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${decision.req.total_days ?? "-"} วัน`}
+          summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${fmtLeaveRowDuration(decision.req)}`}
           onClose={() => setDecision(null)}
           onDone={onDecisionDone}
           onConflict={onDecisionConflict}

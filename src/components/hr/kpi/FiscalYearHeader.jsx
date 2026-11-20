@@ -13,6 +13,7 @@ import { cx } from "../../../lib/styles"
 import { Badge, ConfirmDialog, ErrorState, Skeleton, toast } from "../../ui"
 import { errText, inputCls, labelCls, linkBtn, nf, primaryBtn, secondaryBtn } from "../positionUtils"
 import { STATUS, STATUS_ORDER, fmtDay, fyOptions, fyRange, num, windowPhase } from "./kpiUtils"
+import ThaiDateField from "../../ThaiDateField"
 
 const SEG = {
   open: "bg-gray-300 dark:bg-gray-600",
@@ -218,13 +219,12 @@ function WindowDialog({ fy, info, onClose, onSaved }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="kpi-win-start" className={labelCls}>วันเริ่ม</label>
-          <input id="kpi-win-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
+          <ThaiDateField id="kpi-win-start" value={start} onChange={(e) => setStart(e.target.value)} className={inputCls} />
         </div>
         <div>
           <label htmlFor="kpi-win-end" className={labelCls}>วันสิ้นสุด</label>
-          <input
+          <ThaiDateField
             id="kpi-win-end"
-            type="date"
             value={end}
             min={start || undefined}
             onChange={(e) => setEnd(e.target.value)}

@@ -1,5 +1,6 @@
 // src/pages/MemberSignup.jsx
 import { useEffect, useRef, useState } from "react"
+import ProgramToggle from "../../components/ProgramToggle"
 import { useThaiAddressData } from "../../hooks/useThaiAddressData"
 import { apiAuth } from "../../lib/api"   // ✅ แนบ token อัตโนมัติ + จัดการ 401
 import { printPage } from "../../lib/files"
@@ -658,45 +659,14 @@ const MemberSignup = () => {
           {/* โครงการที่เข้าร่วม */}
           <Card>
             <CardHeader title="โครงการที่เข้าร่วม" />
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {[
                 { key: "seedling_prog",  label: "โครงการผลิตเมล็ดพันธุ์" },
                 { key: "slowdown_rice",  label: "โครงการชะลอข้าวเปลือก" },
                 { key: "organic_prog",   label: "โครงการอินทรีย์" },
                 { key: "product_loan",   label: "โครงการสินค้าเป็นเงินเชื่อ" },
               ].map(({ key, label }) => (
-                <label
-                  key={key}
-                  className={cx(
-                    "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all duration-200",
-                    "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-700/40",
-                    "hover:border-emerald-300/70 hover:shadow-sm dark:hover:border-emerald-400/40",
-                    form[key]
-                      ? "border-emerald-400 bg-emerald-50/60 ring-2 ring-emerald-400/60 dark:bg-emerald-400/10"
-                      : "ring-0"
-                  )}
-                >
-                  <span
-                    className={cx(
-                      "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors",
-                      form[key] ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600"
-                    )}
-                    aria-hidden="true"
-                  >
-                    <span
-                      className={cx(
-                        "inline-block h-6 w-6 transform rounded-full bg-white shadow transition",
-                        "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
-                        form[key] ? "translate-x-6" : "translate-x-1",
-                        "group-hover:scale-105"
-                      )}
-                    />
-                  </span>
-
-                  <input type="checkbox" className="sr-only" checked={!!form[key]} onChange={(e) => update(key, e.target.checked)} />
-                  <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">{label}</span>
-                  <span className={cx("pointer-events-none absolute inset-0 rounded-2xl transition-opacity","bg-emerald-100/30 dark:bg-emerald-400/10", form[key] ? "opacity-100" : "opacity-0 group-hover:opacity-100")} aria-hidden="true" />
-                </label>
+                <ProgramToggle key={key} label={label} checked={form[key]} onChange={(v) => update(key, v)} />
               ))}
             </div>
           </Card>

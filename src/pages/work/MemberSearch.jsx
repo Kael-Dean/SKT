@@ -1,5 +1,6 @@
 // src/pages/MemberSearch.jsx
 import { useEffect, useMemo, useState } from "react"
+import ProgramToggle from "../../components/ProgramToggle"
 import { apiAuth } from "../../lib/api"   // ✅ ใช้ helper แนบโทเคนอัตโนมัติ
 import { SkeletonTableRows, ErrorState, EmptyState, Sheet, SearchField, DataList, toast } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
@@ -138,7 +139,7 @@ function ProgramBadges({ row }) {
       {active.map(p => (
         <span
           key={p.key}
-          className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/40"
+          className="inline-flex items-center gap-1 rounded-xl bg-white px-2.5 py-1 text-xs font-medium text-gray-800 ring-1 ring-gray-200 dark:bg-raised dark:text-gray-100 dark:ring-line-strong"
           title={p.label}
         >
           <span>{p.emoji}</span>
@@ -152,50 +153,9 @@ function ProgramBadges({ row }) {
 /** Toggle โครงการ (โหมดแก้ไข) */
 function ProgramToggles({ value, onChange }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
       {PROGRAMS.map(({ key, label }) => (
-        <label
-          key={key}
-          className={[
-            "group relative flex items-center gap-4 cursor-pointer rounded-2xl border p-4 min-h-[72px] transition-all",
-            "border-slate-200 bg-white/80 dark:border-slate-700 dark:bg-slate-700/40",
-            "shadow-[0_4px_14px_rgba(0,0,0,0.06)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)]",
-            "hover:border-emerald-300/70 dark:hover:border-emerald-400/40",
-            value?.[key] ? "ring-2 ring-emerald-400 shadow-[0_12px_30px_rgba(16,185,129,0.25)]" : "ring-0",
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors",
-              value?.[key] ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-600",
-            ].join(" ")}
-            aria-hidden="true"
-          >
-            <span
-              className={[
-                "inline-block h-6 w-6 transform rounded-full bg-white shadow transition",
-                "shadow-[0_3px_10px_rgba(0,0,0,0.25)]",
-                value?.[key] ? "translate-x-6" : "translate-x-1",
-                "group-hover:scale-105",
-              ].join(" ")}
-            />
-          </span>
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={!!value?.[key]}
-            onChange={(e) => onChange(key, e.target.checked)}
-          />
-          <span className="text-slate-800 dark:text-slate-100 text-[15px] md:text-base font-medium">{label}</span>
-          <span
-            className={[
-              "pointer-events-none absolute inset-0 rounded-2xl transition-opacity",
-              "bg-emerald-100/30 dark:bg-emerald-400/10",
-              value?.[key] ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-            ].join(" ")}
-            aria-hidden="true"
-          />
-        </label>
+        <ProgramToggle key={key} label={label} checked={value?.[key]} onChange={(v) => onChange(key, v)} />
       ))}
     </div>
   )
@@ -703,17 +663,17 @@ const MemberSearch = () => {
             </div>
 
             {/* ข้อมูลหุ้น */}
-            <div className="mb-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-400/40 dark:bg-indigo-900/10">
-              <div className="mb-2 text-base font-semibold text-indigo-800 dark:text-indigo-200">ข้อมูลหุ้น</div>
-              <div className="rounded-xl border border-slate-200 bg-white/70 p-4 dark:border-slate-700 dark:bg-slate-700/40">
+            <div className="mb-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-line dark:bg-surface">
+              <div className="mb-2 text-base font-semibold text-gray-900 dark:text-gray-100">ข้อมูลหุ้น</div>
+              <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-line dark:bg-raised">
                 <div className="text-sm text-slate-600 dark:text-slate-300">ยอดหุ้นสะสม</div>
                 <div className="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{formatShares(active?.total_shares)}</div>
               </div>
             </div>
 
             {/* โครงการที่เข้าร่วม */}
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400/40 dark:bg-emerald-900/10">
-              <div className="mb-2 text-base font-semibold text-emerald-800 dark:text-emerald-200">โครงการที่เข้าร่วม</div>
+            <div className="mb-4 rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-line dark:bg-surface">
+              <div className="mb-2 text-base font-semibold text-gray-900 dark:text-gray-100">โครงการที่เข้าร่วม</div>
               {!editing ? <ProgramBadges row={active} /> : <ProgramToggles value={draft} onChange={onToggleProgram} />}
             </div>
 
@@ -770,8 +730,8 @@ const MemberSearch = () => {
             </div>
 
             {/* ข้อมูลที่ดิน */}
-            <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-400/40 dark:bg-emerald-900/10">
-              <div className="mb-3 text-lg font-semibold text-emerald-800 dark:text-emerald-200">ข้อมูลที่ดิน</div>
+            <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-line dark:bg-surface">
+              <div className="mb-3 text-lg font-semibold text-gray-900 dark:text-gray-100">ข้อมูลที่ดิน</div>
               {[
                 { title: "ถือครอง", keys: ["own_rai","own_ngan","own_wa"] },
                 { title: "เช่าทำกิน", keys: ["rent_rai","rent_ngan","rent_wa"] },

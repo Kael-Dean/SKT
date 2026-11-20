@@ -45,6 +45,7 @@ import BuyWeighSection from "./buy/BuyWeighSection"
 import BuyMobileStepper from "./buy/BuyMobileStepper"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
+import { fieldErrorCls } from "../../lib/styles"
 
 /** ---------- Component ---------- */
 const Buy = () => {
@@ -1122,7 +1123,7 @@ const pickNameResult = async (rec) => {
   /** ---- จัดการ error สีแดง ---- */
   const hasRed = (key) => !!errors[key] || !!missingHints[key]
   const redFieldCls = (key) =>
-    hasRed(key) ? "border-red-500 ring-2 ring-red-300 focus:ring-0 focus:border-red-500" : ""
+    hasRed(key) ? fieldErrorCls : ""
   const clearError = (key) =>
     setErrors((prev) => {
       if (!(key in prev)) return prev
@@ -1228,7 +1229,7 @@ const pickNameResult = async (rec) => {
 
   /** ---------- Missing hints ---------- */
   const redHintCls = (key) =>
-    missingHints[key] ? "border-red-400 ring-2 ring-red-300 focus:border-red-400 animate-pulse" : ""
+    missingHints[key] ? fieldErrorCls : ""
   const clearHint = (key) => setMissingHints((prev) => (prev[key] ? { ...prev, [key]: false } : prev))
 
   const computeMissingHints = () => {

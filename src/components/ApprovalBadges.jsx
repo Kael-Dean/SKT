@@ -1,7 +1,7 @@
 // src/components/ApprovalBadges.jsx
 // ป้าย "สถานะ/ขั้นตอน" (จาก stage) และ "ผลตรวจสอบ" (จาก justification) — api-handoff-4 §1
 //   <StageBadge req={r} />          รอหัวหน้าอนุมัติ / อนุมัติแล้ว · รอตรวจสอบ / อนุมัติ …
-//   <JustificationBadge req={r} />  สมเหตุสมผล / ไม่สมเหตุสมผล (hover = เหตุผล) / ยังไม่ตรวจ
+//   <JustificationBadge req={r} />  อนุมัติ / ไม่อนุมัติ (hover = เหตุผล) / ยังไม่ตรวจ
 import { displayStatusOf, displayToneOf, JUSTIFICATION_LABEL, JUSTIFICATION_TONE, checkRoleLabel } from "../lib/approval"
 
 const pill = "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"

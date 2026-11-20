@@ -11,6 +11,7 @@
 // Errors are JSON (401/403/404/422/500) → toast, never saved as a file.
 // ─────────────────────────────────────────────────────────────────────────────
 import { apiDownload } from "./api"
+import { saveBlob as saveFile } from "./files"
 
 /** Subtle hint for Excel buttons: totals are live =SUM formulas, so phone /
  *  LINE quick-look previews may show blank or 0 until opened in a real app. */
@@ -35,18 +36,9 @@ export function xlsxFilename(name) {
   return /\.[a-z0-9]+$/i.test(n) ? n.replace(/\.[a-z0-9]+$/i, ".xlsx") : `${n}.xlsx`
 }
 
-/** Save a Blob under `filename` via a temporary <a download>. */
+/** Save a Blob under `filename` — same device-aware save as lib/files (iPhone/iPad app → share sheet). */
 export function saveBlob(blob, filename) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename || "download"
-  a.rel = "noopener"
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  // Revoke on the next turn — revoking synchronously can cancel the download in some browsers.
-  setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return saveFile(blob, filename || "download")
 }
 
 /**
@@ -72,7 +64,7 @@ export async function downloadExcel(pdfPath, { fallbackName } = {}) {
     filename && filename !== "download"
       ? filename
       : xlsxFilename(fallbackName || "report.xlsx")
-  saveBlob(blob, name)
+  await saveBlob(blob, name)
   return name
 }
 

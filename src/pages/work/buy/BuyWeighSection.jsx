@@ -4,7 +4,7 @@
 // price, amount. Phone: one field per row + calc cards. Desktop (≥md, R2):
 // "ชั่งน้ำหนักและราคา" card (2 input rows + read-only calc strip + หมายเหตุ).
 // ─────────────────────────────────────────────────────────────────────────────
-import { cx, baseField, labelCls, helpTextCls, errorTextCls, cardCls } from "../../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, cardCls, fieldErrorCls } from "../../../lib/styles"
 import {
   onlyDigits, thb, nf, moneyToNumber, formatMoneyInput, suggestDeductionWeight, isEnabledInput,
   fieldId, errId, describedBy, sectionH2Cls,
@@ -135,7 +135,7 @@ function PhoneWeighSection({ form }) {
               inputRef={refs.deductWeightKg}
               inputMode="decimal"
               suffix="กก."
-              className={cx(errors.deductWeightKg && "border-red-400", redHintCls("deductWeightKg"))}
+              className={cx(errors.deductWeightKg && fieldErrorCls, redHintCls("deductWeightKg"))}
               value={order.deductWeightKg}
               onChange={(e) => updateOrder("deductWeightKg", dec(e.target.value))}
               onFocus={() => clearHint("deductWeightKg")}
@@ -259,7 +259,7 @@ function DesktopWeighSection({ form }) {
                   inputRef={refs.deductWeightKg}
                   inputMode="decimal"
                   suffix="กก."
-                  className={cx("w-36 !py-1.5", errors.deductWeightKg && "border-red-500", redHintCls("deductWeightKg"))}
+                  className={cx("w-36 !py-1.5", errors.deductWeightKg && fieldErrorCls, redHintCls("deductWeightKg"))}
                   value={order.deductWeightKg}
                   onChange={(e) => { updateOrder("deductWeightKg", dec(e.target.value)); clearError("deductWeightKg") }}
                   onFocus={() => clearHint("deductWeightKg")}

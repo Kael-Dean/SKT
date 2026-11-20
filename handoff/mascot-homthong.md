@@ -8,7 +8,31 @@
 **Concept:** หัว/ตัวคือเมล็ดข้าวสารสีงาช้างทรงเรียว สวม "เปลือกข้าวสีทอง" เป็นเสื้อตัวสั้น
 บนหัวมีใบข้าว 2 ใบ + รวงเล็ก บุคลิกใจดี ขยัน
 
-**v8.6 (ลบรอยบนหัว) — รุ่นปัจจุบัน:** ผู้ใช้วงรอย `GrooveA` และ `GrooveB` บนหัวแล้วขอให้เอาออก ลบออกจากไฟล์ Rive, `.riv`, `.svg` ทั้งสองไฟล์ และ `.png` ส่วนที่เหลือของทุกท่าเหมือนเดิม
+**v9.1 (ภาพนิ่งตรงกับแขนขาใหม่) — รุ่นปัจจุบัน:** port แขนขา v9.0 (มือลูกบอล ปลอกแขน หัวไหล่มน ขา รองเท้า) จาก Rive ลง `homthong.svg` และ `homthong-flip.svg` (geometry/gradient ตรงกับ setup pose ของ `.riv`, ลบ `ht-leg`/`ht-mitt` เพิ่ม `ht-leg-l/r`, `ht-shoe-l/r`, `ht-sleeve`, `ht-cuff`, `ht-hand`) แล้ว render `homthong.png` 1024 ใหม่จาก svg. เทียบภาพ svg กับ capture ของ Rive ที่ 512px แล้วแขนขาตรงกัน. `MASCOT_VERSION` = `9.1`
+
+**v9.0 (แก้มุมแขน search + success) — ประวัติ:** แก้ผลข้างเคียงของ v8.9 ที่ย้าย pivot แขน (เปลี่ยนแค่ค่า rotation ของ key เดิม ไม่เปลี่ยนเฟรม/interpolation)
+- **`search` `ArmL_Bone`:** เฟรม 0/16/32/48 238 → 254 · เฟรม 8/24/40 247 → 263 — มือกลับมาแตะข้างแก้ม
+- **`success` `ArmR_Bone`:** f18 −72→−54 · f26 −60→−44 · f36 −70→−52 · f44 −64→−46 · f56 −82→−52 · f62 −60→−46 · f92 −56→−50 · f100 −64→−52 · f112 −60→−48
+- **`success` `ArmL_Bone`:** f18 252→234 · f26 240→224 · f36 248→232 · f44 244→226 · f74 262→232 · f80 240→228 · f92 236→230 · f100 244→232 · f112 240→228 — มือที่ชูโผล่พ้นหัวทั้งลูกรวมตอนเอียง ±8°
+- **ทดสอบ:** editor ท่าจุดสุด search + success f18/26/56/74, `validate_structure` ผ่าน (simulate รันไม่ได้เพราะ editor ค้าง animation mode). runtime `@rive-app/react-canvas`: mood 2 + celebrate เล่นได้ ไม่มี error
+- **cache:** `MASCOT_VERSION` = `9.0`
+
+**v8.9 (มือกลม + ไหล่เรียบ) — ประวัติ:** ผู้ใช้ขอมือแบบลูกบอลกลมไม่มีนิ้ว และไหล่ที่ไม่ดูตัด
+- **มือ:** ลบ `PalmL/R` + `ThumbCreaseL/R` แทนด้วย `HandBallL/R` วงรี 31×29 ใน group `HandL/R` (rotation 0, x=59 บน bone) radial `#F9F4EB` → `#F1E8D8` → `#E6D7BE` → `#D7C2A0`. `CuffL/R` บางลงเหลือ 7×24 มุมมน 3.5 ที่ x=47 ลูกบอลทับเกือบหมด
+- **ไหล่:** สาเหตุที่ดูตัด = pivot แขนอยู่ลึกจากขอบเปลือกแค่ ~5 หน่วย ตอนยกแขนโคนแขนเสื้อโผล่เป็นปุ่ม. ย้าย setup ของ `ArmL_Bone` (−66, −46) → (−64, −54), `ArmR_Bone` (67, −50) → (64, −58) (ไม่มี key บน x/y ของ bone). `SleeveL/R` วาดใหม่: โคนครึ่งวงกลมรัศมี 8.5 ซ่อนใต้เปลือกทุกมุม บานเป็นหัวไหล่มน (ครึ่งกว้าง 13 ที่ x=17) เรียวถึง 10.5 ที่ x=50 ไล่สี `#C29248` → `#CC9C4A` → `#D4A653` ไม่ใช้ mesh
+- **ผลข้างเคียง:** ท่ายกแขนมือสูงขึ้น · `search` มือยกข้างหัว · `success` f56/f74 มือหลบหลังหัว — แก้แล้วใน v9.0
+- **ทดสอบ:** editor `validate_structure` ผ่าน, `simulateStateMachine` 2 ฉากผ่าน (รวม pointDir 2 → PointDown, 1 → PointUp), ท่าจุดสุดทุกท่า + 64px. runtime `@rive-app/react-canvas` โหลดไม่มี error, view model inputs ครบ
+- **cache:** `MASCOT_VERSION` = `8.9` · `.riv` 44.2 KB
+
+**v8.8 (แขนขาใหม่) — ประวัติ:** ผู้ใช้ขอให้แขนขาดูเป็นแขนขาของตัวละครจริง มีดีเทลแบบน่ารัก
+- **แขน:** ลบ `ArmL/R` (แท่ง) + `MittL/R` (ลูกกลม) แทนด้วย `SleeveL/R` แขนเสื้อเรียวไล่สี `#B4853C` → `#C99A48` → `#D2A452`, `CuffL/R` ปลอกแขน `#EED18E` → `#E3BE72`, group `HandL/R` (หักข้อมือ ∓8°) มี `PalmL/R` มือ mitten นิ้วโป้งแยก radial `#F8F2E8` → `#F1E8D8` → `#DECBAC` + `ThumbCreaseL/R` `#CDB591`. ยังอยู่บน `ArmL_Bone`/`ArmR_Bone` เดิม key แขนเดิมไม่ต้องแก้ แขนทั้งชุดอยู่หลัง `Husk` จึงไม่ทับตรา. ตอนแขนห้อยนิ้วโป้งชี้ออกนอกตัว (แลกกับท่ายก/โบก/ชี้ที่ดูถูก)
+- **ขา:** ลบ `LegL/R` (แท่งน้ำตาล) แทนด้วย group `LegL/R` หมุนที่สะโพก (∓15, −30) หลัง `Body`: `LegLimbL/R` ขาครีม, `ShoeL/R` รองเท้าโดม `#8E6845` → `#704E34` → `#5A3E2B`, `SoleL/R` `#3F2D21`, `ShoeSheenL/R` ไฮไลต์
+- **motion ขา (rotation `LegL/R`):** ค่าพัก 0 ที่เฟรม 0 ทุกท่า · `success` กาง ±9 ตอนลอย (f22) สะบัด ±8 ตามทิศกระโดด (f56/f74) กาง ±5 (f92) · `loading` ห้อย ±6 (f26) · `error` กาง ±4 (f6). state machine / view model / inputs ไม่ได้แก้
+- **ทดสอบ:** `@rive-app/react-canvas` ในเบราว์เซอร์: โหลดไม่มี error, view model `mood`/`pointDir`/`badgeFlip`/`wave`/`celebrate` ครบ, ดูภาพจริง celebrate (ย่อ/ลอย) · loading · error · wave · onboard+pointDir 2 · offline โลโก้ติดครบ ไม่มีลายน้ำ. editor: ตรวจท่าจุดสุดทุกท่า + 64px, `validate_structure` ผ่าน. ยังไม่ได้ทดสอบ `webgl2` และท่า `wai` (ใช้ `WaiHands` แยก ยังเป็นแบบเดิม)
+- **ภาพนิ่ง:** `homthong.svg` / `homthong-flip.svg` / `homthong.png` อัปเดตแล้วใน v9.1
+- **cache:** `MASCOT_VERSION` = `8.8` · `.riv` 44.7 KB
+
+**v8.6 (ลบรอยบนหัว) — ประวัติ:** ผู้ใช้วงรอย `GrooveA` และ `GrooveB` บนหัวแล้วขอให้เอาออก ลบออกจากไฟล์ Rive, `.riv`, `.svg` ทั้งสองไฟล์ และ `.png` ส่วนที่เหลือของทุกท่าเหมือนเดิม
 - **`wai`:** animation ท่าไหว้ 2 วินาที สำหรับสติกเกอร์ LINE ติดมาใน `.riv` ด้วย ชิ้นส่วน `WaiHands` opacity 0 ในท่าอื่น ไม่ได้ผูกกับ state machine แอปจึงไม่แสดง
 - **cache:** `MASCOT_VERSION` ใน `src/components/ui/Mascot.jsx` เป็น `8.6`
 
@@ -130,9 +154,9 @@ v7.3 เพิ่มแค่ค่า `mood` 5 / 6 + state/animation ใหม�
 | `public/mascot/homthong.riv` | runtime file v8.6 (41.9 KB, ฝัง PNG โลโก้ 5.9 KB; รุ่น v8.1 ดูจาก git commit `35d9220`; v7.3 เพิ่ม mood 5 error + mood 6 offline; v7.2 เพิ่ม pointDir + ท่าเต้น; export จากบัญชี Rive Pro ไม่มี splash/ลายน้ำ) รุ่น v8 ดูจาก git commit `9ed2f44` |
 | `handoff/homthong.backup-before-germ.riv` | สำเนา v7.3 (33.7 KB) ก่อนทำ v8 — ใช้ย้อนกลับได้ทันที |
 | `handoff/homthong.backup-before-mood56.riv` | สำเนา v7.2 (26.2 KB) ก่อนเพิ่ม mood 5/6 — ใช้ย้อนกลับได้ทันที |
-| `public/mascot/homthong.png` | fallback ภาพนิ่งท่า idle, 1024×1024, พื้นใส 168 KB (render จาก runtime canvas ของ v8.6) |
-| `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (geometry และ gradient เดียวกับ `.riv`), viewBox 512×512, ไม่มี filter/mask (25.7 KB) |
-| `public/mascot/homthong-flip.svg` | เหมือน `homthong.svg` ทุกอย่างแต่ตรากลับด้านแล้ว ใช้กับ `<img>` ที่โดน CSS `scaleX(-1)` เท่านั้น (25.8 KB) |
+| `public/mascot/homthong.png` | fallback ภาพนิ่งท่า idle, 1024×1024, พื้นใส 249 KB (render จาก `homthong.svg` v9.1) |
+| `public/mascot/homthong.svg` | fallback แบบเวกเตอร์ท่า idle (geometry และ gradient เดียวกับ `.riv`), viewBox 512×512, ไม่มี filter/mask (28.1 KB) |
+| `public/mascot/homthong-flip.svg` | เหมือน `homthong.svg` ทุกอย่างแต่ตรากลับด้านแล้ว ใช้กับ `<img>` ที่โดน CSS `scaleX(-1)` เท่านั้น (28.0 KB) |
 
 ไฟล์ต้นฉบับอยู่ใน Rive cloud: `https://editor.rive.app/file/homthong/2692657`
 
@@ -233,7 +257,10 @@ Palette v8.1 (muted, เงาไล่เฉด ไม่มี stipple):
 | ink | `#2B2421` | ตา, คิ้ว, เส้นปาก |
 | nose | `#E6BB98` | จมูก |
 | blush | radial `#E8A08A` → โปร่งใส | แก้ม (+ กระ 3 จุด) |
-| boots | `#4A3B31` | เท้า |
+| cuff (v8.8) | linear `#EED18E` → `#E3BE72` | ปลอกแขน `CuffL/R` |
+| hand (v8.9) | radial `#F9F4EB` → `#F1E8D8` → `#E6D7BE` → `#D7C2A0` | มือลูกบอล `HandBallL/R` |
+| sleeve (v8.9) | linear `#C29248` → `#CC9C4A` → `#D4A653` | แขนเสื้อ `SleeveL/R` (หัวไหล่มน) |
+| shoe (v8.8) | `#8E6845` → `#704E34` → `#5A3E2B`, พื้น `#3F2D21` | รองเท้า (แทน boots `#4A3B31` เดิม) |
 | ground | `#000000` @ 20% | วงรีเงาพื้นแบบแบน |
 
 ไม่มีเส้นขอบรอบตัว ไม่ใช้ feather / blur (บาง renderer ไม่วาด) — เงาใช้ linear/radial gradient ซ้อนกันเท่านั้น ไม่มีภาพฝัง

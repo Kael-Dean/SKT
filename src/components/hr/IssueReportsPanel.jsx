@@ -1,6 +1,8 @@
 // src/components/hr/IssueReportsPanel.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // HR / ผู้จัดการ: คำร้องแจ้งแก้ไขข้อมูลจากพนักงาน (3F)
+//   สิทธิ์: issue.view (ดู) / issue.decide (อนุมัติ/ปฏิเสธ) — 101, 117, 130 (backend 2026-11-10)
+//   ห้ามพิจารณาคำร้องของตัวเอง (backend 403) → ซ่อนปุ่มเมื่อ row.user_id === ผู้ใช้ปัจจุบัน
 //   GET  /hr/issue-reports?status=&category=&overdue=true
 //   POST /hr/issue-reports/{id}/approve  → { old_value, new_value }  (toast "ค่าเดิม → ค่าใหม่")
 //   POST /hr/issue-reports/{id}/deny     { hr_comment }
@@ -11,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { ArrowRight, Clock, Paperclip } from "lucide-react"
 import { apiAuth } from "../../lib/api"
+import { getUser } from "../../lib/auth"
 import { useCan } from "../../lib/permissions"
 import { keepBackState } from "../../lib/drill"
 import { cx, baseField, cardCls, dangerBtnCls, focusRingCls, neutralBtnCls, submitBtnCls, tabPanelCls, errorTextCls } from "../../lib/styles"
@@ -58,7 +61,7 @@ function DetailRow({ label, children }) {
   )
 }
 
-function ReportSheet({ report, branchName, canDecide, onClose, onDone }) {
+function ReportSheet({ report, branchName, canDecide, isOwn, onClose, onDone }) {
   const [mode, setMode] = useState("view") // view | deny
   const [comment, setComment] = useState("")
   const [busy, setBusy] = useState(false)
@@ -66,6 +69,8 @@ function ReportSheet({ report, branchName, canDecide, onClose, onDone }) {
   const pending = report.status === "pending"
   const st = issueStatus(report.status)
   const prev = previousValueOf(report)
+  // ช่องพิมพ์อิสระ (*_other เช่น education_other) — ไม่มีคอลัมน์ให้ระบบเขียนทับ อนุมัติ = ปิดคำร้องเท่านั้น
+  const freeText = /_other$/.test(report.field_name || "")
 
   const approve = async () => {
     setBusy(true); setMsg("")
@@ -73,9 +78,16 @@ function ReportSheet({ report, branchName, canDecide, onClose, onDone }) {
       const res = await apiAuth(`/hr/issue-reports/${report.id}/approve`, { method: "POST", body: {} })
       const oldV = res?.old_value ?? report.current_value
       const newV = res?.new_value ?? report.correct_value
-      toast.success("อนุมัติแล้ว — บันทึกข้อมูลใหม่ให้พนักงาน", {
-        description: `${report.field_label || report.field_name}: ${oldV || "ว่าง"} → ${newV || "—"}`,
-      })
+      const applied = !freeText && res?.old_value != null
+      if (applied) {
+        toast.success("อนุมัติแล้ว — บันทึกข้อมูลใหม่ให้พนักงาน", {
+          description: `${report.field_label || report.field_name}: ${oldV || "ว่าง"} → ${newV || "—"}`,
+        })
+      } else {
+        toast.info("ปิดคำร้องแล้ว — ระบบยังไม่ได้แก้ข้อมูลในประวัติ", {
+          description: "กรุณาไปแก้ข้อมูลของพนักงานที่หน้ารายละเอียดพนักงานด้วยตนเอง",
+        })
+      }
       onDone()
     } catch (err) {
       if (err.status === 409) {
@@ -120,7 +132,7 @@ function ReportSheet({ report, branchName, canDecide, onClose, onDone }) {
       <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
         <button type="button" onClick={() => { setMode("deny"); setMsg("") }} disabled={busy} className={neutralBtnCls}>ปฏิเสธ</button>
         <button type="button" onClick={approve} disabled={busy} className={cx(submitBtnCls, "!h-11 md:pointer-fine:!h-10 !rounded-xl !px-4 !py-0 !text-sm hover:!scale-100 hover:!shadow-sm")}>
-          {busy ? "กำลังอนุมัติ…" : "อนุมัติและบันทึก"}
+          {busy ? "กำลังอนุมัติ…" : freeText ? "อนุมัติ (ปิดคำร้อง)" : "อนุมัติและบันทึก"}
         </button>
       </div>
     )
@@ -181,6 +193,18 @@ function ReportSheet({ report, branchName, canDecide, onClose, onDone }) {
           <AttachmentList attachments={report.attachments} emptyText="ไม่มีไฟล์แนบ" />
         </section>
 
+        {pending && isOwn && (
+          <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-400/20">
+            คำร้องนี้เป็นของคุณเอง — ผู้จัดการหรือฝ่ายบุคคลคนอื่นจะเป็นผู้พิจารณา
+          </p>
+        )}
+
+        {pending && canDecide && freeText && (
+          <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-900 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-400/20">
+            คำร้องแบบระบุในรายละเอียด ระบบไม่แก้ข้อมูลให้อัตโนมัติ การอนุมัติเป็นเพียงการปิดคำร้อง กรุณาแก้ข้อมูลพนักงานที่หน้ารายละเอียดพนักงานด้วย
+          </p>
+        )}
+
         {pending && canDecide && mode === "deny" && (
           <div>
             <label htmlFor="issue-deny-comment" className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -208,6 +232,7 @@ function ReportSheet({ report, branchName, canDecide, onClose, onDone }) {
 export default function IssueReportsPanel({ idBase = "hr-issues" }) {
   const { can } = useCan()
   const canDecide = can("hr.issues.decide")
+  const meId = getUser()?.id ?? null
   const isPhone = useIsPhone()
   const [params, setParams] = useSearchParams()
   const [status, setStatus] = useSubTab(STATUS_TABS, "pending")
@@ -298,7 +323,10 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
   ]
 
   const branchOf = (r) => (r.branch_id != null ? branches[String(r.branch_id)] : null)
-  const decideLabel = (r) => (r.status === "pending" && canDecide ? "พิจารณา" : "ดู")
+  // backend ห้ามอนุมัติ/ปฏิเสธคำร้องของตัวเอง (403) — ซ่อนปุ่มไว้ก่อน
+  const isOwn = (r) => meId != null && r.user_id != null && String(r.user_id) === String(meId)
+  const canDecideRow = (r) => canDecide && !isOwn(r)
+  const decideLabel = (r) => (r.status === "pending" && canDecideRow(r) ? "พิจารณา" : "ดู")
 
   const emptyTitle = overdueOnly
     ? "ไม่มีคำร้องที่เกินกำหนด"
@@ -427,7 +455,7 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
                           onClick={(e) => { e.stopPropagation(); openReport(r) }}
                           aria-label={`${decideLabel(r)}คำร้องของ ${fullName(r)} — ${r.field_label || r.field_name}`}
                           className={cx(
-                            r.status === "pending" && canDecide
+                            r.status === "pending" && canDecideRow(r)
                               ? "inline-flex h-9 items-center rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-500"
                               : "inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-500/10",
                             "transition-colors duration-150 cursor-pointer",
@@ -451,7 +479,8 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
           key={openRow.id}
           report={openRow}
           branchName={branchOf(openRow)}
-          canDecide={canDecide}
+          canDecide={canDecideRow(openRow)}
+          isOwn={isOwn(openRow)}
           onClose={closeReport}
           onDone={() => { closeReport(); reload() }}
         />

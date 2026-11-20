@@ -13,7 +13,14 @@ import { getUser } from "../../lib/auth"
 import { getMyPermissionsStatus, useMyPermissionsVersion } from "../../lib/myPermissions"
 import { useOnboarding } from "../../lib/onboarding"
 import { isOnboardingGalleryPath, usePreview } from "../../lib/previewMode"
-import { findFunctionSearch, hasSeenSearchIntro, isPageBusy, isSearchIntroEligible } from "../../lib/searchIntro"
+import {
+  findFunctionSearch,
+  hasSeenSearchIntro,
+  isPageBusy,
+  isSearchIntroEligible,
+  syncSearchIntroSeen,
+} from "../../lib/searchIntro"
+import { getUiFlagsStatus, loadUiFlags, useUiFlagsVersion } from "../../lib/uiFlags"
 import { useTourState } from "../../lib/tourState"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 
@@ -42,8 +49,17 @@ export default function SearchIntroGate() {
   const onboarding = useOnboarding()
   const tour = useTourState()
   useMyPermissionsVersion() // re-render when permissions finish loading
+  const uiFlagsVersion = useUiFlagsVersion() // …and when the per-account seen flags load
   const userId = getUser()?.id ?? null
   const [phase, setPhase] = useState("waiting") // waiting → showing → done
+
+  // Per-account seen flags: load once per login, then line the server and this device up.
+  useEffect(() => {
+    if (userId !== null) loadUiFlags()
+  }, [userId])
+  useEffect(() => {
+    syncSearchIntroSeen(userId)
+  }, [userId, uiFlagsVersion])
 
   // On the gallery and during a preview the real one holds back: it would use up its one showing.
   const previewing = usePreview()
@@ -59,6 +75,7 @@ export default function SearchIntroGate() {
       locked: onboarding.locked,
       tourActive: tour.active,
       permissionsStatus: getMyPermissionsStatus(),
+      uiFlagsStatus: getUiFlagsStatus(),
     }) &&
     !hasSeenSearchIntro(userId)
 

@@ -109,8 +109,8 @@ export const PERMISSION_MATRIX = Object.freeze({
   "relocation.direct": { no: 51, roles: [101, 106, 117, 130] }, // v1.5.4 — HR ย้ายสาขาโดยตรงได้
   "relocation.history": { no: 52, roles: [101, 106, 117, 130] },
   "relocation.apply_due": { no: 53, roles: [101] },
-  "issue.view": { no: 54, roles: [101, 117] },
-  "issue.decide": { no: 55, roles: [101] },
+  "issue.view": { no: 54, roles: [101, 117, 130] },
+  "issue.decide": { no: 55, roles: [101, 117, 130] },
   "ooo.view": { no: 56, roles: [101, 102, 103, 117] },
   "ooo.approve.head": { no: 57, roles: [101, 104, 105, 106, 107, 108, 109, 110] },
   "ooo.approve.asst": { no: 58, roles: [101] },

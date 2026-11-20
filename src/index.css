@@ -248,6 +248,27 @@
   animation: sheet-in 0.2s var(--ease-out-quart) both;
 }
 
+/* น้องมะลิ loading hop on the static pose (ui/Mascot.jsx) — plays while the
+   Rive runtime is still downloading, i.e. exactly when a slow load is visible.
+   Squash before take-off, stretch in the air, squash on landing, settle. */
+@keyframes mascot-hop {
+  0%, 100% { transform: none; }
+  12%      { transform: translateY(0) scale(1.05, 0.94); }
+  34%      { transform: translateY(-9%) scale(0.97, 1.04); }
+  52%      { transform: translateY(-11%) scale(1, 1); }
+  72%      { transform: translateY(0) scale(1.06, 0.93); }
+  86%      { transform: translateY(0) scale(0.99, 1.01); }
+}
+
+.animate-mascot-hop {
+  transform-origin: 50% 88%;
+  animation: mascot-hop 1.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-mascot-hop { animation: none; }
+}
+
 /* ─── Onboarding (pages/onboarding + components/onboarding) ─────────────────
    Direction-aware step change: content enters from the side it travels to.
    End state `transform: none` (see the fade-up note above). */
@@ -516,6 +537,43 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
   animation: shimmer-move 4s linear infinite;
 }
 
+/* ─── Welcome banner seasonal art (components/home/WelcomeArt.jsx) ───────────
+   CSS transform ทับ attribute transform บน element เดียวกัน → ใช้กับ element
+   ที่ไม่มี transform attribute เท่านั้น (ตำแหน่งอยู่ที่ <g> ชั้นนอก).
+   สถานะเริ่มต้น (ไม่มี animation) = ภาพนิ่งที่ดูครบ → reduced-motion ปิด animation ได้เลย */
+.welcome-art svg * { transform-box: fill-box; transform-origin: center; }
+
+@keyframes wa-twinkle { 0%,100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes wa-rise    { 0% { transform: translateY(30px); opacity: 0; } 15%,85% { opacity: 1; } 100% { transform: translateY(-90px); opacity: 0; } }
+@keyframes wa-bob     { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-2.5px) rotate(2deg); } }
+@keyframes wa-drift   { to { transform: translateX(-200px); } }
+@keyframes wa-fall    { 0% { transform: translate(0,-20px); opacity: 0; } 20% { opacity: .7; } 100% { transform: translate(-16px,90px); opacity: 0; } }
+@keyframes wa-ripple  { 0% { transform: scale(.15); opacity: .8; } 100% { transform: scale(1); opacity: 0; } }
+@keyframes wa-sway    { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes wa-spin    { to { transform: rotate(360deg); } }
+@keyframes wa-float   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes wa-mist    { 0%,100% { transform: translateX(-18px); } 50% { transform: translateX(18px); } }
+@keyframes wa-flicker { 0%,100% { opacity: 1; transform: scale(1); } 40% { opacity: .75; transform: scale(.9,1.12); } 70% { opacity: .92; transform: scale(1.05,.95); } }
+@keyframes wa-burst   { 0% { transform: scale(.2); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.15); opacity: 0; } }
+
+.wa-twinkle    { animation: wa-twinkle 3.2s ease-in-out infinite; }
+.wa-rise       { animation: wa-rise 16s linear infinite; }
+.wa-bob        { animation: wa-bob 4.5s ease-in-out infinite; }
+.wa-drift      { animation: wa-drift 9s linear infinite; }
+.wa-drift-slow { animation: wa-drift 16s linear infinite; }
+.wa-fall       { animation: wa-fall 1.6s linear infinite; }
+.wa-ripple     { animation: wa-ripple 3.6s ease-out infinite; }
+.wa-sway       { transform-origin: 50% 100%; animation: wa-sway 3.5s ease-in-out infinite; }
+.wa-spin       { animation: wa-spin 70s linear infinite; }
+.wa-float      { animation: wa-float 6s ease-in-out infinite; }
+.wa-mist       { animation: wa-mist 14s ease-in-out infinite; }
+.wa-flicker    { animation: wa-flicker 1.8s ease-in-out infinite; }
+.wa-burst      { animation: wa-burst 5s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-art svg * { animation: none !important; }
+}
+
 /* ─── Skeleton Shimmer (loading placeholders) ─────────────────────────────── */
 /* Sweeps a light slate highlight across the skeleton block. The global
    prefers-reduced-motion block above targets * and disables this animation
@@ -623,6 +681,25 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
    important declarations, so this beats the `md:!text-sm` / `!text-*` utilities
    that an unlayered normal rule loses to. */
 @layer base {
+  /* iOS Safari: native date/time/month inputs keep an intrinsic min-width and ignore
+     width:100% → the box runs past its card (bug พ.ย. 2026: "วันที่ลา" ในใบลาบนมือถือ).
+     When empty they also collapse to a blank box. Reset appearance + allow shrinking.
+     Same guard for <select>. New date pickers must still use ThaiDateField. */
+  input[type="date"], input[type="time"], input[type="month"],
+  input[type="datetime-local"], input[type="week"], select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  input[type="date"], input[type="time"], input[type="month"],
+  input[type="datetime-local"], input[type="week"] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+  }
+
   @media (max-width: 767.98px), (pointer: coarse) {
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.cell-input),
     select:not(.cell-input),
@@ -714,4 +791,42 @@ body[data-preview-active] [role="dialog"][aria-labelledby] {
   body[data-preview-active] [role="dialog"][aria-labelledby] {
     max-height: calc(100dvh - 7rem) !important;
   }
+}
+
+/* Installed desktop app with the title bar hidden (manifest display_override
+   "window-controls-overlay", Chrome/Edge). The Topbar becomes the window's title bar:
+   empty parts of it drag the window, controls inside stay clickable, and the right
+   end leaves room for the OS ─ ☐ ✕ buttons drawn over the top-right corner.
+   Unlayered on purpose so it beats the row's md:px-6 utility. */
+@media (display-mode: window-controls-overlay) {
+  .wco-titlebar {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .wco-titlebar :is(a, button, input, select, textarea, label, img, [role="button"], [role="combobox"], [tabindex]) {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+  .wco-titlebar-row {
+    /* macOS draws the controls on the left (titlebar-area-x > 0), Windows on the right. */
+    padding-left: calc(env(titlebar-area-x, 0px) + 1rem);
+    padding-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw) + 0.5rem);
+  }
+}
+
+/* ── สลับธีมแบบวงกลมจากปุ่ม (src/lib/themeTransition.js) ───────────────────── */
+html[data-theme-transition]::view-transition-old(root),
+html[data-theme-transition]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+/* → สว่าง: ภาพเก่า (มืด) อยู่บนแล้วหดเข้าปุ่ม */
+html[data-theme-transition="to-light"]::view-transition-old(root) {
+  z-index: 2;
+}
+/* กันสีของ element ที่มี transition-colors ค่อย ๆ เฟดซ้อนกับวงกลม */
+html[data-theme-transition] *,
+html[data-theme-transition] *::before,
+html[data-theme-transition] *::after {
+  transition: none !important;
 }

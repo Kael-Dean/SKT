@@ -189,7 +189,8 @@ export function totalDeductions(p) {
   if (p.total_deductions != null) return Number(p.total_deductions)
   if (DEDUCTION_LINES.some((l) => p[l.key] != null)) return DEDUCTION_LINES.reduce((s, l) => s + toNum(p[l.key]), 0)
   const net = p.final_payout ?? p.net_payout
-  if (p.gross_income != null && net != null) return Number(p.gross_income) - Number(net)
+  // net = gross − หัก + ชำระส่วนขาด (PR 107) → บวกกลับเพื่อให้ได้ยอดหักจริง
+  if (p.gross_income != null && net != null) return Number(p.gross_income) - Number(net) + toNum(p.shortfall_paid)
   return null
 }
 

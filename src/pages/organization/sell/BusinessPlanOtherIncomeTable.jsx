@@ -727,7 +727,7 @@ const BusinessPlanOtherIncomeTable = (props) => {
                 "inline-flex items-center justify-center rounded-2xl px-6 py-3 text-sm font-semibold text-white transition",
                 (saving || !canEdit)
                   ? "bg-slate-300 text-slate-700 cursor-not-allowed dark:bg-slate-700 dark:text-slate-400"
-                  : "bg-emerald-600 hover:bg-emerald-700 shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:scale-[1.03] active:scale-[.98] cursor-pointer"
+                  : "bg-emerald-600 hover:bg-emerald-700 shadow-sm active:scale-[.98] cursor-pointer"
               )}
             >
               {saving ? "กำลังบันทึก..." : "บันทึก"}

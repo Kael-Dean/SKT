@@ -7,11 +7,13 @@
 // ใช้ทั้งในแท็บ "บันทึกออกจากงาน" และ popup ปุ่ม "ออกจากงาน" หน้าโปรไฟล์เจ้าหน้าที่ (<TerminationSheet>)
 import { useCallback, useEffect, useRef, useState } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { apiDetail } from "../../lib/apiErrors"
 import { borrowerName, money, thaiDate, todayIso, warningList } from "../../lib/loans"
 import { cx, baseField } from "../../lib/styles"
 import { ConfirmDialog, ErrorState, Sheet } from "../ui"
 import SelectDropdown from "../SelectDropdown"
+import ThaiDateField from "../ThaiDateField"
 
 // TerminationReason (backend v1.1.0). สามค่าแรกคือค่าที่พบจริงในข้อมูลย้อนหลัง
 // ของสหกรณ์ — เรียงไว้ก่อนเพื่อให้ HR เลือกได้เร็ว
@@ -68,6 +70,8 @@ function toForm(record, prefill) {
     const t = PREFILL_EXIT_TYPE[prefill.exit_type] ?? prefill.exit_type
     if (EXIT_TYPES.some((o) => o.value === t)) f.exit_type = t
     if (prefill.severance_pay != null && prefill.severance_pay !== "") f.severance_pay = String(prefill.severance_pay)
+    // 2026-11-16: prefill จาก "บันทึกวินัยและโทษทางวินัย" ส่ง exit_date (วันที่มีผลของโทษ) มาด้วย
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(prefill.exit_date ?? ""))) f.exit_date = prefill.exit_date
   }
   return f
 }
@@ -247,12 +251,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
     setPdfErr("")
     try {
       const { blob, filename } = await apiDownload(`/hr/employees/${empId}/termination-record/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `termination_${record.id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `termination_${record.id}.pdf`)
     } catch (e) {
       setPdfErr(apiDetail(e) || "ดาวน์โหลดไม่สำเร็จ")
     } finally {
@@ -364,7 +363,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
         </div>
         <div>
           <label htmlFor={`term-exit_date-${empId}`} className={labelCls}>วันที่ออก (วันที่มีผล) <span className="text-red-500">*</span></label>
-          <input id={`term-exit_date-${empId}`} type="date" value={form.exit_date ?? ""} onChange={(e) => setField("exit_date", e.target.value)} className={inputCls} />
+          <ThaiDateField id={`term-exit_date-${empId}`} value={form.exit_date ?? ""} onChange={(e) => setField("exit_date", e.target.value)} className={inputCls} />
         </div>
         <div>
           <label htmlFor={`term-committee_set_no-${empId}`} className={labelCls}>คณะกรรมการชุดที่</label>
@@ -376,7 +375,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
         </div>
         <div>
           <label htmlFor={`term-committee_meeting_date-${empId}`} className={labelCls}>วันที่ประชุมคณะกรรมการ</label>
-          <input id={`term-committee_meeting_date-${empId}`} type="date" value={form.committee_meeting_date ?? ""} onChange={(e) => setField("committee_meeting_date", e.target.value)} className={inputCls} />
+          <ThaiDateField id={`term-committee_meeting_date-${empId}`} value={form.committee_meeting_date ?? ""} onChange={(e) => setField("committee_meeting_date", e.target.value)} className={inputCls} />
         </div>
       </div>
 
@@ -386,6 +385,14 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
         {MONEY_FIELDS.map(({ key, label, type = "number" }) => (
           <div key={key}>
             <label htmlFor={`term-${key}-${empId}`} className={labelCls}>{label}</label>
+            {type === "date" ? (
+              <ThaiDateField
+                id={`term-${key}-${empId}`}
+                value={form[key] ?? ""}
+                onChange={(e) => setField(key, e.target.value)}
+                className={inputCls}
+              />
+            ) : (
             <input
               id={`term-${key}-${empId}`}
               type={type}
@@ -395,6 +402,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
               onChange={(e) => setField(key, e.target.value)}
               className={type === "number" ? cx(inputCls, "tabular-nums") : inputCls}
             />
+            )}
           </div>
         ))}
       </div>

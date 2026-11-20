@@ -19,6 +19,7 @@ import RelocationTransferModal from "../../../components/hr/RelocationTransferMo
 import useModalDismiss from "../../../lib/useModalDismiss"
 import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
 import { usePositionLookup } from "../../../lib/relocation"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 const TABS = [
   { key: "pending_branch_head", label: "รอหัวหน้าสาขา" },
@@ -379,7 +380,7 @@ export default function HRRelocationTab() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label htmlFor="relo-move-date" className={labelCls}>วันที่ย้าย <span className="text-red-500">*</span></label>
-                      <input id="relo-move-date" type="date" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} className={inputCls} />
+                      <ThaiDateField id="relo-move-date" value={moveDate} onChange={(e) => setMoveDate(e.target.value)} className={inputCls} />
                     </div>
                     <div>
                       <label htmlFor="relo-order-ref" className={labelCls}>เลขคำสั่ง</label>

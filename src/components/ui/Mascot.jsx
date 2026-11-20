@@ -42,7 +42,7 @@ const SMALL_ZOOM = 1.3
 
 // /mascot/* is cached for a day and has no hashed name. Bump this whenever the art
 // changes, or returning browsers keep showing the previous version.
-const MASCOT_VERSION = "8.7"
+const MASCOT_VERSION = "9.1"
 const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}?v=${MASCOT_VERSION}`
 
 // Can this page compile WebAssembly at all? A CSP without 'wasm-unsafe-eval' in
@@ -158,6 +158,9 @@ export default function Mascot({
           className={cx(
             "absolute inset-0 size-full transition-opacity duration-200 ease-out",
             showCanvas ? "opacity-0" : "opacity-100",
+            // Loading: hop on the static pose until Rive takes over (or forever when
+            // Rive cannot run). Reduced motion keeps her still — handled in CSS too.
+            mood === "loading" && !showCanvas && !reduced && "animate-mascot-hop",
           )}
         />
         {animate && mount && (

@@ -27,6 +27,7 @@ import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { cx, baseField, tabPanelCls } from "../../../lib/styles"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -128,8 +129,8 @@ function RequestsPanel({ branchOptions, branchName }) {
     const text = {
       approve: `อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
       reject: `ไม่อนุมัติคำขอของ ${requesterName(req)} แล้ว`,
-      justified: `บันทึกผลตรวจ "สมเหตุสมผล" ของ ${requesterName(req)} แล้ว`,
-      unjust: `บันทึกผลตรวจ "ไม่สมเหตุสมผล" ของ ${requesterName(req)} แล้ว`,
+      justified: `บันทึกผลตรวจ "อนุมัติ" ของ ${requesterName(req)} แล้ว`,
+      unjust: `บันทึกผลตรวจ "ไม่อนุมัติ" ของ ${requesterName(req)} แล้ว`,
     }[mode]
     setBanner({ tone: "success", text })
     requestNotificationsRefresh()
@@ -181,13 +182,12 @@ function RequestsPanel({ branchOptions, branchName }) {
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="ooo-f-from" className={labelCls}>ตั้งแต่วันที่</label>
-            <input id="ooo-f-from" type="date" className={inputCls} value={filters.from_date} onChange={setFilter("from_date")} />
+            <ThaiDateField id="ooo-f-from" className={inputCls} value={filters.from_date} onChange={setFilter("from_date")} />
           </div>
           <div className="flex flex-col gap-1">
             <label htmlFor="ooo-f-to" className={labelCls}>ถึงวันที่</label>
-            <input
+            <ThaiDateField
               id="ooo-f-to"
-              type="date"
               className={`${inputCls} ${dateRangeInvalid ? inputErrCls : ""}`}
               value={filters.to_date}
               min={filters.from_date || undefined}
@@ -543,6 +543,7 @@ function SettingsPanel() {
     }
     const hd = Number(form.half_day_hours)
     if (form.half_day_hours === "" || !Number.isFinite(hd) || hd <= 0) er.half_day_hours = "ต้องมากกว่า 0"
+    else if (!/^\d+(\.\d)?$/.test(String(form.half_day_hours).trim())) er.half_day_hours = "ทศนิยมไม่เกิน 1 ตำแหน่ง เช่น 2.5"
     if (!isInt(form.min_notice_days)) er.min_notice_days = "ระบุเป็นจำนวนวันเต็ม (0 ขึ้นไป)"
     if (!isInt(form.max_backdate_days)) er.max_backdate_days = "ระบุเป็นจำนวนวันเต็ม (0 ขึ้นไป)"
     if (!form.unlimited && (!isInt(form.personal_monthly_limit) || Number(form.personal_monthly_limit) < 1)) {
@@ -637,9 +638,10 @@ function SettingsPanel() {
             {msg("work_end")}
           </div>
           <div className="flex flex-col gap-1">
-            <label htmlFor="ooo-s-half_day_hours" className={labelCls}>ครึ่งวัน (ชั่วโมง)</label>
-            <input type="number" inputMode="decimal" min="0.5" step="0.5" value={form.half_day_hours} onChange={set("half_day_hours")} {...errP("half_day_hours")} />
-            {msg("half_day_hours", "ออกได้นานสุดต่อครั้ง")}
+            {/* field name kept by backend for compatibility; it now means the personal-trip cap */}
+            <label htmlFor="ooo-s-half_day_hours" className={labelCls}>ธุระส่วนตัวได้ไม่เกิน (ชั่วโมง)</label>
+            <input type="number" inputMode="decimal" min="0.1" step="0.1" value={form.half_day_hours} onChange={set("half_day_hours")} {...errP("half_day_hours")} />
+            {msg("half_day_hours", "ต่อครั้ง เช่น 2.5 = 2 ชม. 30 นาที · ไปปฏิบัติงานไม่จำกัดเวลา")}
           </div>
         </div>
       </fieldset>

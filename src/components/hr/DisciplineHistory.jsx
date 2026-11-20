@@ -14,10 +14,11 @@ import { FileDown, LoaderCircle } from "lucide-react"
 import { cx, focusRingCls } from "../../lib/styles"
 import { Badge, EmptyState, ErrorState, Skeleton, toast } from "../ui"
 import { apiDetail } from "../../lib/apiErrors"
-import { SUSPENSION_STEP, downloadActionPdf, fmtDate, resolutionText, stepLabel, stepTone, suspensionText } from "../../lib/discipline"
+import { SUSPENSION_STEP, clauseCode, downloadActionPdf, fmtDate, resolutionText, stepLabel, stepTone, suspensionText } from "../../lib/discipline"
 
-function ActionRow({ a, highlight, showIssuer, busy, onPdf }) {
+function ActionRow({ a, highlight, showIssuer, busy, onPdf, onAck }) {
   const ref = useRef(null)
+  const ack = a.refused_to_sign ? "ปฏิเสธการลงนามรับทราบ" : a.acknowledged_on ? `รับทราบ ${fmtDate(a.acknowledged_on)}` : ""
   useEffect(() => {
     if (highlight) ref.current?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [highlight])
@@ -53,7 +54,26 @@ function ActionRow({ a, highlight, showIssuer, busy, onPdf }) {
           </p>
         )}
         {a.note && <p className="whitespace-pre-wrap break-words text-sm text-gray-600 dark:text-gray-400">{a.note}</p>}
+        {a.clauses?.length > 0 && (
+          <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400">ข้อระเบียบ: {a.clauses.map(clauseCode).join(", ")}</p>
+        )}
+        {(ack || a.witness_1 || a.witness_2) && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {ack}{ack && (a.witness_1 || a.witness_2) ? " · " : ""}
+            {(a.witness_1 || a.witness_2) && `พยาน: ${[a.witness_1, a.witness_2].filter(Boolean).join(", ")}`}
+          </p>
+        )}
       </div>
+      <div className="flex flex-wrap items-center gap-2 justify-self-start sm:justify-self-end">
+      {onAck && (
+        <button type="button" onClick={() => onAck(a)}
+          className={cx(
+            "inline-flex min-h-touch items-center rounded-lg px-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 transition-colors duration-150 hover:bg-gray-50 cursor-pointer md:pointer-fine:min-h-9",
+            "dark:text-gray-200 dark:ring-line-field dark:hover:bg-white/[.04]", focusRingCls,
+          )}>
+          บันทึกการรับทราบ
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onPdf(a)}
@@ -69,6 +89,7 @@ function ActionRow({ a, highlight, showIssuer, busy, onPdf }) {
         {busy ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <FileDown aria-hidden="true" className="size-4" />}
         {busy ? "กำลังโหลด…" : "หนังสือ PDF"}
       </button>
+      </div>
     </li>
   )
 }
@@ -82,6 +103,8 @@ export default function DisciplineHistory({
   showIssuer = true,
   emptyTitle = "ไม่มีประวัติการตักเตือน",
   emptyDescription = "",
+  canAck = null, // (action) => boolean — แสดงปุ่ม "บันทึกการรับทราบ"
+  onAck = null,  // (action) => void
 }) {
   const [busyId, setBusyId] = useState(null)
 
@@ -113,6 +136,7 @@ export default function DisciplineHistory({
     <ul className="divide-y divide-gray-100 dark:divide-line">
       {sorted.map((a) => (
         <ActionRow key={a.id} a={a} showIssuer={showIssuer} busy={busyId === a.id} onPdf={onPdf}
+          onAck={onAck && canAck?.(a) ? onAck : null}
           highlight={highlightId != null && String(highlightId) === String(a.id)} />
       ))}
     </ul>

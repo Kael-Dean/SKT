@@ -3,6 +3,7 @@ import { cx, baseField, neutralBtnCls } from "../../lib/styles"
 // รายได้-ค่าใช้จ่ายศูนย์เรียนรู้และพัฒนาผลิตภัณฑ์ — POST/GET/PATCH/DELETE /facility-report/*
 import { useEffect, useRef, useState, useMemo } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { can } from "../../lib/permissions"
 import SelectDropdown from "../../components/SelectDropdown"
 import Portal from "../../components/Portal"
@@ -12,6 +13,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import PageTitle from "../../components/PageTitle"
 import AllTimeToggle from "../../components/AllTimeToggle"
 import { ALL_TIME_START, allTimeEnd } from "../../lib/allTime"
+import ThaiDateField from "../../components/ThaiDateField"
 
 
 // ─── utils ────────────────────────────────────────────────────────────────────
@@ -36,7 +38,7 @@ const cardCls =
 // ─── shared sub-components ────────────────────────────────────────────────────
 function Field({ label, required, children }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -191,8 +193,7 @@ function TransactionModal({ items, defaultDate, tx, onSave, onClose }) {
         </Field>
 
         <Field label="วันที่" required>
-          <input
-            type="date" className={inputCls}
+          <ThaiDateField className={inputCls}
             value={form.transaction_date}
             onChange={(e) => setForm((prev) => ({ ...prev, transaction_date: e.target.value }))}
           />
@@ -539,10 +540,7 @@ export default function FacilityReport() {
     setGeneratingPdf(true)
     try {
       const { blob, filename } = await apiDownload(path)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url; a.download = filename || `facility_report_${reportFileRange}.pdf`
-      a.click(); URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `facility_report_${reportFileRange}.pdf`)
     } catch (e) {
       let msg = e.message
       try { const d = JSON.parse(msg); msg = d?.detail || msg } catch { /* keep raw message */ }
@@ -658,8 +656,7 @@ export default function FacilityReport() {
                 />
               </Field>
               <Field label="วันที่">
-                <input
-                  type="date" className={inputCls}
+                <ThaiDateField className={inputCls}
                   value={filterDate}
                   disabled={txAllTime}
                   onChange={(e) => setFilterDate(e.target.value)}
@@ -810,11 +807,11 @@ export default function FacilityReport() {
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="ตั้งแต่วันที่" required>
-              <input type="date" className={inputCls} value={reportFrom} disabled={reportAllTime}
+              <ThaiDateField className={inputCls} value={reportFrom} disabled={reportAllTime}
                 onChange={(e) => setReportFrom(e.target.value)} />
             </Field>
             <Field label="ถึงวันที่" required>
-              <input type="date" className={inputCls} value={reportTo} disabled={reportAllTime}
+              <ThaiDateField className={inputCls} value={reportTo} disabled={reportAllTime}
                 min={reportFrom || undefined}
                 onChange={(e) => setReportTo(e.target.value)} />
             </Field>

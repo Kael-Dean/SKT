@@ -36,6 +36,38 @@ export function fmtDaysUnit(v) {
   return s === "—" ? s : `${s} วัน`
 }
 
+/** "HH:MM[:SS]" → minutes since midnight | null */
+function timeToMin(t) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(String(t ?? ""))
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+
+/**
+ * ระยะเวลาลาแบบภาษาคน: 0.5 → "ครึ่งวันเช้า" / "ครึ่งวันบ่าย" (ดูจาก from_time; ไม่รู้เวลา → "ครึ่งวัน"),
+ * 1 → "1 วัน", 1.5 → "วันครึ่ง", 2.5 → "2 วันครึ่ง". null → "—"
+ * ค่าที่ไม่ใช่ทีละครึ่งวัน (ไม่ควรเกิด) แสดงเป็นตัวเลขตามเดิม
+ */
+export function fmtLeaveDuration(v, { fromTime, toTime } = {}) {
+  const n = parseDays(v)
+  if (n == null) return "—"
+  if (!isHalfStep(n) || n <= 0) return `${fmtDays(n)} วัน`
+  const whole = Math.floor(n)
+  if (whole === n) return `${whole} วัน`
+  if (whole === 0) {
+    const from = timeToMin(fromTime)
+    const to = timeToMin(toTime)
+    if (from != null) return from < 12 * 60 ? "ครึ่งวันเช้า" : "ครึ่งวันบ่าย"
+    if (to != null) return to <= 12 * 60 ? "ครึ่งวันเช้า" : "ครึ่งวันบ่าย"
+    return "ครึ่งวัน"
+  }
+  return whole === 1 ? "วันครึ่ง" : `${whole} วันครึ่ง`
+}
+
+/** shortcut สำหรับแถวใบลาจาก backend ({ total_days, from_time, to_time }) */
+export function fmtLeaveRowDuration(r) {
+  return fmtLeaveDuration(r?.total_days, { fromTime: r?.from_time, toTime: r?.to_time })
+}
+
 /** Leave days must be multiples of 0.5 — anything else 422s at the backend. */
 export function isHalfStep(v) {
   const n = parseDays(v)
@@ -50,8 +82,16 @@ function parseISO(iso) {
 
 const toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
+/** ชื่อ "key" ของประเภทการลา (`Leaves.type`) — ใช้กับ logic/การจับคู่ ห้ามเอาชื่อที่ HR ตั้งใหม่มาใช้แทน */
 export const leaveTypeName = (lt) =>
   typeof lt === "string" ? lt : lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
+
+/**
+ * ชื่อที่แสดงบนหน้าจอ — `display_name` ที่ HR ตั้ง (um_backend PR 93, `PATCH /hr/leave-types/{id}`)
+ * ถ้าไม่มีใช้ชื่อ key. แสดงผลอย่างเดียว ห้ามใช้จับคู่ logic
+ */
+export const leaveTypeLabel = (lt) =>
+  (typeof lt === "object" && String(lt?.display_name ?? "").trim()) || leaveTypeName(lt)
 
 /**
  * True when a leave type is counted in calendar days rather than working days.

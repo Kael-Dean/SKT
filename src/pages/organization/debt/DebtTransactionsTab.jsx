@@ -15,6 +15,7 @@ import {
   PM_LABEL, canWriteEntries, isOwnBranchOnly, ownBranchId,
 } from "./debtEntryMeta"
 import useModalDismiss from "../../../lib/useModalDismiss"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 // Column count for the entries table — keep in sync with the header below.
 const TX_COLS = 9
@@ -109,11 +110,11 @@ export default function DebtTransactionsTab({ roleId, branches, programs, fiscal
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
-            <input type="date" className={baseField} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <ThaiDateField className={baseField} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
-            <input type="date" className={baseField} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+            <ThaiDateField className={baseField} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">

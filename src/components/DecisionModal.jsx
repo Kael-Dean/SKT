@@ -35,15 +35,15 @@ export default function DecisionModal({ mode, kind, req, title, summary, onClose
   if (!req) return null
 
   const confirmLabel = isCheck
-    ? mode === "justified" ? "บันทึก: สมเหตุสมผล" : "บันทึก: ไม่สมเหตุสมผล"
+    ? mode === "justified" ? "อนุมัติ" : "ไม่อนุมัติ"
     : isApprove ? STAGE_APPROVE_LABEL[stageOf(req)] || "อนุมัติ" : "ไม่อนุมัติ"
-  const reasonLabel = mode === "unjust" ? "เหตุผลที่ไม่สมเหตุสมผล" : "เหตุผลที่ไม่อนุมัติ"
+  const reasonLabel = "เหตุผลที่ไม่อนุมัติ"
 
   const submit = async (e) => {
     e?.preventDefault()
     if (busy) return
     if (needsReason && !text.trim()) {
-      setError(mode === "unjust" ? "ต้องระบุเหตุผลเมื่อบันทึกว่าไม่สมเหตุสมผล" : "กรุณาระบุเหตุผลที่ไม่อนุมัติ")
+      setError(mode === "unjust" ? "ต้องระบุเหตุผลเมื่อบันทึกว่าไม่อนุมัติ" : "กรุณาระบุเหตุผลที่ไม่อนุมัติ")
       fieldRef.current?.focus()
       return
     }

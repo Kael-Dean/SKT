@@ -2,6 +2,7 @@
 // อนุมัติ / ปฏิเสธ คำขอลา + ดาวน์โหลด PDF ใบลา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../components/ui"
 import { tabPanelCls } from "../../lib/styles"
 import DecisionModal from "../../components/DecisionModal"
@@ -12,6 +13,7 @@ import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../lib/approvalActions"
 import { can } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
+import { fmtLeaveRowDuration } from "../../lib/leaveDays"
 
 // ระหว่างดำเนินการ = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (stage จาก backend — api-handoff-4 §1)
 const isPending = (r) => r?.status === "pending" || !!stageOf(r)
@@ -37,12 +39,7 @@ export default function HRLeaveManagement() {
     setDownloadingId(leaveId)
     try {
       const { blob, filename } = await apiDownload(`/hr/employees/${employeeId}/leaves/${leaveId}/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave_${leaveId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave_${leaveId}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
@@ -77,7 +74,7 @@ export default function HRLeaveManagement() {
     setDecision(null)
     setBanner({
       tone: "success",
-      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ สมเหตุสมผล ของ", unjust: "บันทึกผลตรวจ ไม่สมเหตุสมผล ของ" }[mode]}ใบลาของ ${requesterName(r)} แล้ว`,
+      text: `${{ approve: "บันทึกการอนุมัติ", reject: "บันทึกการไม่อนุมัติ", justified: "บันทึกผลตรวจ อนุมัติ ของ", unjust: "บันทึกผลตรวจ ไม่อนุมัติ ของ" }[mode]}ใบลาของ ${requesterName(r)} แล้ว`,
     })
     requestNotificationsRefresh()
     fetchRequests()
@@ -186,7 +183,7 @@ export default function HRLeaveManagement() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
-                      <p className="font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">{r.total_days} วัน</p>
+                      <p className="font-bold text-indigo-700 dark:text-indigo-300 ">{fmtLeaveRowDuration(r)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">วันที่ยื่น</p>
@@ -278,7 +275,7 @@ export default function HRLeaveManagement() {
           kind={KIND.LEAVE}
           req={decision.req}
           title={`${requesterName(decision.req)} — ${decision.req.leave_type_name ?? "ใบลา"}`}
-          summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${decision.req.total_days ?? "-"} วัน`}
+          summary={`${fmtDate(decision.req.from_date)} – ${fmtDate(decision.req.to_date)} · ${fmtLeaveRowDuration(decision.req)}`}
           onClose={() => setDecision(null)}
           onDone={onDecisionDone}
           onConflict={onDecisionConflict}

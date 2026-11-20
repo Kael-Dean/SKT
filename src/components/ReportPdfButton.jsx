@@ -6,7 +6,7 @@ import { FileText } from "lucide-react"
 import { apiDownload } from "../lib/api"
 import { cx, neutralBtnCls } from "../lib/styles"
 import { excelErrorMessage } from "../lib/reportFormat"
-import { deliverBlob, openPopup } from "../lib/files"
+import { closeDocWindow, prepareDocWindow, showBlob } from "../lib/files"
 import { toast } from "./ui"
 
 const neutralSpinnerCls =
@@ -22,13 +22,13 @@ export default function ReportPdfButton({ getPath, fallbackName = "report.pdf", 
     if (!path) return
     busyRef.current = true
     setLoading(true)
+    // Open the tab inside the click — Safari (iPhone/iPad/Mac) blocks it after the await.
+    const win = prepareDocWindow(label)
     try {
       const { blob, filename } = await apiDownload(path)
-      const url = URL.createObjectURL(blob)
-      const win = openPopup(url)
-      if (!win) await deliverBlob(blob, filename && filename !== "download" ? filename : fallbackName)
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      await showBlob(blob, filename && filename !== "download" ? filename : fallbackName, win)
     } catch (err) {
+      closeDocWindow(win)
       console.error(err)
       toast.error("เปิด PDF ไม่สำเร็จ", { description: excelErrorMessage(err).replace("ไฟล์ Excel", "PDF") })
     } finally {

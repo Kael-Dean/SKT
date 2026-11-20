@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="น้องมะลิ มาสคอต AMC">
-  <!-- v8.6 flip: same as homthong.svg with the badge counter-flipped, for <img> shown under CSS scaleX(-1).
+  <!-- v9.0 flip (limbs from homthong.riv v9.0: ball hands, cuffs, smooth shoulder sleeves, cream legs + brown shoes); v8.6 flip: same as homthong.svg with the badge counter-flipped, for <img> shown under CSS scaleX(-1).
        rice-grain body with a slightly fuller middle with smooth gradient shading (no stipple, no filters, no masks).
        Same geometry and paints as the idle pose of homthong.riv. Single light from upper-left;
        shadows are warmer, darker tones of the material itself, never black or grey. -->
@@ -66,15 +66,43 @@
       <stop offset="0" stop-color="#CC9B49"/>
       <stop offset="1" stop-color="#BE8E40"/>
     </linearGradient>
-    <linearGradient id="ht-leg" x1="-10" y1="-20" x2="10" y2="20" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#6E5847"/>
-      <stop offset=".55" stop-color="#4A3B31"/>
-      <stop offset="1" stop-color="#382D25"/>
+    <!-- v9.0 limbs: same paints as LegL/LegR and ArmL_Bone/ArmR_Bone in homthong.riv (shape-local coordinates) -->
+    <linearGradient id="ht-leg-l" x1="0" y1="-4" x2="0" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A88C63"/>
+      <stop offset=".4" stop-color="#DCCBAF"/>
+      <stop offset=".7" stop-color="#E8DCC7"/>
+      <stop offset="1" stop-color="#D8C6A8"/>
     </linearGradient>
-    <radialGradient id="ht-mitt">
-      <stop offset="0" stop-color="#F7F1E6"/>
-      <stop offset=".6" stop-color="#F1E8D8"/>
-      <stop offset="1" stop-color="#E5D7BF"/>
+    <linearGradient id="ht-leg-r" x1="0" y1="-4" x2="0" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A3875E"/>
+      <stop offset=".4" stop-color="#D3C1A3"/>
+      <stop offset=".7" stop-color="#DFD1BA"/>
+      <stop offset="1" stop-color="#CFBB9B"/>
+    </linearGradient>
+    <linearGradient id="ht-shoe-l" x1="-12" y1="20" x2="9" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8E6845"/>
+      <stop offset=".55" stop-color="#704E34"/>
+      <stop offset="1" stop-color="#5A3E2B"/>
+    </linearGradient>
+    <linearGradient id="ht-shoe-r" x1="-9" y1="20" x2="12" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8E6845"/>
+      <stop offset=".55" stop-color="#704E34"/>
+      <stop offset="1" stop-color="#5A3E2B"/>
+    </linearGradient>
+    <linearGradient id="ht-sleeve" x1="-8.5" y1="0" x2="50" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C29248"/>
+      <stop offset=".4" stop-color="#CC9C4A"/>
+      <stop offset="1" stop-color="#D4A653"/>
+    </linearGradient>
+    <linearGradient id="ht-cuff" x1="42.5" y1="0" x2="51.5" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EED18E"/>
+      <stop offset="1" stop-color="#E3BE72"/>
+    </linearGradient>
+    <radialGradient id="ht-hand" cx="57" cy="0" r="17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F9F4EB"/>
+      <stop offset=".5" stop-color="#F1E8D8"/>
+      <stop offset=".82" stop-color="#E6D7BE"/>
+      <stop offset="1" stop-color="#D7C2A0"/>
     </radialGradient>
     <radialGradient id="ht-cheek">
       <stop offset="0" stop-color="#E8A08A" stop-opacity=".55"/>
@@ -94,8 +122,19 @@
   <ellipse cx="256" cy="455" rx="40" ry="7" fill="url(#ht-contact-core)"/>
 
   <g transform="translate(256 452)">
-    <g transform="translate(-16 -16)"><rect x="-10.5" y="-20" width="21" height="40" rx="10.5" fill="url(#ht-leg)"/></g>
-    <g transform="translate(16 -16)"><rect x="-10.5" y="-20" width="21" height="40" rx="10.5" fill="url(#ht-leg)"/></g>
+    <!-- legs (LegL / LegR, pivot at the hip, behind the body): cream leg, warm brown shoe, sole, sheen -->
+    <g transform="translate(-15 -30)">
+      <path d="M-8.5-4L8.5-4C8.5 8 7.8 18 7 25L-7 25C-7.8 18-8.5 8-8.5-4Z" fill="url(#ht-leg-l)"/>
+      <path d="M-11 34C-14 34-15.5 31.5-15.5 28C-15.5 22.5-9 19.5-2 19.5C5 19.5 11.5 22.5 11.5 27C11.5 31 10.5 34 8.5 34Z" fill="url(#ht-shoe-l)"/>
+      <path d="M-15.3 30.6L11.3 30.6C11.3 32.6 10.4 34 8.5 34L-11 34C-13.6 34-15.3 32.6-15.3 30.6Z" fill="#3F2D21"/>
+      <path d="M-11.5 25C-10.5 22.3-6.5 21-2.5 21.4C-5.5 22.2-8.8 23.6-11.5 25Z" fill="#FFF1DE" fill-opacity=".302"/>
+    </g>
+    <g transform="translate(15 -30)">
+      <path d="M-8.5-4L8.5-4C8.5 8 7.8 18 7 25L-7 25C-7.8 18-8.5 8-8.5-4Z" fill="url(#ht-leg-r)"/>
+      <path d="M11 34C14 34 15.5 31.5 15.5 28C15.5 22.5 9 19.5 2 19.5C-5 19.5-11.5 22.5-11.5 27C-11.5 31-10.5 34-8.5 34Z" fill="url(#ht-shoe-r)"/>
+      <path d="M15.3 30.6L-11.3 30.6C-11.3 32.6-10.4 34-8.5 34L11 34C13.6 34 15.3 32.6 15.3 30.6Z" fill="#3F2D21"/>
+      <path d="M-6.5 23.6C-5 21.8-1.5 21 2.5 21.4C-.5 22-3.8 22.6-6.5 23.6Z" fill="#FFF1DE" fill-opacity=".251"/>
+    </g>
 
     <g transform="translate(0 -30)">
       <!-- back husk flaps: outer edge continues the husk edge and tucks in behind the head -->
@@ -121,14 +160,17 @@
         </g>
       </g>
 
-      <!-- arms: sleeve + mitt on one bone each, pivot hidden behind the husk -->
-      <g transform="translate(67 -50) rotate(64)">
-        <rect x="-8" y="-13" width="54" height="26" rx="13" fill="#C99A48"/>
-        <circle cx="48" r="13.5" fill="url(#ht-mitt)"/>
+      <!-- arms (v9.0): tapered sleeve with a rounded shoulder cap hidden under the husk, thin cuff, round ball hand.
+           Pivot = ArmR_Bone (64, -58) r64 / ArmL_Bone (-64, -54) r116 -->
+      <g transform="translate(64 -58) rotate(64)">
+        <path d="M0-8.5C6-8.5 10.5-13 17-13C28-13 39-11 48-10.5L50-10.5L50 10.5L48 10.5C39 11 28 13 17 13C10.5 13 6 8.5 0 8.5C-4.69 8.5-8.5 4.69-8.5 0C-8.5-4.69-4.69-8.5 0-8.5Z" fill="url(#ht-sleeve)"/>
+        <rect x="43.5" y="-12" width="7" height="24" rx="3.5" fill="url(#ht-cuff)"/>
+        <ellipse cx="59" rx="15.5" ry="14.5" fill="url(#ht-hand)"/>
       </g>
-      <g transform="translate(-66 -46) rotate(116)">
-        <rect x="-8" y="-13" width="54" height="26" rx="13" fill="#C99A48"/>
-        <circle cx="48" r="13.5" fill="url(#ht-mitt)"/>
+      <g transform="translate(-64 -54) rotate(116)">
+        <path d="M0-8.5C6-8.5 10.5-13 17-13C28-13 39-11 48-10.5L50-10.5L50 10.5L48 10.5C39 11 28 13 17 13C10.5 13 6 8.5 0 8.5C-4.69 8.5-8.5 4.69-8.5 0C-8.5-4.69-4.69-8.5 0-8.5Z" fill="url(#ht-sleeve)"/>
+        <rect x="43.5" y="-12" width="7" height="24" rx="3.5" fill="url(#ht-cuff)"/>
+        <ellipse cx="59" rx="15.5" ry="14.5" fill="url(#ht-hand)"/>
       </g>
 
       <!-- grain: base gradient, warm form shadow on the right, smooth AO above the husk lip -->

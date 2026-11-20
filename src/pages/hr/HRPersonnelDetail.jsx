@@ -11,14 +11,18 @@ import EmployeePositionCard from "../../components/hr/EmployeePositionCard"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
 import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
-import { fmtDaysUnit } from "../../lib/leaveDays"
-import { isAnnualLeave, isPrescribedLeave, useLeaveBalance } from "../../lib/leaveTypes"
+import { useLeaveBalance } from "../../lib/leaveTypes"
+import LeaveRegisterTable from "../../components/hr/LeaveRegisterTable"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
+import FinanceSavingsLoans from "../../components/hr/FinanceSavingsLoans"
 import GuaranteeBankEditSheet from "../../components/hr/GuaranteeBankEditSheet"
 import Can from "../../components/Can"
+import { can } from "../../lib/permissions"
+import CustomLeaveQuotaCard from "../../components/hr/CustomLeaveQuotaCard"
+import EmployeeHistoryCard from "../../components/hr/EmployeeHistoryCard"
 import { usePageTitle } from "../../lib/pageTitle"
 import { TerminationSheet } from "../../components/hr/TerminationForm"
 import PendingFamilyCard from "../../components/hr/PendingFamilyCard"
@@ -28,10 +32,12 @@ import PersonnelDisciplineTab from "./tabs/PersonnelDisciplineTab"
 import PersonnelPayBasisTab from "./tabs/PersonnelPayBasisTab"
 import PersonnelActivitiesTab from "./tabs/PersonnelActivitiesTab"
 import { getTenure, tenureText } from "../../lib/tenure"
+import { ageText } from "../../lib/age"
 import { reserveRateText } from "../../lib/payroll"
 import PrefixedNameInput from "../../components/PrefixedNameInput"
 import SelectDropdown from "../../components/SelectDropdown"
 import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../lib/namePrefix"
+import ThaiDateField from "../../components/ThaiDateField"
 
 const CHILD_PREFIX_GENDER = { ชาย: "male", หญิง: "female" }
 // value "" = ยังไม่เลือก — คงตัวเลือกนี้ไว้เพื่อล้างค่าที่เลือกไปแล้วได้
@@ -83,14 +89,29 @@ function SectionTitle({ children }) {
   )
 }
 
-function InfoRow({ label, value }) {
-  if (value == null || value === "") return null
+// always = แสดงแถวแม้ค่าว่าง (ขึ้น "ยังไม่มีข้อมูล" สีจาง) — ใช้กับข้อมูลที่ HR ต้องเห็นว่าขาด
+function InfoRow({ label, value, always = false, numeric = false }) {
+  const empty = value == null || value === ""
+  if (empty && !always) return null
   return (
     <div className="flex flex-col sm:flex-row sm:gap-4 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44 shrink-0">{label}</span>
-      <span className="text-sm text-gray-900 dark:text-gray-100 mt-0.5 sm:mt-0">{value}</span>
+      <span className={cx(
+        "text-sm mt-0.5 sm:mt-0",
+        numeric && "tabular-nums",
+        empty ? "text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-gray-100",
+      )}>
+        {empty ? "ยังไม่มีข้อมูล" : value}
+      </span>
     </div>
   )
+}
+
+// 1234567890123 → 1-2345-67890-12-3 (รูปแบบบนบัตรประชาชน); ค่าที่ไม่ใช่ 13 หลักแสดงตามเดิม
+function formatCid(cid) {
+  const d = String(cid ?? "").replace(/\D/g, "")
+  if (d.length !== 13) return cid
+  return `${d[0]}-${d.slice(1, 5)}-${d.slice(5, 10)}-${d.slice(10, 12)}-${d[12]}`
 }
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -335,9 +356,9 @@ export default function HRPersonnelDetail() {
       {Object.keys(pi).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
           <SectionTitle>ข้อมูลส่วนตัว</SectionTitle>
-          <InfoRow label="เลขบัตรประชาชน" value={pi.cid} />
+          <InfoRow label="เลขบัตรประชาชน" value={formatCid(pi.cid)} always numeric />
           <InfoRow label="วันเกิด" value={fmtDate(pi.birthday)} />
-          <InfoRow label="อายุ" value={pi.age ? `${pi.age} ปี` : null} />
+          <InfoRow label="อายุ" value={ageText(pi.birthday)} />
           <InfoRow label="เพศ" value={pi.gender} />
           <InfoRow label="สถานภาพสมรส" value={pi.m_status} />
           <InfoRow label="จำนวนบุตร" value={pi.children_number != null ? `${pi.children_number} คน` : null} />
@@ -396,26 +417,20 @@ export default function HRPersonnelDetail() {
             <InfoRow label="ภาษีเงินได้" value={fmt(fin.tax_withholding_override ?? 0)} />
           )}
           {fin.reserve_rate_pct !== undefined && (
-            <InfoRow label="เงินสะสม %" value={reserveRateText(fin.reserve_rate_pct)} />
+            <InfoRow label="อัตราเงินสะสม" value={reserveRateText(fin.reserve_rate_pct)} />
           )}
+          <FinanceSavingsLoans fin={fin} className="mt-5 border-t border-gray-100 pt-5 dark:border-line" />
         </div>
       )}
 
       {/* สิทธิ์การลา — LeaveQuotaOut (backend v1.1.0) */}
       {Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
-          <SectionTitle>สิทธิ์การลา (ปีงบประมาณ {quota.year})</SectionTitle>
-          <InfoRow label={leaveRows?.find((r) => isAnnualLeave(r.name))?.name ?? "ลาพักผ่อน"} value={fmtDaysUnit(quota.annual_leave)} />
-          <InfoRow label="ยกมาจากปีก่อน" value={fmtDaysUnit(quota.annual_leave_carried_over)} />
-          {leaveRows === null && <Skeleton className="mt-2 h-24 rounded-xl" />}
-          {leaveRows?.filter((r) => !isAnnualLeave(r.name)).map((r) => (
-            <InfoRow
-              key={r.id ?? r.name}
-              label={r.name}
-              value={isPrescribedLeave(r.name) ? "ตามแพทย์สั่ง (ไม่จำกัดวัน)" : fmtDaysUnit(r.quota)}
-            />
-          ))}
-          {leaveRowsError && <p className="mt-2 text-sm text-red-600 dark:text-red-400">โหลดสิทธิ์การลาแต่ละประเภทไม่สำเร็จ ลองเปิดหน้านี้ใหม่</p>}
+          <SectionTitle>ทะเบียนการลา (ปีงบประมาณ {quota.year})</SectionTitle>
+          <LeaveRegisterTable quota={quota} rows={leaveRows} error={leaveRowsError} />
+          <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
+            หน่วยเป็นวัน · นับจากใบลาที่อนุมัติแล้วในปีงบประมาณนี้ วันที่ลาเกินสิทธิ์จะถูกงดจ่ายเงินเดือน
+          </p>
         </div>
       )}
 
@@ -499,7 +514,7 @@ export default function HRPersonnelDetail() {
           <InfoRow label="ชื่อ-นามสกุล" value={spouse.spouse_name} />
           <InfoRow label="อาชีพ" value={spouse.spouse_occupation} />
           <InfoRow label="วันเกิด" value={fmtDate(spouse.spouse_birthday)} />
-          <InfoRow label="อายุ" value={spouse.spouse_age != null ? `${spouse.spouse_age} ปี` : null} />
+          <InfoRow label="อายุ" value={ageText(spouse.spouse_birthday)} />
           <InfoRow label="สถานภาพการสมรส" value={spouse.spouse_marriage_status === "registered" ? "จดทะเบียนสมรส" : spouse.spouse_marriage_status === "unregistered" ? "ไม่ได้จดทะเบียน" : null} />
           <InfoRow label="เบอร์โทร" value={spouse.spouse_phone} />
         </div>
@@ -555,6 +570,20 @@ export default function HRPersonnelDetail() {
           ))}
         </div>
       )}
+
+      {/* โควตาประเภทการลาที่ HR เพิ่มเอง (ซ่อนเองเมื่อไม่มี / ไม่มีสิทธิ์ดู) */}
+      {can("hr.leave.quota.view") && <CustomLeaveQuotaCard employeeId={id} />}
+
+      {/* ประวัติ: ตำแหน่ง / โยกย้าย / การลา / ขั้นเงินเดือน — แต่ละส่วนตามสิทธิ์ของ endpoint */}
+      <EmployeeHistoryCard
+        base={`/hr/employees/${id}`}
+        allow={{
+          position: can("hr.positions.assign"),
+          relocation: can("hr.relocation.history"),
+          leave: can("hr.leave.quota.view"),
+          salary: can("hr.salary.history"),
+        }}
+      />
 
       {/* ผู้มีสิทธิ์รับสวัสดิการ (3P) — WP2 */}
       <Can perm="hr.welfare.dependants.view">
@@ -629,8 +658,7 @@ export default function HRPersonnelDetail() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันเกิดคู่สมรส</label>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={inputCls}
                       value={familyForm.spouse?.spouse_birthday ?? ""}
                       onChange={(e) => setFamilyForm((p) => ({ ...p, spouse: { ...p.spouse, spouse_birthday: e.target.value } }))}
@@ -702,8 +730,7 @@ export default function HRPersonnelDetail() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันเกิดบุตร</label>
-                      <input
-                        type="date"
+                      <ThaiDateField
                         className={inputCls}
                         value={child.child_birthday}
                         onChange={(e) => setFamilyForm((p) => { const next = [...p.children]; next[i] = { ...next[i], child_birthday: e.target.value }; return { ...p, children: next } })}
@@ -788,8 +815,7 @@ export default function HRPersonnelDetail() {
                       </div>
                       <div>
                         <label className="text-xs font-medium text-gray-600 dark:text-gray-400 block mb-1">วันเกิด</label>
-                        <input
-                          type="date"
+                        <ThaiDateField
                           className={inputCls}
                           value={parent.parent_birthday}
                           onChange={(e) => setFamilyForm((p) => { const next = [...p.parents]; next[i] = { ...next[i], parent_birthday: e.target.value }; return { ...p, parents: next } })}

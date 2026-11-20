@@ -1,18 +1,7 @@
 // src/pages/StockDamageOut.jsx
 import { useEffect, useMemo, useState } from "react"
 import { get, post } from "../../lib/api"
-import {
-  cx,
-  baseField,
-  fieldDisabled,
-  labelCls,
-  helpTextCls,
-  errorTextCls,
-  cardCls,
-  sectionTitleCls,
-  resetBtnCls,
-  spinnerCls,
-} from "../../lib/styles"
+import { cx, baseField, fieldDisabled, labelCls, helpTextCls, errorTextCls, cardCls, sectionTitleCls, resetBtnCls, spinnerCls, formDangerBtnCls } from "../../lib/styles"
 import ComboBox from "../../components/ComboBox"
 import ProductFormPicker from "../../components/ProductFormPicker"
 import useProductForms, { specFromForm } from "../../lib/useProductForms"
@@ -399,14 +388,7 @@ const StockDamageOut = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl
-                  bg-red-600 px-6 py-3 text-base font-semibold text-white shadow-sm cursor-pointer
-                  transition-all duration-200
-                  hover:bg-red-700 hover:shadow-[0_8px_20px_rgba(220,38,38,0.35)] hover:scale-[1.02]
-                  active:scale-[.97]
-                  disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2
-                  dark:focus-visible:ring-offset-slate-900"
+                className={formDangerBtnCls}
                 aria-busy={submitting ? "true" : "false"}
               >
                 {submitting && <span className={spinnerCls} aria-hidden="true" />}

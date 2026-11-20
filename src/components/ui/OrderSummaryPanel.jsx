@@ -160,7 +160,7 @@ export default function OrderSummaryPanel({
               aria-busy={primary.loading || undefined}
               className={cx(
                 submitBtnCls,
-                "h-12 w-full py-0 hover:scale-100 active:scale-[.98]",
+                "h-12 w-full py-0",
                 primary.loading && "cursor-wait opacity-60",
               )}
             >

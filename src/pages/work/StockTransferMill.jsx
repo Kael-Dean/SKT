@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { Trash2 } from "lucide-react"
 import { get, post } from "../../lib/api"
 import { describeApiError } from "../../lib/apiErrors"
-import { cx, baseField, labelCls, helpTextCls, errorTextCls, primaryBtnCls, dangerBtnCls } from "../../lib/styles"
+import { cx, baseField, labelCls, helpTextCls, errorTextCls, primaryBtnCls, dangerBtnCls, formPrimaryBtnCls, submitBtnCls, resetBtnCls } from "../../lib/styles"
 import { SkeletonTableRows, EmptyState, ErrorState, Badge, DataList, StickyActionBar, ConfirmDialog, toast } from "../../components/ui"
 import ComboBox from "../../components/ComboBox"
 import ProductFormPicker from "../../components/ProductFormPicker"
@@ -777,13 +777,7 @@ function StockTransferMill() {
               <button
                 type="button"
                 onClick={fetchEligible}
-                className="inline-flex items-center justify-center rounded-2xl
-                  bg-indigo-600 px-6 py-3 text-base font-semibold text-white
-                  shadow-[0_6px_16px_rgba(79,70,229,0.35)]
-                  transition-all duration-300 ease-out
-                  hover:bg-indigo-700 hover:shadow-[0_8px_20px_rgba(79,70,229,0.45)]
-                  hover:scale-[1.05] active:scale-[.97]
-                  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className={formPrimaryBtnCls}
                 aria-busy={loadingEligible ? "true" : "false"}
                 disabled={loadingEligible}
               >
@@ -1014,13 +1008,7 @@ function StockTransferMill() {
                 ref={submitBtnRef}
                 type="submit"
                 disabled={submitting}
-                className="inline-flex items-center justify-center rounded-2xl
-                  bg-emerald-600 px-6 py-3 text-base font-semibold text-white
-                  shadow-[0_6px_16px_rgba(16,185,129,0.35)]
-                  transition-all duration-300 ease-out
-                  hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)]
-                  hover:scale-[1.05] active:scale-[.97]
-                  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className={submitBtnCls}
                 aria-busy={submitting ? "true" : "false"}
               >
                 {submitting ? "กำลังบันทึก..." : "บันทึก"}
@@ -1029,14 +1017,7 @@ function StockTransferMill() {
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex items-center justify-center rounded-2xl
-                  border border-slate-300 bg-white px-6 py-3 text-base font-medium text-slate-700
-                  shadow-sm
-                  transition-all duration-300 ease-out
-                  hover:bg-slate-100 hover:shadow-md hover:scale-[1.03]
-                  active:scale-[.97]
-                  dark:border-slate-600 dark:bg-slate-700/60 dark:text-white
-                  dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
+                className={resetBtnCls}
               >
                 รีเซ็ต
               </button>

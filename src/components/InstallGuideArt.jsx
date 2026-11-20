@@ -8,7 +8,7 @@
 // Every scene shares the 240x120 viewBox. Non-highlighted rows are grey bars on purpose: the
 // reader should look for the one labelled thing, not read a fake menu.
 // ─────────────────────────────────────────────────────────────────────────────
-import { Ellipsis, EllipsisVertical, Menu as MenuIcon, MonitorDown, Share } from "lucide-react"
+import { ChevronDown, Ellipsis, EllipsisVertical, Menu as MenuIcon, MonitorDown, Share } from "lucide-react"
 
 const SHELL = "fill-white stroke-gray-300 dark:fill-raised dark:stroke-line-strong"
 const BAR = "fill-gray-100 dark:fill-white/[.06]"
@@ -404,6 +404,34 @@ const SCENES = {
       <IosAddPage hotAdd />
     </Stage>
   ),
+  // ── iPhone / iPad: Chrome ─────────────────────────────────────────────────────
+  chromeIosShare: () => (
+    <Stage>
+      <ChromeIosTop hotShare />
+    </Stage>
+  ),
+  chromeIosMore: () => (
+    <Stage>
+      <ChromeIosTop />
+      <PhoneDim />
+      <rect x={56} y={44} width={128} height={76} rx={12} className={SHELL} />
+      <rect x={66} y={54} width={60} height={4} rx={2} className={BONE} />
+      {[74, 102, 130].map((x) => (
+        <circle key={x} cx={x} cy={80} r={10} className={BAR} />
+      ))}
+      <HotIcon icon={ChevronDown} cx={160} cy={80} />
+      <text x={160} y={106} fontSize={FONT} textAnchor="middle" className={`${TINT_LABEL} font-semibold`}>
+        View More
+      </text>
+    </Stage>
+  ),
+  chromeIosAdd: () => (
+    <Stage>
+      <ChromeIosTop />
+      <PhoneDim />
+      <Menu x={56} y={44} w={128} rows={[58, { label: "Add to Home Screen", tone: "hot" }, 70, 50]} />
+    </Stage>
+  ),
   iosShareOld: () => (
     <Stage>
       {/* iPhone: bottom of the screen */}
@@ -419,6 +447,18 @@ const SCENES = {
       <HotIcon icon={Share} cx={203} cy={34} />
     </Stage>
   ),
+}
+
+/** Chrome on iPhone / iPad: the address bar sits on top, with Share at its right end. */
+function ChromeIosTop({ hotShare = false }) {
+  return (
+    <>
+      <rect x={52} y={8} width={136} height={130} rx={16} className={SHELL} />
+      <rect x={62} y={20} width={92} height={18} rx={9} className={PILL} />
+      <rect x={84} y={27} width={46} height={4} rx={2} className={BONE} />
+      {hotShare ? <HotIcon icon={Share} cx={170} cy={29} /> : <Icon icon={Share} cx={170} cy={29} />}
+    </>
+  )
 }
 
 export default function InstallGuideArt({ name }) {

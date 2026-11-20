@@ -31,11 +31,12 @@ import { createPortal } from "react-dom"
 import { Check, ChevronDown } from "lucide-react"
 import ComboBox from "./ComboBox"
 import useAnchoredPanel from "../lib/useAnchoredPanel"
+import { fieldErrorCls } from "../lib/styles"
 
 // Must sit above StickyTableScrollbar (z-index 10000) and the Sheet (10040).
 // Full z-stack: see src/components/ui/Sheet.jsx header.
 const PANEL_Z = 10050
-const PANEL_MAX_H = 288 // max-h-72
+const PANEL_MAX_H = 448 // max-h-112 — taller so long names/more rows show at once
 const PANEL_MIN_W = 288 // 18rem
 const PANEL_MAX_W = 512 // 32rem
 const GAP = 6
@@ -302,7 +303,7 @@ function PlainSelect({
           open
             ? "border-indigo-500 ring-2 ring-indigo-500/25 dark:border-indigo-400 dark:ring-1 dark:ring-indigo-400"
             : error
-            ? "border-red-400 ring-2 ring-red-300/50 dark:border-red-500 dark:ring-red-500/30"
+            ? fieldErrorCls
             : "focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500/40 " +
               "dark:focus-visible:border-indigo-400 dark:focus-visible:ring-1 dark:focus-visible:ring-indigo-400" +
               // disabled keeps the dim hairline (inactive controls are exempt
@@ -393,7 +394,7 @@ function PlainSelect({
                     {showSwatch && <Swatch color={swatchFor(opt.value)} strong={isChosen} />}
 
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate" title={opt.label}>{opt.label}</span>
+                      <span className="block break-words" title={opt.label}>{opt.label}</span>
                       {sub && (
                         <span className="mt-0.5 block truncate text-xs font-normal text-slate-600 dark:text-slate-300">
                           {sub}

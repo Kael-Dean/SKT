@@ -297,7 +297,7 @@ function ReportForm({ onSubmitted }) {
           </li>
           <li className="flex gap-2.5">
             <Route aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-gray-500 dark:text-gray-400" />
-            <span>เรื่องส่งถึงหัวหน้าของผู้ถูกแจ้งก่อน เรื่องร้ายแรงส่งตรงถึง ผช.ผจก.</span>
+            <span>เรื่องส่งถึงหัวหน้าของผู้ถูกแจ้งก่อน เรื่องร้ายแรงส่งถึงฝ่ายบุคคลก่อน แล้วต่อถึง ผช.ผจก.</span>
           </li>
           <li className="flex gap-2.5">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-gray-500 dark:text-gray-400" />

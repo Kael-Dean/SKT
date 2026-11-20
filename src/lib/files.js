@@ -126,16 +126,23 @@ export function fetchFileBlob(id) {
   return apiDownload(`/files/${encodeURIComponent(id)}`)
 }
 
-/** Save a blob under a filename (download). */
-export function saveBlob(blob, filename) {
+/** Plain <a download> save. Use saveBlob/deliverBlob from pages — this one breaks in the iOS installed app. */
+function anchorSave(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
   a.download = filename || "file"
+  a.rel = "noopener"
   document.body.appendChild(a)
   a.click()
   a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  // Revoke later — revoking right away can cancel the download (Safari, slow phones).
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
+/** Save a blob under a filename — works on desktop, Android, iPhone/iPad (browser and installed app). */
+export function saveBlob(blob, filename) {
+  return deliverBlob(blob, filename)
 }
 
 // ─── Popups and print in the installed app ───────────────────────────────────
@@ -167,7 +174,7 @@ export async function deliverBlob(blob, filename) {
   const name = filename || "file"
   const file = isStandalone() && isIOSLike() && typeof File === "function" ? new File([blob], name, { type: blob.type }) : null
   if (!file || !navigator.canShare?.({ files: [file] })) {
-    saveBlob(blob, name)
+    anchorSave(blob, name)
     // The installed app can't preview, so opening a document leaves a copy on the device.
     if (isMobileStandalone()) {
       toast.info("บันทึกไฟล์ลงเครื่องแล้ว", {
@@ -182,15 +189,81 @@ export async function deliverBlob(blob, filename) {
   } catch (err) {
     if (err?.name === "AbortError") return // user closed the share sheet
     if (err?.name !== "NotAllowedError") {
-      saveBlob(blob, name)
+      anchorSave(blob, name)
       return
     }
+    // The download outlived the tap. iOS share sheet = preview + "Save to Files" + Print.
     toast.info("ไฟล์พร้อมแล้ว", {
-      description: name,
-      duration: 15_000,
-      action: { label: "บันทึกหรือแชร์", onClick: () => shareBlobFile(file).catch(() => {}) },
+      description: `${name} — กด "เปิด / บันทึก" เพื่อดูหรือเก็บลงเครื่อง`,
+      duration: 30_000,
+      action: { label: "เปิด / บันทึก", onClick: () => shareBlobFile(file).catch(() => {}) },
     })
   }
+}
+
+const isAndroid = () => /Android/i.test(window.navigator.userAgent)
+
+/**
+ * Open a tab for a document that is still downloading. Call synchronously inside the
+ * click, before any await (Safari blocks window.open after one). Returns null where a
+ * tab can't show it — Android (Chrome there downloads a blob PDF and leaves a blank tab)
+ * and the phone/tablet installed app — and showBlob then hands the file over instead.
+ */
+export function prepareDocWindow(title = "รายงาน") {
+  if (isAndroid()) return null
+  // No "noopener": we need the handle to load the file. Clear opener by hand (reverse-tabnabbing).
+  const win = openPopup()
+  if (!win) return null
+  try {
+    win.opener = null
+  } catch { /* ignore */ }
+  try {
+    const doc = win.document
+    doc.title = title
+    const isDark = document.documentElement.classList.contains("dark")
+    if (isDark) {
+      doc.documentElement.style.colorScheme = "dark"
+      doc.body.style.background = "#0B0B0F"
+      doc.body.style.color = "#EDEDF0"
+    }
+    const wrap = doc.createElement("div")
+    wrap.style.cssText = "font-family:sans-serif;padding:16px"
+    const heading = doc.createElement("div")
+    heading.style.cssText = "font-size:16px;font-weight:600"
+    heading.textContent = "กำลังเตรียมไฟล์…"
+    const hint = doc.createElement("div")
+    hint.style.cssText = `margin-top:6px;color:${isDark ? "#9A9AA5" : "#64748b"}`
+    hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็นไฟล์ ให้กลับไปหน้าเดิมเพื่อดูสาเหตุ"
+    wrap.append(heading, hint)
+    doc.body.replaceChildren(wrap)
+  } catch { /* ignore */ }
+  return win
+}
+
+/** Close a tab from prepareDocWindow (on error). */
+export function closeDocWindow(win) {
+  try {
+    win?.close?.()
+  } catch { /* ignore */ }
+}
+
+/**
+ * Show a downloaded document: in the tab from prepareDocWindow when there is one,
+ * otherwise save it / open the share sheet (iPhone/iPad app) so it still reaches the user.
+ */
+export async function showBlob(blob, filename, win) {
+  if (win && !win.closed) {
+    const url = URL.createObjectURL(blob)
+    try {
+      win.location.href = url
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000)
+      return
+    } catch {
+      URL.revokeObjectURL(url)
+      closeDocWindow(win)
+    }
+  }
+  await deliverBlob(blob, filename)
 }
 
 /**

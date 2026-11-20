@@ -162,7 +162,9 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
             {history.map((h, i) => {
               const oldTitle = h.old_position_title ?? (h.old_position_id != null ? byId[h.old_position_id]?.title ?? `#${h.old_position_id}` : null)
               // ชื่อที่ backend ส่งมาก่อน → ค้นจาก id → ไม่ระบุ (h.title คือชื่อ ไม่ใช่ id)
-              const newTitle = h.new_position_title
+              // position_text = ชื่อตำแหน่งตามคำสั่ง (มีเมื่อนำเข้าจากประวัติเดิม) — แสดงแทนชื่อตำแหน่งปัจจุบันที่ใกล้เคียง
+              const newTitle = h.position_text
+                ?? h.new_position_title
                 ?? (h.new_position_id != null ? byId[h.new_position_id]?.title ?? `ตำแหน่ง #${h.new_position_id}` : null)
                 ?? h.title
                 ?? "ไม่ระบุตำแหน่ง"
@@ -173,7 +175,9 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
                     <p className="text-gray-900 dark:text-gray-100 break-words">
                       {oldTitle ? <><span className="text-gray-500 dark:text-gray-400">{oldTitle}</span> <ArrowRight aria-hidden="true" className="inline size-3.5 align-[-2px] text-gray-400 dark:text-gray-500" strokeWidth={1.75} /><span className="sr-only">เป็น</span> </> : null}
                       <span className="font-semibold">{newTitle}</span>
+                      {h.is_acting && <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 align-middle text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">รักษาการ</span>}
                     </p>
+                    {h.order_reference && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{h.order_reference}</p>}
                     {h.reason && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{reasonLabel(h.reason)}</p>}
                   </div>
                 </li>

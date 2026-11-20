@@ -3,6 +3,7 @@
 // 13F (HR side) — ดู detail + ดาวน์โหลด PDF ฟอร์มย้ายสาขา
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
+import { saveBlob } from "../../../lib/files"
 import { cardCls, cx, tabPanelCls } from "../../../lib/styles"
 import AllTimeToggle from "../../../components/AllTimeToggle"
 import { firstOfMonthIso, todayIso } from "../../../lib/allTime"
@@ -13,6 +14,7 @@ import Portal from "../../../components/Portal"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
 import { usePositionLookup } from "../../../lib/relocation"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 function fmtBE(d) {
   // วันที่จาก BE มาเป็น "DD/MM/BBBB" แล้ว — แสดงตรงๆ
@@ -66,12 +68,7 @@ export default function HRRelocationHistoryTab() {
       if (toDate)   params.set("to_date", toDate)
       const qs = params.toString()
       const { blob, filename } = await apiDownload(`/hr/reports/relocation-history-pdf${qs ? "?" + qs : ""}`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || "relocation-history.pdf"
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : "relocation-history.pdf")
     } catch (e) {
       setPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {
@@ -119,12 +116,7 @@ export default function HRRelocationHistoryTab() {
     setDetailPdfErr("")
     try {
       const { blob, filename } = await apiDownload(`/hr/relocation-requests/${id}/form-pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `relocation_form_${id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `relocation_form_${id}.pdf`)
     } catch (e) {
       setDetailPdfErr(`${e.message || "ดาวน์โหลดไม่สำเร็จ"}`)
     } finally {
@@ -157,12 +149,12 @@ export default function HRRelocationHistoryTab() {
             <div className="flex gap-3 flex-wrap">
               <div className="flex-1 min-w-32">
                 <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">ตั้งแต่วันที่</label>
-                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                <ThaiDateField value={fromDate} onChange={(e) => setFromDate(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60" />
               </div>
               <div className="flex-1 min-w-32">
                 <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">ถึงวันที่</label>
-                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                <ThaiDateField value={toDate} onChange={(e) => setToDate(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/60" />
               </div>
               <div className="flex flex-wrap items-end gap-2">

@@ -10,6 +10,7 @@
 import { getFiscalYearBeStart } from "./debtFiscalYear"
 import { fmtPayMonth } from "./payroll"
 import { thaiDate } from "./loans"
+import { ageFromBirthday } from "./age"
 
 export { money } from "./payroll"
 
@@ -103,7 +104,7 @@ export function dependantMeta(d) {
   const parts = [d.relationship === "บุตร" && d.child_order ? `บุตรคนที่ ${d.child_order}` : d.relationship]
   if (d.legal_status) parts.push(d.legal_status)
   if (d.deceased_date || d.is_deceased) parts.push("เสียชีวิตแล้ว")
-  else if (d.age != null) parts.push(`${d.age} ปี`)
+  else if (ageFromBirthday(d.birthday) != null) parts.push(`${ageFromBirthday(d.birthday)} ปี`)
   if (d.is_twin) parts.push("แฝด")
   if (d.is_adopted && d.legal_status !== "บุตรบุญธรรม") parts.push("บุตรบุญธรรม")
   if (d.is_incapacitated) parts.push("ทุพพลภาพ/ไร้ความสามารถ")

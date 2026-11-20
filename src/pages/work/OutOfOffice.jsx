@@ -29,6 +29,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import PageTitle from "../../components/PageTitle"
 import FormApplicantHeader from "../../components/FormApplicantHeader"
+import ThaiDateField from "../../components/ThaiDateField"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -126,10 +127,26 @@ const FIELD_ORDER = [
 // These decide whether the request is multi-day, so errors comparing dates/times may no longer hold
 const MULTI_DAY_INPUTS = ["request_type", "request_date", "return_date"]
 
-// Personal trips: 2.5 hours per request. Work trips have no limit.
-// Backend still needs the matching change until it ships.
-const PERSONAL_MAX_MIN = 150
-const PERSONAL_TOO_LONG_MSG = `ธุระส่วนตัวออกได้ไม่เกิน ${fmtDuration(PERSONAL_MAX_MIN)}`
+// Personal trips are capped per request; work trips have no time limit (backend 2026-11-11).
+// The cap comes from GET /hr/out-of-office/settings → half_day_hours (hours, now 2.5);
+// this default is used only when settings can't be loaded.
+const PERSONAL_MAX_MIN_DEFAULT = 150
+
+/** settings.half_day_hours (hours) → minutes, falling back to the default */
+function personalMaxMin(settings) {
+  const h = Number(settings?.half_day_hours)
+  return Number.isFinite(h) && h > 0 ? Math.round(h * 60) : PERSONAL_MAX_MIN_DEFAULT
+}
+
+/** 150 → "2 ชั่วโมง 30 นาที" (spelled out, for the cap hint / message) */
+function fmtDurationLong(min) {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  return [h && `${h} ชั่วโมง`, m && `${m} นาที`].filter(Boolean).join(" ")
+}
+
+const personalTooLongMsg = (maxMin) => `ธุระส่วนตัวขอได้ไม่เกิน ${fmtDurationLong(maxMin)} กรุณายื่นใบลาแทน`
+const OUTSIDE_HOURS_MSG = (s) => `ช่วงเวลาต้องอยู่ในเวลาทำงาน ${hhmm(s.work_start)}–${hhmm(s.work_end)}`
 
 /** Files can be added to pending or approved work requests only (409 otherwise); personal trips need none. */
 const canAttach = (r) =>
@@ -178,7 +195,7 @@ function ChoiceGroup({ id, legend, name, value, options, onChange, error }) {
 
 function Field({ id, label, required, error, hint, children }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <label htmlFor={id} className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}
         {required && <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>}
@@ -203,10 +220,10 @@ function StatusBadge({ status }) {
 
 /**
  * Workday strip (personal trips only): shows work hours and the chosen out→back
- * span, and warns when it leaves work hours or exceeds PERSONAL_MAX_MIN.
+ * span, and warns when it leaves work hours or exceeds the personal cap.
  * Purely informative — validate() and the backend enforce the rules.
  */
-function WorkdayStrip({ settings, timeOut, timeBack }) {
+function WorkdayStrip({ settings, maxMin, timeOut, timeBack }) {
   const ws = toMin(settings?.work_start)
   const we = toMin(settings?.work_end)
   if (ws == null || we == null || we <= ws) return null
@@ -216,7 +233,7 @@ function WorkdayStrip({ settings, timeOut, timeBack }) {
   const hasSpan = o != null && b != null && b > o
   const pct = (m) => `${Math.min(100, Math.max(0, ((m - ws) / span) * 100))}%`
   const outside = hasSpan && (o < ws || b > we)
-  const tooLong = hasSpan && b - o > PERSONAL_MAX_MIN
+  const tooLong = hasSpan && b - o > maxMin
 
   return (
     <div className="mt-1">
@@ -237,9 +254,7 @@ function WorkdayStrip({ settings, timeOut, timeBack }) {
       </div>
       {(outside || tooLong) && (
         <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-          {outside
-            ? "ช่วงเวลานี้อยู่นอกเวลาทำงาน ระบบอาจไม่รับคำขอ"
-            : PERSONAL_TOO_LONG_MSG}
+          {outside ? OUTSIDE_HOURS_MSG(settings) : personalTooLongMsg(maxMin)}
         </p>
       )}
     </div>
@@ -312,6 +327,7 @@ export default function OutOfOffice() {
 
   const isWork = form.request_type === "work"
   const isMultiDay = isWork && !!form.request_date && !!form.return_date && form.return_date > form.request_date
+  const maxMin = personalMaxMin(settings)
 
   const openAttach = (r) => {
     laterUploads.discard()
@@ -364,7 +380,8 @@ export default function OutOfOffice() {
     return wd === 0 || wd === 6
   }, [form.request_date])
 
-  // Mirrors backend 422 rules (+ required fields, + PERSONAL_MAX_MIN ahead of the backend change)
+  // Mirrors backend rules (+ required fields). Work: any times, back after out.
+  // Personal: inside work hours and ≤ maxMin inclusive (09:00–11:30 ok, 09:00–11:31 not).
   const validate = () => {
     const er = {}
     if (!["work", "personal"].includes(form.request_type)) er.request_type = "กรุณาเลือกประเภท"
@@ -375,8 +392,14 @@ export default function OutOfOffice() {
     if (!isMultiDay && form.time_out && form.time_back && toMin(form.time_back) <= toMin(form.time_out)) {
       er.time_back = "เวลากลับต้องหลังเวลาออก"
     }
-    if (!isWork && durationMin != null && durationMin > PERSONAL_MAX_MIN) {
-      er.time_back = PERSONAL_TOO_LONG_MSG
+    if (!isWork && durationMin != null) {
+      const ws = toMin(settings?.work_start)
+      const we = toMin(settings?.work_end)
+      if (ws != null && we != null && we > ws && (toMin(form.time_out) < ws || toMin(form.time_back) > we)) {
+        er.time_back = OUTSIDE_HOURS_MSG(settings)
+      } else if (durationMin > maxMin) {
+        er.time_back = personalTooLongMsg(maxMin)
+      }
     }
     if (!form.place.trim()) er.place = "กรุณาระบุสถานที่"
     if (!form.reason.trim()) er.reason = "กรุณาระบุเหตุผล"
@@ -554,9 +577,8 @@ export default function OutOfOffice() {
               error={errors.request_date}
               hint={form.request_date ? fmtThaiLong(form.request_date) + (dateIsWeekend ? " — วันหยุดสุดสัปดาห์" : "") : undefined}
             >
-              <input
+              <ThaiDateField
                 id="ooo-request_date"
-                type="date"
                 className={`${inputCls} ${errors.request_date ? inputErrCls : ""}`}
                 value={form.request_date}
                 onChange={set("request_date")}
@@ -572,9 +594,8 @@ export default function OutOfOffice() {
                 error={errors.return_date}
                 hint={isMultiDay ? fmtThaiLong(form.return_date) : "ไม่บังคับ — เว้นว่างถ้ากลับวันเดียวกัน"}
               >
-                <input
+                <ThaiDateField
                   id="ooo-return_date"
-                  type="date"
                   className={`${inputCls} ${errors.return_date ? inputErrCls : ""}`}
                   value={form.return_date}
                   min={form.request_date || undefined}
@@ -618,10 +639,10 @@ export default function OutOfOffice() {
                     : isWork
                       ? "ระบุเวลาออกและเวลากลับ"
                       : settings
-                        ? <>เวลาทำงาน <span className="tabular-nums">{hhmm(settings.work_start)}–{hhmm(settings.work_end)} น.</span> · ไม่เกิน <span className="tabular-nums">{fmtDuration(PERSONAL_MAX_MIN)}</span></>
-                        : <>ไม่เกิน <span className="tabular-nums">{fmtDuration(PERSONAL_MAX_MIN)}</span></>}
+                        ? <>เวลาทำงาน <span className="tabular-nums">{hhmm(settings.work_start)}–{hhmm(settings.work_end)} น.</span> · ไม่เกิน <span className="tabular-nums">{fmtDurationLong(maxMin)}</span></>
+                        : <>ไม่เกิน <span className="tabular-nums">{fmtDurationLong(maxMin)}</span></>}
               </p>
-              {settings && !isWork && <WorkdayStrip settings={settings} timeOut={form.time_out} timeBack={form.time_back} />}
+              {settings && !isWork && <WorkdayStrip settings={settings} maxMin={maxMin} timeOut={form.time_out} timeBack={form.time_back} />}
             </div>
 
             {isWork && (
@@ -835,7 +856,7 @@ export default function OutOfOffice() {
                         </div>
                         {r.justification === "unjust" && r.justification_note && (
                           <p className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs text-rose-700 break-words dark:bg-rose-900/20 dark:text-rose-300">
-                            ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                            ผลตรวจ ไม่อนุมัติ: {r.justification_note}
                           </p>
                         )}
                         <p className="text-sm text-gray-700 dark:text-gray-300 break-words">

@@ -159,14 +159,13 @@ export const INSTALL_GUIDE = {
   },
 
   ios: {
-    switchLabel: "ใช้ Safari แล้วเลือกรุ่น iOS ของเครื่อง",
+    switchLabel: "เลือกเบราว์เซอร์ที่ใช้อยู่ (Safari เลือกตามรุ่น iOS ของเครื่อง)",
     defaultVariant: "ios26",
     openHint: `เปิดจากไอคอน ${APP_NAME} ที่หน้าจอโฮม`,
-    note: "Chrome บน iOS 16.4 ขึ้นไปก็มีเมนูแชร์ (Share) แล้ว Add to Home Screen แต่แนะนำให้ใช้ Safari",
     variants: [
       {
         value: "ios26",
-        label: "iOS 26 ขึ้นไป",
+        label: "Safari iOS 26+",
         steps: [
           {
             text: "แตะปุ่มสามจุดข้างแถบที่อยู่",
@@ -189,7 +188,7 @@ export const INSTALL_GUIDE = {
       },
       {
         value: "iosOld",
-        label: "iOS รุ่นก่อนหน้า",
+        label: "Safari รุ่นเก่า",
         steps: [
           {
             text: "แตะปุ่มแชร์ (Share) รูปสี่เหลี่ยมมีลูกศรชี้ขึ้น",
@@ -203,16 +202,39 @@ export const INSTALL_GUIDE = {
           { text: "แตะ *เพิ่ม* (Add)", art: "iosAddOld" },
         ],
       },
+      {
+        value: "chrome",
+        label: "Chrome",
+        note: "ใช้ได้กับ iOS 16.4 ขึ้นไป",
+        steps: [
+          {
+            text: "แตะปุ่มแชร์ (Share) ด้านขวาของแถบที่อยู่",
+            hint: "รูปสี่เหลี่ยมมีลูกศรชี้ขึ้น ถ้าย้ายแถบที่อยู่ไว้ด้านล่าง ปุ่มจะอยู่ด้านล่าง",
+            art: "chromeIosShare",
+          },
+          {
+            text: "แตะ *View More* (ดูเพิ่มเติม) แถวล่างสุดของหน้าต่างแชร์",
+            hint: "ปุ่มวงกลมรูปลูกศรชี้ลง อยู่ขวาสุด",
+            art: "chromeIosMore",
+          },
+          { text: "แตะ *Add to Home Screen* (เพิ่มไปยังหน้าจอโฮม)", art: "chromeIosAdd" },
+          {
+            text: "แตะ *เพิ่ม* (Add)",
+            hint: "ถ้ามีสวิตช์ *เปิดเป็นเว็บแอป* (Open as Web App) ให้เปิดค้างไว้",
+            art: "iosAdd26",
+          },
+        ],
+      },
     ],
     after: [
       `ไอคอน ${APP_NAME} จะอยู่ที่หน้าจอโฮม`,
       NO_BROWSER_BAR,
       NEEDS_INTERNET,
-      "อาจต้องเข้าสู่ระบบอีกครั้ง เพราะแอปที่ติดตั้งแยกที่เก็บข้อมูลจาก Safari",
+      "อาจต้องเข้าสู่ระบบอีกครั้ง เพราะแอปที่ติดตั้งแยกที่เก็บข้อมูลจากเบราว์เซอร์",
     ],
     trouble: [
       {
-        problem: "ติดตั้งแล้ว แต่เปิดเป็นหน้าเว็บใน Safari",
+        problem: "ติดตั้งแล้ว แต่เปิดเป็นหน้าเว็บในเบราว์เซอร์",
         fix: "สวิตช์เปิดเป็นเว็บแอปถูกปิดไว้ จึงได้แค่ที่คั่นหน้า ให้ทำใหม่โดยเปิดสวิตช์ค้างไว้",
       },
       TROUBLE_IN_APP,
@@ -225,14 +247,17 @@ export const INSTALL_GUIDE = {
 
 /** Which browser/version tab opens first on this device. */
 export function defaultVariant({ platform, browser, iosMajor }) {
-  if (platform === "ios") return iosMajor !== null && iosMajor < 26 ? "iosOld" : "ios26"
+  if (platform === "ios") {
+    if (browser === "chrome") return "chrome"
+    return iosMajor !== null && iosMajor < 26 ? "iosOld" : "ios26"
+  }
   const guide = INSTALL_GUIDE[platform]
   return guide.variants.some((v) => v.value === browser) ? browser : guide.defaultVariant
 }
 
 /** Warning for this browser, or null. The in-app case is about the app it runs inside. */
 export function browserWarning({ platform, browser, inApp }) {
-  const target = platform === "ios" ? "Safari" : platform === "android" ? "Chrome" : "Chrome หรือ Edge"
+  const target = platform === "ios" ? "Safari หรือ Chrome" : platform === "android" ? "Chrome" : "Chrome หรือ Edge"
   if (inApp) {
     return {
       kind: "inApp",

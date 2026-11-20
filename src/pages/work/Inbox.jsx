@@ -46,6 +46,7 @@ import {
 } from "../../lib/approvalActions"
 import useModalDismiss from "../../lib/useModalDismiss"
 import PageTitle from "../../components/PageTitle"
+import { fmtLeaveRowDuration } from "../../lib/leaveDays"
 import SalaryCertSupervisorQueue from "../../components/hr/SalaryCertSupervisorQueue"
 import { keepBackState, useDrill } from "../../lib/drill"
 
@@ -120,7 +121,7 @@ function toItem(kind, r) {
     kind,
     req: r,
     name: requesterName(r),
-    title: `${r.leave_type_name || "ใบลา"}${r.total_days != null ? ` ${r.total_days} วัน` : ""}`,
+    title: `${r.leave_type_name || "ใบลา"}${r.total_days != null ? ` ${fmtLeaveRowDuration(r)}` : ""}`,
     when: `${range}${time}`,
     place: r.address_during_leave,
     reason: r.comment,
@@ -257,7 +258,7 @@ function DetailModal({ state, onClose, onDecide }) {
           ["ผู้ยื่น", item.name],
           ["ประเภทการลา", req.leave_type_name],
           ["ช่วงวันลา", item.when],
-          ["จำนวนวัน", req.total_days != null ? `${req.total_days} วัน` : null],
+          ["จำนวนวัน", req.total_days != null ? fmtLeaveRowDuration(req) : null],
           ["เหตุผล", req.comment],
           ["ที่อยู่ระหว่างลา", [req.address_during_leave, req.contact_during_leave && `โทร. ${req.contact_during_leave}`].filter(Boolean).join(" · ")],
           ["วันที่ยื่น", fmtDateTimeTh(req.created_at)],
@@ -567,8 +568,8 @@ export default function Inbox() {
     const text = {
       approve: `${STAGE_APPROVE_LABEL[stageOf(item.req)] || "อนุมัติ"}คำขอของ ${item.name} แล้ว`,
       reject: `ไม่อนุมัติคำขอของ ${item.name} แล้ว`,
-      justified: `บันทึกผลตรวจ "สมเหตุสมผล" ของ ${item.name} แล้ว`,
-      unjust: `บันทึกผลตรวจ "ไม่สมเหตุสมผล" ของ ${item.name} แล้ว · แจ้งผู้ยื่นและฝ่าย HR แล้ว`,
+      justified: `บันทึกผลตรวจ "อนุมัติ" ของ ${item.name} แล้ว`,
+      unjust: `บันทึกผลตรวจ "ไม่อนุมัติ" ของ ${item.name} แล้ว · แจ้งผู้ยื่นและฝ่าย HR แล้ว`,
     }[mode]
     setBanner({ tone: "success", text })
     requestNotificationsRefresh()

@@ -14,6 +14,8 @@ import { Lock } from "lucide-react"
 import { useOnboarding } from "../../lib/onboarding"
 import { goToOnboardingFromLocked } from "../../lib/onboardingGate"
 import OnboardingBanner from "../../components/onboarding/OnboardingBanner"
+import WelcomeArt from "../../components/home/WelcomeArt"
+import { SEASON_LABEL, getSeason } from "../../lib/season"
 
 const SELF_SERVICE_GROUP = "งานบุคคล"
 
@@ -259,6 +261,7 @@ export default function Home() {
   const now = new Date()
   const hour = now.getHours()
   const greeting = hour < 12 ? "อรุณสวัสดิ์" : hour < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น"
+  const season = getSeason(now)
   const dateStr = now.toLocaleDateString("th-TH", {
     weekday: "long",
     year: "numeric",
@@ -312,7 +315,8 @@ export default function Home() {
       {/* Welcome Card */}
       <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-lg">
         <div className="welcome-shimmer pointer-events-none absolute inset-0" aria-hidden="true" />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <WelcomeArt season={season} />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/20 text-xl font-bold ring-2 ring-white/30">
             {avatarLetter}
           </div>
@@ -325,6 +329,7 @@ export default function Home() {
           </div>
           <div className="hidden shrink-0 text-right sm:block">
             <p className="text-sm text-indigo-200">{dateStr}</p>
+            <p className="mt-0.5 text-xs font-medium text-indigo-100/80">{SEASON_LABEL[season]}</p>
           </div>
         </div>
       </div>

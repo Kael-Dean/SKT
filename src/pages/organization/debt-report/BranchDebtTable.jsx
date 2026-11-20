@@ -13,6 +13,7 @@ import { ALL_TIME_START, allTimeEnd } from "../../../lib/allTime"
 import DebtEntryModal from "../debt/DebtEntryModal"
 import { canWriteEntries, isOwnBranchOnly, ownBranchId } from "../debt/debtEntryMeta"
 import ReportPdfButton from "../../../components/ReportPdfButton"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 /** Line-art printer icon for the export button (currentColor, no emoji). */
 function PrinterIcon() {
@@ -340,8 +341,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         </div>
         <div className="w-64">
           <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่เริ่ม</label>
-          <input
-            type="date"
+          <ThaiDateField
             aria-label="วันที่เริ่ม"
             className={cx(baseField, "!py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
             value={dateFrom}
@@ -352,8 +352,7 @@ export default function BranchDebtTable({ programs, fiscalYears, branches, onBac
         </div>
         <div className="w-64">
           <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">วันที่สิ้นสุด</label>
-          <input
-            type="date"
+          <ThaiDateField
             aria-label="วันที่สิ้นสุด"
             className={cx(baseField, "!py-3 !text-sm", rangeInverted && "!border-red-400 dark:!border-red-500")}
             value={dateTo}

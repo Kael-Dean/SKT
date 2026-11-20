@@ -15,6 +15,7 @@ import EmployeeTable from "../../../components/hr/EmployeeTable"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import { assignableRoleOptions } from "../../../lib/permissions"
 import { useDrill } from "../../../lib/drill"
+import ThaiDateField from "../../../components/ThaiDateField"
 
 const GENDER_OPTIONS = [
   { value: "M", label: "ชาย" },
@@ -60,7 +61,7 @@ const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
 function Field({ label, required, children }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-w-0 flex-col gap-1">
       <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -364,7 +365,7 @@ export default function HREmployeesTab() {
                 <input type="text" value={form.cid} onChange={set("cid")} className={inputCls} placeholder="13 หลัก" maxLength={13} />
               </Field>
               <Field label="วันเกิด">
-                <input type="date" value={form.birthday} onChange={set("birthday")} className={inputCls} />
+                <ThaiDateField value={form.birthday} onChange={set("birthday")} className={inputCls} />
               </Field>
               <Field label="เพศ">
                 <SelectDropdown value={form.gender} onChange={(v) => setForm(f => ({ ...f, gender: v }))} placeholder="เลือกเพศ" options={GENDER_OPTIONS} />
@@ -385,7 +386,7 @@ export default function HREmployeesTab() {
                 <SelectDropdown value={form.employment_type} onChange={(v) => setForm(f => ({ ...f, employment_type: v }))} placeholder="เลือกประเภทการจ้าง" options={EMPLOYMENT_TYPE_OPTIONS} />
               </Field>
               <Field label="วันที่เริ่มงาน">
-                <input type="date" value={form.hired} onChange={set("hired")} className={inputCls} />
+                <ThaiDateField value={form.hired} onChange={set("hired")} className={inputCls} />
               </Field>
               <Field label="อีเมล">
                 <input type="email" value={form.email} onChange={set("email")} className={inputCls} placeholder="example@email.com" />
@@ -459,10 +460,10 @@ export default function HREmployeesTab() {
                       <input type="text" value={w.position} onChange={setWork(i, "position")} className={inputCls} placeholder="ตำแหน่งที่ทำ" />
                     </Field>
                     <Field label="ตั้งแต่">
-                      <input type="date" value={w.from_date} onChange={setWork(i, "from_date")} className={inputCls} />
+                      <ThaiDateField value={w.from_date} onChange={setWork(i, "from_date")} className={inputCls} />
                     </Field>
                     <Field label="ถึง">
-                      <input type="date" value={w.to_date} onChange={setWork(i, "to_date")} className={inputCls} />
+                      <ThaiDateField value={w.to_date} onChange={setWork(i, "to_date")} className={inputCls} />
                     </Field>
                   </div>
                 </div>
@@ -491,7 +492,7 @@ export default function HREmployeesTab() {
                       <input type="text" value={c.court} onChange={setCrime(i, "court")} className={inputCls} placeholder="ชื่อศาล" />
                     </Field>
                     <Field label="วันที่คดี">
-                      <input type="date" value={c.case_date} onChange={setCrime(i, "case_date")} className={inputCls} />
+                      <ThaiDateField value={c.case_date} onChange={setCrime(i, "case_date")} className={inputCls} />
                     </Field>
                     <Field label="ผลการตัดสิน">
                       <input type="text" value={c.outcome} onChange={setCrime(i, "outcome")} className={inputCls} placeholder="ผลคดี" />
@@ -526,7 +527,7 @@ export default function HREmployeesTab() {
                       <input type="text" value={spouse.spouse_occupation} onChange={(e) => setSpouse(s => ({ ...s, spouse_occupation: e.target.value }))} className={inputCls} placeholder="อาชีพ" />
                     </Field>
                     <Field label="วันเกิด">
-                      <input type="date" value={spouse.spouse_birthday} onChange={(e) => setSpouse(s => ({ ...s, spouse_birthday: e.target.value }))} className={inputCls} />
+                      <ThaiDateField value={spouse.spouse_birthday} onChange={(e) => setSpouse(s => ({ ...s, spouse_birthday: e.target.value }))} className={inputCls} />
                     </Field>
                     <Field label="สถานภาพการสมรส">
                       <SelectDropdown value={spouse.spouse_marriage_status} onChange={(v) => setSpouse(s => ({ ...s, spouse_marriage_status: v }))} placeholder="เลือกสถานภาพ" options={MARRIAGE_STATUS_OPTIONS} />
@@ -565,7 +566,7 @@ export default function HREmployeesTab() {
                           placeholder="ชื่อ-นามสกุล" inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm" />
                       </Field>
                       <Field label="วันเกิด" required>
-                        <input type="date" value={c.child_birthday} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_birthday:e.target.value}; return n })} className={inputCls} />
+                        <ThaiDateField value={c.child_birthday} onChange={(e) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_birthday:e.target.value}; return n })} className={inputCls} />
                       </Field>
                       <Field label="เพศ">
                         <SelectDropdown value={c.child_gender} onChange={(v) => setModalChildren(prev => { const n=[...prev]; n[i]={...n[i],child_gender:v}; return n })} placeholder="เลือกเพศ" options={CHILD_GENDER_OPTIONS} />
@@ -612,7 +613,7 @@ export default function HREmployeesTab() {
                           <PrefixedNameInput size="sm" label="บิดามารดา" value={p.parent_name} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_name:v}; return n })} placeholder="ชื่อ-นามสกุล" inputClassName="!rounded-lg !px-3 !py-2 md:!text-sm" />
                         </Field>
                         <Field label="วันเกิด">
-                          <input type="date" value={p.parent_birthday} onChange={(e) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_birthday:e.target.value}; return n })} className={inputCls} />
+                          <ThaiDateField value={p.parent_birthday} onChange={(e) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_birthday:e.target.value}; return n })} className={inputCls} />
                         </Field>
                         <Field label="สถานะ">
                           <SelectDropdown value={p.parent_employment_status} onChange={(v) => setModalParents(prev => { const n=[...prev]; n[i]={...n[i],parent_employment_status:v}; return n })} placeholder="เลือกสถานะ" options={PARENT_EMP_STATUS_OPTIONS} />

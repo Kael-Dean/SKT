@@ -1,7 +1,7 @@
 // src/pages/Documents.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"   // helper แนบ token + BASE URL
-import { cx, baseField, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
+import { cx, cardCls, baseField, labelCls, helpTextCls, errorTextCls, secondaryBtnCls } from "../../lib/styles"
 import ExcelDownloadButton from "../../components/ExcelDownloadButton"
 import AllTimeToggle from "../../components/AllTimeToggle"
 import { ALL_TIME_START, allTimeEnd, firstOfMonthIso, todayIso } from "../../lib/allTime"
@@ -11,7 +11,7 @@ import ComboBox from "../../components/ComboBox"
 import BranchLockNote from "../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../hooks/useBranchLock"
 import { toast } from "../../components/ui"
-import { deliverBlob, openPopup } from "../../lib/files"
+import { closeDocWindow, prepareDocWindow, saveBlob, showBlob } from "../../lib/files"
 import DateInput from "../../components/ThaiDateField"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import PageTitle from "../../components/PageTitle"
@@ -1049,52 +1049,9 @@ function Documents() {
     if (Object.keys(errs).length) return
 
     const isPdf = isPdfType(report.type)
-    // หมายเหตุความปลอดภัย: ไม่ใช้ feature "noopener" ตรงนี้ เพราะ noopener จะทำให้
-    // window.open() คืนค่า null บนเบราว์เซอร์เป้าหมาย ซึ่งจะทำให้ flow พรีวิว PDF พัง
-    // (โค้ดด้านล่างต้องใช้ handle เพื่อเขียน placeholder, set location.href เป็น blob URL,
-    // focus/print และ close ตอน error) — แทนที่จะใช้ noopener เราจึง null ค่า opener
-    // ด้วยตัวเองเพื่อปิดช่องโหว่ reverse-tabnabbing โดยยังคงควบคุมหน้าต่างได้
-    const preOpenWin = isPdf ? openPopup() : null
-    if (preOpenWin) {
-      try {
-        preOpenWin.opener = null
-      } catch { /* ignore */ }
-    }
-
-    if (preOpenWin && isPdf) {
-      try {
-        preOpenWin.document.title = report.title || "Report"
-        // สร้าง placeholder ด้วย DOM API (createElement + textContent) แทน innerHTML
-        // เพื่อกันการ inject HTML — ไม่มีการนำข้อมูล user/dynamic มา assign ผ่าน innerHTML
-        const doc = preOpenWin.document
-        // The pre-opened tab is a blank document (white by default) — follow the
-        // app theme so the muted hint keeps its contrast in dark mode too.
-        const isDark = document.documentElement.classList.contains("dark")
-        if (isDark) {
-          doc.documentElement.style.colorScheme = "dark"
-          doc.body.style.background = "#0B0B0F"
-          doc.body.style.color = "#EDEDF0"
-        }
-        const wrap = doc.createElement("div")
-        wrap.style.fontFamily = "sans-serif"
-        wrap.style.padding = "16px"
-
-        const heading = doc.createElement("div")
-        heading.style.fontSize = "16px"
-        heading.style.fontWeight = "600"
-        heading.textContent = "กำลังเตรียมรายงาน…"
-
-        const hint = doc.createElement("div")
-        hint.style.marginTop = "6px"
-        hint.style.color = isDark ? "#9A9AA5" : "#64748b"
-        hint.textContent = "ถ้าหน้านี้ไม่เปลี่ยนเป็น PDF ให้กลับไปหน้ารายงานเพื่อดูสาเหตุ"
-
-        wrap.appendChild(heading)
-        wrap.appendChild(hint)
-
-        doc.body.replaceChildren(wrap)
-      } catch { /* ignore */ }
-    }
+    // เปิดแท็บไว้ก่อนภายในคลิก (Safari บน iPhone/iPad/Mac บล็อก window.open หลัง await)
+    // คืน null บน Android / แอปที่ติดตั้งบนมือถือ-ไอแพด → showBlob จะบันทึก/เปิด share sheet แทน
+    const preOpenWin = isPdf ? prepareDocWindow(report.title || "รายงาน") : null
 
     try {
       setDownloading(true)
@@ -1103,13 +1060,7 @@ function Documents() {
 
       if (report.type === "excel") {
         const { blob, filename } = await apiDownload(`${endpoint}?${params.toString()}`)
-        const link = document.createElement("a")
-        link.href = URL.createObjectURL(blob)
-        link.download = filename || `${report.key}_${filters.allTime ? "all-time" : `${filters.startDate || ""}_${filters.endDate || ""}`}.xlsx`
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-        setTimeout(() => URL.revokeObjectURL(link.href), 3000)
+        await saveBlob(blob, filename && filename !== "download" ? filename : `${report.key}_${filters.allTime ? "all-time" : `${filters.startDate || ""}_${filters.endDate || ""}`}.xlsx`)
         return
       }
 
@@ -1117,42 +1068,25 @@ function Documents() {
         if (report.type !== "hr_pdf") params.set("preview", "false")
 
         const { blob, filename } = await apiDownload(`${endpoint}?${params.toString()}`)
-        const url = URL.createObjectURL(blob)
-
-        if (preOpenWin) {
-          try {
-            preOpenWin.location.href = url
-            setTimeout(() => {
-              try {
-                preOpenWin.focus()
-                preOpenWin.print()
-              } catch { /* ignore */ }
-            }, 1200)
-          } catch { /* ignore */ }
-        } else {
-          await deliverBlob(blob, filename && filename !== "download" ? filename : `${report.key}.pdf`)
+        await showBlob(blob, filename && filename !== "download" ? filename : `${report.key}.pdf`, preOpenWin)
+        if (preOpenWin && !preOpenWin.closed) {
+          setTimeout(() => {
+            try {
+              preOpenWin.focus()
+              preOpenWin.print()
+            } catch { /* ignore */ }
+          }, 1200)
         }
-
-        setTimeout(() => URL.revokeObjectURL(url), 60_000)
         return
       }
 
       // json
       const json = await apiAuth(`${endpoint}?${params.toString()}`)
       setPreviewJson(json)
-      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" })
-      const link = document.createElement("a")
-      link.href = URL.createObjectURL(blob)
-      link.download = `${report.key}.json`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      setTimeout(() => URL.revokeObjectURL(link.href), 3000)
+      await saveBlob(new Blob([JSON.stringify(json, null, 2)], { type: "application/json" }), `${report.key}.json`)
     } catch (err) {
       console.error(err)
-      try {
-        preOpenWin?.close?.()
-      } catch { /* ignore */ }
+      closeDocWindow(preOpenWin)
       toast.error("เปิดรายงานไม่สำเร็จ", { description: reportErrorMessage(err) })
     } finally {
       setDownloading(false)
@@ -1741,15 +1675,7 @@ function Documents() {
 
       <div className="w-full p-5 md:p-6 lg:p-8">
         
-        {/* Header - เอาปุ่มเลือก Mode ทั้ง 3 อันด้านบนออกไปแล้ว */}
-        <div className="mb-8 flex items-center gap-3">
-          <PageTitle title="คลังเอกสาร & รายงาน" />
-          {!loadingOptions && !loadingSpecs && !branchLoadFailed && !specLoadFailed && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-700/60">
-              พร้อมใช้งาน
-            </span>
-          )}
-        </div>
+        <PageTitle title="คลังเอกสาร & รายงาน" />
 
         {/* --- หน้าแรก: กล่องหมวดหมู่ 3 กล่อง พร้อม Dropdown ประจำกล่อง --- */}
         {!reportObj && (
@@ -1757,16 +1683,16 @@ function Documents() {
 
             {/* กล่อง 1: รายงานซื้อขายข้าว (Phase 1) — แสดงเฉพาะผู้มีสิทธิ์ reports.phase1.* */}
             {allowedPhase1Reports().some((r) => !isPhase1Member(r)) && (
-            <div className="flex flex-col rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-900/10 transition-all hover:shadow-md">
+            <div className={cx(cardCls, "flex flex-col p-5 md:p-6")}>
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.54 15.86.5 13.31.5c-1.38 0-2.61.56-3.51 1.46L9 2.77l-.8-.81C7.3 1.06 6.07.5 4.69.5 2.14.5 0 2.54 0 4.64c0 .48.11.92.18 1.36H0v2h20V6zm-5.47 0H9.47C9.17 5.56 9 4.98 9 4.64c0-1.03.9-2.14 1.94-2.14.54 0 1.05.24 1.42.62L14 4.88l1.64-1.76C16.01 2.74 16.52 2.5 17.06 2.5 18.1 2.5 19 3.61 19 4.64c0 .34-.17.92-.47 1.36zM1 20c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V9H1v11zm8-8h6v2H9v-2z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-amber-800 dark:text-amber-300">รายงานซื้อขายข้าว</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">รายงานซื้อขายข้าว</h2>
               </div>
-              <p className="mb-6 text-sm text-amber-700/80 dark:text-amber-400/80">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 ซื้อ/ขายข้าวเปลือกรายวัน รายคน แยกราคา ทะเบียนคุม และสรุปสาขา (PDF)
               </p>
               <div className="mt-auto">
@@ -1783,16 +1709,16 @@ function Documents() {
 
             {/* กล่อง 2: รายงานสมาชิกและทุนเรือนหุ้น (Phase 1) */}
             {allowedPhase1Reports().some(isPhase1Member) && (
-            <div className="flex flex-col rounded-2xl border border-violet-200 bg-violet-50/40 p-6 shadow-sm dark:border-violet-800/50 dark:bg-violet-900/10 transition-all hover:shadow-md">
+            <div className={cx(cardCls, "flex flex-col p-5 md:p-6")}>
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-violet-800 dark:text-violet-300">รายงานสมาชิก</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">รายงานสมาชิก</h2>
               </div>
-              <p className="mb-6 text-sm text-violet-700/80 dark:text-violet-400/80">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 ทะเบียนสมาชิก สมาชิกใหม่/ลาออก ทุนเรือนหุ้น และการจ่ายคืนค่าหุ้น (PDF)
               </p>
               <div className="mt-auto">
@@ -1809,16 +1735,16 @@ function Documents() {
 
             {/* กล่อง: รายงาน Excel ซื้อขาย P20–P26 (สิทธิ์ order.reports) */}
             {allowedTradeReports().length > 0 && (
-            <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/10 transition-all hover:shadow-md">
+            <div className={cx(cardCls, "flex flex-col p-5 md:p-6")}>
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h2l1 2 1-2h2l-2 3 2 3h-2l-1-2-1 2H8l2-3-2-3z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-emerald-800 dark:text-emerald-300">รายงานซื้อขาย (Excel)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">รายงานซื้อขาย (Excel)</h2>
               </div>
-              <p className="mb-6 text-sm text-emerald-700/80 dark:text-emerald-400/80">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 ทะเบียนคุมสาขา ซื้อ-ขายแยกราคา ทะเบียนรับซื้อ รายงานซื้อ/ขายรายวัน สรุปรับซื้อจากสมาชิก (P20–P27) ได้ทั้ง Excel และ PDF
               </p>
               <div className="mt-auto">
@@ -1835,16 +1761,16 @@ function Documents() {
 
             {/* กล่อง: รายงานฝ่ายบุคคล (สิทธิ์ report.hr.*) */}
             {allowedHrReports().length > 0 && (
-            <div className="flex flex-col rounded-2xl border border-rose-200 bg-rose-50/40 p-6 shadow-sm dark:border-rose-800/50 dark:bg-rose-900/10 transition-all hover:shadow-md">
+            <div className={cx(cardCls, "flex flex-col p-5 md:p-6")}>
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-rose-800 dark:text-rose-300">รายงานฝ่ายบุคคล</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">รายงานฝ่ายบุคคล</h2>
               </div>
-              <p className="mb-6 text-sm text-rose-700/80 dark:text-rose-400/80">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 เงินเดือน ประกันสังคม วันลา ทะเบียนพนักงาน การโยกย้าย เงินกู้ และ KPI (PDF / Excel)
               </p>
               <div className="mt-auto">
@@ -1861,16 +1787,16 @@ function Documents() {
             )}
 
             {/* กล่อง 3: รายงานแผนดำเนินงานประจำปี */}
-            <div className="flex flex-col rounded-2xl border border-blue-200 bg-blue-50/40 p-6 shadow-sm dark:border-blue-800/50 dark:bg-blue-900/10 transition-all hover:shadow-md">
+            <div className={cx(cardCls, "flex flex-col p-5 md:p-6")}>
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-bold text-blue-800 dark:text-blue-300">รายงานแผนดำเนินงาน</h2>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">รายงานแผนดำเนินงาน</h2>
               </div>
-              <p className="mb-6 text-sm text-blue-700/80 dark:text-blue-400/80">
+              <p className="mb-5 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
                 เอกสารแผนดำเนินงานประจำปี เลือกรูปแบบรายงานที่ต้องการ (รูปแบบที่ 01 ถึง 18)
               </p>
               <div className="mt-auto relative z-10">
@@ -1904,7 +1830,7 @@ function Documents() {
               <button
                 type="button"
                 onClick={backToPicker}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-100 hover:shadow-md hover:scale-[1.02] active:scale-[.98] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 cursor-pointer"
+                className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 md:px-5 py-3 text-base font-semibold text-slate-700 shadow-sm transition-colors duration-200 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/50 cursor-pointer"
                 title="กลับไปหน้าเลือกรายงาน"
               >
                 ← กลับไปเลือกรายงาน
@@ -1930,10 +1856,9 @@ function Documents() {
                 type="submit"
                 disabled={downloading}
                 className={cx(
-                  "inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-3 text-base font-semibold text-white " +
-                    "shadow-[0_6px_16px_rgba(16,185,129,0.35)] transition-all duration-300 ease-out " +
-                    "hover:bg-emerald-700 hover:shadow-[0_8px_20px_rgba(16,185,129,0.45)] hover:scale-[1.05] active:scale-[.97] cursor-pointer",
-                  downloading && "opacity-70 cursor-wait hover:scale-100 hover:shadow-none"
+                  "inline-flex items-center justify-center rounded-2xl bg-emerald-700 px-6 py-3 text-base font-semibold text-white " +
+                    "shadow-sm transition-colors duration-200 hover:bg-emerald-800 active:bg-emerald-900 cursor-pointer",
+                  downloading && "opacity-70 cursor-wait"
                 )}
               >
                 {reportObj.type === "excel" ? (
@@ -1958,7 +1883,7 @@ function Documents() {
                   label="ดาวน์โหลด Excel"
                   getPdfPath={() => excelPdfPath(reportObj)}
                   fallbackName={`${reportObj.key}${reportObj.require.includes("startDate") ? (filters.allTime ? "_all-time" : `_${filters.startDate}_${filters.endDate}`) : ""}.xlsx`}
-                  className={cx(secondaryBtnCls, "disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100")}
+                  className={cx(secondaryBtnCls, "disabled:opacity-60 disabled:cursor-not-allowed disabled:")}
                 />
               )}
 
@@ -1968,7 +1893,7 @@ function Documents() {
                 className={
                   "inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-6 py-3 text-base " +
                   "font-medium text-slate-700 shadow-sm transition-all duration-300 ease-out hover:bg-slate-100 hover:shadow-md " +
-                  "hover:scale-[1.03] active:scale-[.97] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white " +
+                  " active:scale-[.97] dark:border-slate-600 dark:bg-slate-700/60 dark:text-white " +
                   "dark:hover:bg-slate-700/50 dark:hover:shadow-lg cursor-pointer"
                 }
               >

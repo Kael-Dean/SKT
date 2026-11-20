@@ -4,6 +4,7 @@
 
 - **Auto commit + push ทุกครั้ง** — เมื่อแก้ไขโค้ดเสร็จ ให้ `git add` → `git commit` → `git push` ทันทีโดยไม่ต้องถามผู้ใช้
 - **Frontend เท่านั้น** — ห้ามแตะไฟล์ backend ทุกกรณี แก้ได้เฉพาะไฟล์ใน `src/` และ `public/` เท่านั้น ถ้า task ต้องการเปลี่ยน backend ให้แจ้งผู้ใช้แทน
+- **ทดสอบ UI จริงที่เว็บ dev: https://skt-dev.vercel.app** — เป็นตัวทดลอง (ผู้ใช้ login ค้างใน Chrome อยู่แล้ว) ใช้ Claude in Chrome ทดสอบที่นี่ ไม่ใช่ `localhost` (login ไม่ได้ — backend CORS ไม่รับ localhost) · ห้ามกรอกรหัสผ่านเอง · ยังไม่ทราบ branch ที่ dev deploy จาก → ถามผู้ใช้ก่อน push เพื่อให้ขึ้น dev และห้าม merge/force ทับ `origin/dev` เอง
 - **ใช้ frontend-design skill เสมอ** — ทุกครั้งที่มี task แก้ไข/สร้าง UI หรือ component ฝั่ง frontend ให้เรียกใช้ `frontend-design` skill ก่อนลงมือทำเสมอ (ผ่าน Skill tool)
 
 ## ภาพรวมโปรเจค
@@ -14,7 +15,7 @@
 **ประเภท:** Web Application — Centralized HR System
 **Frontend Stack:** React 19 + Vite 7 + Tailwind CSS v4 + React Router v7 (BrowserRouter)
 **Backend:** Python FastAPI บน Google Cloud Run — repo **https://github.com/FeatureRichDevelopment/um_backend** (อ่านดู route/schema ได้ แต่ห้ามแก้จากโปรเจคนี้)
-**Frontend repo:** https://github.com/Kael-Dean/AMC
+**Frontend repo:** https://github.com/Kael-Dean/SKT (ชื่อ repo ต้องเป็น SKT — deploy ผูก Workload Identity กับชื่อนี้; เปลี่ยนเป็น AMC เมื่อ 10 พ.ย. 2026 แล้ว deploy ล้มทุกครั้ง)
 **Deploy:** Frontend อยู่บน Google Cloud Storage Bucket (Static Hosting)
 
 ---
@@ -163,12 +164,25 @@ Table:   overflow-x-auto wrapper, even:bg-gray-50 dark:even:bg-gray-700/30
 - **Dropdown / popup panel ห้ามมีอะไรมาทับตอนเปิดเลือก** — panel ต้อง portal เข้า `document.body` + `position: fixed` วาง coord จาก trigger rect (ไม่ใช่ `absolute z-30` กลาง tree) และ z-index ต้องสูงกว่า `StickyTableScrollbar` (z-index 10000). ดู `src/components/SelectDropdown.jsx` (ใช้ `PANEL_Z = 10050`, reposition ตอน scroll/resize, outside-click เช็คทั้ง trigger + panel ref). เคยมี sticky table scrollbar ลอยทับ dropdown จนกดเลือกไม่ได้ — อย่าให้เกิดอีก
 - **ทุก dropdown ต้องเป็นแบบตกแต่ง — ห้ามเพิ่ม native `<select>` ใหม่** (เปิดเป็นรายการ OS ไม่ตรงธีม/dark mode). ตัวเลือกคงที่/ไม่กี่รายการ (เช่นฟอร์ม HR) → `SelectDropdown` (`size="sm"` เมื่อวางคู่ช่อง `cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")`, `required` = aria-required, `<label htmlFor>` ผูกกับ `id` ได้); ต้องค้นหา/รายการเยอะ/Enter-flow → `ComboBox`. native `<select>` ที่ยังเหลือ ให้ทยอยเปลี่ยนเมื่อแตะไฟล์นั้น: `ThaiDateInput`, `HRPersonnelDetail` (5 จุด), `HRHolidayCalendarTab`, `HRLoanSheets`, `HRLoansTab`, `HRResignedRetiredTab`, `LoanRequest`, `MemberSearch`, `MyRelocation` (เช็คล่าสุด: `grep -rn "<select" src --include=*.jsx`)
 
+- **ช่องเลือกวันที่ทุกจุด = ปฏิทินตกแต่งของเราเอง — ห้ามใช้ `<input type="date">` ของเบราว์เซอร์** (ปฏิทิน OS แสดง ค.ศ./ไม่ตรงธีม/dark mode).
+  ใช้ `ThaiDateField` (`src/components/ThaiDateField.jsx`) — API เหมือน input เดิม: `value`/`e.target.value` = ISO `YYYY-MM-DD` (ค.ศ.),
+  รองรับ `id`, `ref`, `className`, `disabled`, `min`, `max`, `error`/`aria-invalid`, `aria-describedby`, `placeholder`. ทั้งช่องเป็นปุ่มเดียว
+  กดตรงไหนก็เปิดปฏิทิน (desktop = popover portal z 10050, มือถือ = Sheet), แสดง วัน เดือน พ.ศ. ให้อัตโนมัติ.
+  ในโฟลเดอร์ `buy/` / `sales/` import ผ่าน `./DateInput` ได้ (re-export ตัวเดียวกัน). เช็คก่อนปิดงาน: `grep -rn 'type="date"' src --include=*.jsx` ต้องไม่เจอ
+- **ช่องกรอก/ดรอปดาวห้ามล้นกรอบบนมือถือ** (บั๊กจริง พ.ย. 2026: ช่อง "วันที่ลา" ในใบลาบน iPhone ยื่นเลยการ์ด) —
+  iOS Safari ให้ native `<input type="date|time|month">` มี min-width ในตัว ไม่ยอมหดตาม `w-full` และตอนว่างกลายเป็นกล่องเปล่า.
+  มี guard กลางใน `src/index.css` (`appearance:none` + `min-width:0; max-width:100%`) แล้ว — ห้ามลบ.
+  เวลาสร้างช่อง/trigger ใหม่: ใส่ `min-w-0` ที่ wrapper + ข้อความใน trigger ใช้ `min-w-0 truncate`, ลูกของ `grid`/`flex` ที่มีช่องกรอกต้องหดได้ (`min-w-0`).
+  ช่องเวลา (`type="time"`) ที่ยังเหลือ: `OutOfOffice`, `HROutOfOfficeTab`, `MyDiscipline`, `ProfitResultPanel` (`type="month"`). ก่อนปิดงานเช็คที่ 375px ว่าไม่มีช่องไหนเกินขอบการ์ด
 - **ดรอปดาวที่ค้นหาชื่อได้ = หน้าตาแบบเลือกจังหวัด (`ComboBox`) ทุกจุด** — ปุ่ม trigger + ช่องค้นหาใน panel, มือถือเปิดเป็น picker sheet. `SelectDropdown searchable` ส่งต่อให้ `ComboBox` อัตโนมัติ. รายการที่ต้องค้นที่ server ใช้ `remoteSearch` + `searching` / `searchFailed` + `onQueryChange`; ช่องไม่บังคับที่ต้องล้างค่าได้ใส่ `onClear`. ห้ามเขียน input + รายการผลค้นหาเองเป็นดรอปดาวอีก
 
 ### Mobile (<768px) — กฎหลัง mobile overhaul (ต.ค. 2026)
 - **body เป็นตัว scroll** (AppLayout `min-h-dvh`, `<main>` ไม่มี `overflow-y-auto`) — header ที่ `sticky` ในหน้าใช้ `top-(--topbar-h)` (Topbar ตั้งค่าให้ผ่าน ResizeObserver). ยกเว้นหัวตารางที่อยู่ใน wrapper `overflow-x-auto` ให้ใช้ `top-0`
 - **ตรวจมือถือใน JS ใช้ `useIsPhone()` / `useIsCoarsePointer()`** จาก `src/hooks/useMediaQuery.js` (breakpoint ตรงกับ Tailwind `md`). เลือก layout ด้วย conditional render เมื่อสอง layout ใช้ ref ชุดเดียวกัน (เช่น Buy/Sales) — ห้าม render ทั้งคู่แล้วซ่อนด้วย CSS
 - **Modal ใหม่ใช้ `<Sheet>`** (`src/components/ui`) — bottom sheet บนมือถือ, dialog กลางจอบน desktop; จัดการ Portal/focus trap/Esc/dvh/safe-area/keyboard ให้แล้ว
+- **ห้ามทำช่องค้นหา/แถบเครื่องมือเป็น `sticky top-0` ใน children ของ `<Sheet>`** — body ของ Sheet มี padding บน + เลื่อนได้
+  ทำให้มีช่องโปร่งเหนือ/รอบช่องค้นหา รายการเลื่อนผ่านแล้วตัวหนังสือโผล่ให้เห็น (บั๊กจริง พ.ย. 2026: picker "เลือกเมนู" หน้า HR บนมือถือ).
+  ให้ส่งผ่าน prop `toolbar` ของ Sheet แทน (slot ไม่เลื่อน อยู่ระหว่าง header กับ body) — ดู `ComboBox.jsx` picker เป็นตัวอย่าง
 - **ตารางบนมือถือ → `<DataList>`** (card list) เมื่อคอลัมน์เกิน ~4; `fields[].value` ส่งเป็น function `(item) => …` (string = ชื่อ key)
 - **ฟอร์มยาวบนมือถือ → `<StickyActionBar>`** (ปุ่มหลักติดล่างจอ, `primary.tone: "primary"` = ถัดไป/indigo, default `"submit"` = บันทึก/emerald) + `<Stepper>` ถ้าเป็นหลายขั้น
 - **ห้าม `alert()` / `confirm()`** — ใช้ `toast` (รับ `action`) / `<ResultSheet>` / `<ConfirmDialog>`

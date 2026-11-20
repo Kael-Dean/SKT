@@ -2,7 +2,8 @@
 // 13C — Leave Register: annual summary table + 2 PDF downloads
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { apiAuth, apiDownload } from "../../../lib/api"
-import { leaveTypeName } from "../../../lib/leaveDays"
+import { saveBlob } from "../../../lib/files"
+import { leaveTypeName, leaveTypeLabel } from "../../../lib/leaveDays"
 import { sortLeaveTypes } from "../../../lib/leaveTypes"
 import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/ui"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
@@ -55,9 +56,9 @@ export default function HRLeaveRegisterTab() {
   // ประเภทที่ปิดใช้งานยังแสดงถ้ามีวันลาที่อนุมัติแล้วในปีนี้ ไม่งั้นยอดรวมจะไม่ตรงกับคอลัมน์
   const leaveCols = useMemo(() => {
     const cols = (leaveTypes ?? []).flatMap((lt) => {
-      const label = leaveTypeName(lt)
-      const key = SUMMARY_FIELD_BY_TYPE[label]
+      const key = SUMMARY_FIELD_BY_TYPE[leaveTypeName(lt)]
       if (!key) return []
+      const label = leaveTypeLabel(lt)
       return lt.is_active !== false || rows.some((r) => r[key] > 0) ? [{ key, label }] : []
     })
     return [...cols, TOTAL_COL]
@@ -105,12 +106,7 @@ export default function HRLeaveRegisterTab() {
     try {
       const ep = type === "summary" ? "annual-summary-pdf" : "register-pdf"
       const { blob, filename } = await apiDownload(`/hr/leave/${ep}?${buildQs()}`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave-${type}-${fiscalYear}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave-${type}-${fiscalYear}.pdf`)
     } catch (e) {
       setPdfErr(e.message || "ดาวน์โหลดไม่สำเร็จ")
     } finally {

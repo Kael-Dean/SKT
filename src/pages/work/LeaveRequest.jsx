@@ -3,7 +3,8 @@ import { cx, baseField, readonlyFieldCls } from "../../lib/styles"
 // ยื่นใบลา + ประวัติใบลา — PUT /personnel/me/leaves, GET /personnel/me/leaves/{id}/pdf
 import { useEffect, useState, useCallback, useId, Children, cloneElement, isValidElement } from "react"
 import { apiAuth, apiDownload } from "../../lib/api"
-import { countLeaveDays, countsCalendarDays, fmtDays, currentFiscalYearBE } from "../../lib/leaveDays"
+import { saveBlob } from "../../lib/files"
+import { countLeaveDays, countsCalendarDays, fmtDays, fmtLeaveDuration, fmtLeaveRowDuration, currentFiscalYearBE, leaveTypeLabel } from "../../lib/leaveDays"
 import { sortLeaveTypes } from "../../lib/leaveTypes"
 import { printPage } from "../../lib/files"
 import { getUser } from "../../lib/auth"
@@ -12,6 +13,7 @@ import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../li
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { Skeleton, ErrorState, EmptyState, toast } from "../../components/ui"
 import PageTitle from "../../components/PageTitle"
+import ThaiDateField from "../../components/ThaiDateField"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -234,7 +236,7 @@ function Field({ label, required, children, className = "" }) {
     return c
   })
   return (
-    <div className={`flex flex-col gap-1 ${className}`}>
+    <div className={`flex min-w-0 flex-col gap-1 ${className}`}>
       <label htmlFor={controlId} className="text-xs font-medium text-gray-600 dark:text-gray-400">
         {label}
         {required && <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>}
@@ -426,8 +428,8 @@ export default function LeaveRequest() {
       .catch(() => {})
   }, [])
 
-  const getLeaveTypeName = (lt) =>
-    lt?.leave_name ?? lt?.type ?? lt?.name ?? lt?.title ?? lt?.label ?? ""
+  // ชื่อที่แสดง (display_name ของ HR ถ้ามี) — logic ลาคลอดใช้ selectedType ไม่ใช่ชื่อนี้
+  const getLeaveTypeName = leaveTypeLabel
 
   // ── form state ──────────────────────────────────────────────────────────
   // หัวฟอร์ม (ข้าพเจ้า / ตำแหน่ง / สังกัด) เติมจากข้อมูลบุคลากร — แก้ได้เสมอ; แผนกยังไม่มีที่มา ผู้ใช้พิมพ์ต่อท้ายเอง
@@ -515,12 +517,7 @@ export default function LeaveRequest() {
     setDownloadingId(leaveId)
     try {
       const { blob, filename } = await apiDownload(`/personnel/me/leaves/${leaveId}/pdf`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = filename || `leave_${leaveId}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `leave_${leaveId}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
     } finally {
@@ -645,7 +642,7 @@ export default function LeaveRequest() {
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ผู้ยื่น:</span> <span className="text-gray-900 dark:text-gray-100">{form.fullName}</span></p>
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ประเภทการลา:</span> <span className="text-gray-900 dark:text-gray-100">{form.leaveTypeName}</span></p>
               <p><span className="font-semibold text-gray-700 dark:text-gray-300">ช่วงวันลา:</span> <span className="text-gray-900 dark:text-gray-100">{fmtDateShort(form.fromDate)} – {fmtDateShort(form.toDate)}</span></p>
-              <p><span className="font-semibold text-gray-700 dark:text-gray-300">รวม:</span> <span className="font-bold text-indigo-700 dark:text-indigo-300">{totalDays} วัน</span></p>
+              <p><span className="font-semibold text-gray-700 dark:text-gray-300">รวม:</span> <span className="font-bold text-indigo-700 dark:text-indigo-300">{fmtLeaveDuration(totalDays, { fromTime: period.from })}</span></p>
             </div>
             <div className="flex gap-3">
               <button
@@ -712,7 +709,7 @@ export default function LeaveRequest() {
               <SectionTitle>ข้อมูลทั่วไป</SectionTitle>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="วันที่" required>
-                  <input type="date" className={inputCls} value={form.docDate} onChange={set("docDate")} />
+                  <ThaiDateField className={inputCls} value={form.docDate} onChange={set("docDate")} />
                 </Field>
                 <div />
                 {/* ดึงจากข้อมูลบุคลากรในระบบ — ดูได้อย่างเดียว (ไม่ได้ส่งไป backend ใช้พิมพ์ใบลา) */}
@@ -846,8 +843,7 @@ export default function LeaveRequest() {
               {form.dayPart === "full" ? (
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="ตั้งแต่วันที่" required>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={`${inputCls} ${errors.fromDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                       value={form.fromDate}
                       onChange={setFromDate}
@@ -855,8 +851,7 @@ export default function LeaveRequest() {
                     <ErrMsg field="fromDate" />
                   </Field>
                   <Field label="ถึงวันที่" required>
-                    <input
-                      type="date"
+                    <ThaiDateField
                       className={`${inputCls} ${errors.toDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                       value={form.toDate}
                       min={form.fromDate || undefined}
@@ -867,8 +862,7 @@ export default function LeaveRequest() {
                 </div>
               ) : (
                 <Field label="วันที่ลา" required>
-                  <input
-                    type="date"
+                  <ThaiDateField
                     className={`${inputCls} ${errors.fromDate ? "!border-red-400 dark:!border-red-500 focus:!ring-red-400" : ""}`}
                     value={form.fromDate}
                     onChange={setFromDate}
@@ -885,7 +879,7 @@ export default function LeaveRequest() {
                       รวมระยะเวลาลาทั้งหมด
                     </span>
                     <span className="text-lg font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
-                      {fmtDays(totalDays)} วัน
+                      {fmtLeaveDuration(totalDays, { fromTime: period.from })}
                     </span>
                   </div>
                   {calendarDays ? (
@@ -1076,7 +1070,7 @@ export default function LeaveRequest() {
                     <div>
                       <p className="text-xs text-gray-400 dark:text-gray-500">จำนวนวัน</p>
                       <p className="font-bold text-indigo-700 dark:text-indigo-300">
-                        {fmtDays(r.total_days)} วัน
+                        {fmtLeaveRowDuration(r)}
                       </p>
                     </div>
                   </div>
@@ -1093,7 +1087,7 @@ export default function LeaveRequest() {
                   )}
                   {r.justification === "unjust" && r.justification_note && (
                     <p className="text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 rounded-lg px-3 py-1.5">
-                      ผลตรวจ ไม่สมเหตุสมผล: {r.justification_note}
+                      ผลตรวจ ไม่อนุมัติ: {r.justification_note}
                     </p>
                   )}
                   {(r.status === "rejected" || r.status === "denied") && (r.reject_reason || r.hr_comment) ? (

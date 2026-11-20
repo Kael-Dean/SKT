@@ -753,7 +753,7 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
                 "inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition",
                 (isSaving || !items.length)
                   ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
-                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
+                  : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 active:scale-[.98] cursor-pointer dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
               )}
             >
               รีเซ็ต
@@ -765,8 +765,8 @@ if (res == null) throw new Error("บันทึกไม่สำเร็จ"
               onClick={() => saveToBE()}
               className={cx(
                 "inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white cursor-pointer",
-                "shadow-[0_6px_16px_rgba(16,185,129,0.35)] hover:bg-emerald-700 hover:scale-[1.03] active:scale-[.98] transition",
-                (isSaving || !items.length) && "opacity-60 hover:scale-100 cursor-not-allowed"
+                "shadow-sm hover:bg-emerald-700 active:scale-[.98] transition",
+                (isSaving || !items.length) && "opacity-60 cursor-not-allowed"
               )}
             >
               {isSaving ? (

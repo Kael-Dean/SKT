@@ -61,7 +61,7 @@ function applyStoredTheme() {
  */
 function nextAfter(key, payload) {
   const sections = payload?.sections ?? {}
-  const open = (k) => !sections[k]?.confirmed_at || Boolean(sections[k]?.missing?.length)
+  const open = (k) => !sections[k]?.confirmed_at
   const i = SECTION_KEYS.indexOf(key)
   const order = [...SECTION_KEYS.slice(i + 1), ...SECTION_KEYS.slice(0, i)]
   return order.find(open) ?? "ready"

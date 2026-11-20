@@ -331,7 +331,7 @@ const OperationPlan = () => {
                   setYearBE("2569")
                 }}
                 className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800
-                         hover:bg-slate-100 hover:scale-[1.02] active:scale-[.98] transition cursor-pointer
+                         hover:bg-slate-100 active:scale-[.98] transition cursor-pointer
                          dark:border-slate-600 dark:bg-slate-700/60 dark:text-white dark:hover:bg-slate-700/40"
               >
                 รีเซ็ต
@@ -370,11 +370,11 @@ const OperationPlan = () => {
               <div className="mt-2 text-slate-600 dark:text-slate-300">กรุณาเลือกให้ครบ</div>
             </div>
           ) : (
-            <div className="mt-2 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm dark:border-indigo-700/50 dark:bg-indigo-900/20">
+            <div className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-line dark:bg-surface">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="font-bold text-indigo-900 dark:text-indigo-100">{activeTable?.label}</div>
-                  <div className="mt-1 text-sm text-indigo-700 dark:text-indigo-300">
+                  <div className="font-bold text-gray-900 dark:text-gray-100">{activeTable?.label}</div>
+                  <div className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                     ปี {yearBE} • สาขา {branchNameDisplay} • {planTypeLabel}
                   </div>
                 </div>

@@ -10,17 +10,23 @@
 import { apiDownload } from "./api"
 import { saveBlob } from "./files"
 
-/** ขั้นโทษตาม handoff (ขั้น 5 ไม่ใช่โทษ: เรื่องถัดไปส่งตรงถึง ผช.ผจก.) */
+/**
+ * ขั้นโทษ (AMC 2026-11-16 · ระเบียบฯ 2561 ข้อ 54)
+ * 1–4 = ระบบ "ออก" หนังสือ (POST …/punish) · 5–8 = ระบบ "บันทึก" ผลที่ตัดสินนอกระบบ (POST …/record ที่ขั้นผู้จัดการ)
+ */
 export const LADDER = Object.freeze([
-  { step: 1, label: "หนังสือเตือนด้วยวาจา (ครั้งที่ 1)", short: "เตือนวาจา 1", by: "หัวหน้า · ผช.ผจก. · ผจก." },
-  { step: 2, label: "หนังสือเตือนด้วยวาจา (ครั้งที่ 2)", short: "เตือนวาจา 2", by: "หัวหน้า · ผช.ผจก. · ผจก." },
-  { step: 3, label: "หนังสือเตือนด้วยวาจา (ครั้งที่ 3)", short: "เตือนวาจา 3", by: "หัวหน้า · ผช.ผจก. · ผจก." },
-  { step: 4, label: "หนังสือเตือนอย่างเป็นทางการ", short: "เตือนทางการ", by: "หัวหน้า · ผช.ผจก. · ผจก." },
-  { step: 5, label: "เรื่องถัดไปส่งตรงถึง ผช.ผจก.", short: "ส่ง ผช.ผจก.", by: "ไม่ใช่โทษ", marker: true },
-  { step: 6, label: "คำสั่งพักงาน (งดจ่ายค่าจ้างระหว่างพัก)", short: "พักงาน", by: "ผช.ผจก. · ผจก." },
-  { step: 7, label: "หนังสือเชิญออก", short: "เชิญออก", by: "ผจก." },
-  { step: 8, label: "หนังสือไล่ออก", short: "ไล่ออก", by: "ผจก." },
+  { step: 1, label: "ตักเตือนด้วยวาจา (ครั้งที่ 1)", short: "เตือนวาจา 1", by: "หัวหน้า · ผช.ผจก. · ผจก." },
+  { step: 2, label: "ตักเตือนด้วยวาจา (ครั้งที่ 2)", short: "เตือนวาจา 2", by: "หัวหน้า · ผช.ผจก. · ผจก." },
+  { step: 3, label: "ตักเตือนด้วยวาจา (ครั้งที่ 3)", short: "เตือนวาจา 3", by: "หัวหน้า · ผช.ผจก. · ผจก." },
+  { step: 4, label: "ตักเตือนเป็นหนังสือ", short: "หนังสือตักเตือน", by: "หัวหน้า · ผช.ผจก. · ผจก." },
+  { step: 5, label: "ภาคทัณฑ์", short: "ภาคทัณฑ์", by: "บันทึกผลการสอบสวน", record: true },
+  { step: 6, label: "พักงานโดยไม่จ่ายค่าจ้าง", short: "พักงาน", by: "บันทึกผลการสอบสวน", record: true },
+  { step: 7, label: "ให้ออก", short: "ให้ออก", by: "บันทึกผลการสอบสวน", record: true },
+  { step: 8, label: "ไล่ออก", short: "ไล่ออก", by: "บันทึกผลการสอบสวน", record: true },
 ])
+
+/** ขั้นสูงสุดที่ออกผ่าน /punish ได้ (5–8 → 409) */
+export const MAX_WARNING_STEP = 4
 
 const LADDER_BY_STEP = Object.fromEntries(LADDER.map((s) => [s.step, s]))
 
@@ -34,20 +40,21 @@ export const stepLabel = (step, serverLabel) => serverLabel || LADDER_BY_STEP[Nu
 export function stepTone(step) {
   const n = Number(step)
   if (n >= 6) return "danger"
-  if (n === 4) return "pending"
+  if (n === 4 || n === 5) return "pending"
   return "neutral"
 }
 
 export const STAGES = Object.freeze([
   { value: "head", label: "หัวหน้าสาขา/แผนก" },
+  { value: "hr", label: "ฝ่ายบุคคล (จัดทำหนังสือรายงาน)" },
   { value: "asst", label: "ผู้ช่วยผู้จัดการ" },
   { value: "manager", label: "ผู้จัดการ" },
 ])
 const STAGE_LABEL = Object.fromEntries(STAGES.map((s) => [s.value, s.label]))
 export const stageLabel = (stage, serverLabel) => serverLabel || STAGE_LABEL[stage] || stage || "—"
 
-/** ขั้นถัดไปเมื่อส่งต่อ (null = ส่งต่อไม่ได้แล้ว) */
-export const NEXT_STAGE = Object.freeze({ head: "asst", asst: "manager", manager: null })
+/** ขั้นถัดไปเมื่อส่งต่อด้วย /escalate (null = ส่งต่อไม่ได้ · ขั้น hr ไปต่อด้วย /hr-report เท่านั้น) */
+export const NEXT_STAGE = Object.freeze({ head: "hr", hr: null, asst: "manager", manager: null })
 
 /** สถานะเรื่อง (ฝั่งผู้พิจารณา) */
 export function caseStatus(c) {
@@ -68,6 +75,8 @@ export function reportStatus(status) {
 export const EVENT_LABEL = Object.freeze({
   submitted: "แจ้งเรื่อง",
   escalated: "ส่งต่อ",
+  hr_report: "ฝ่ายบุคคลจัดทำหนังสือรายงาน",
+  recorded: "บันทึกวินัยและโทษทางวินัย",
   punished: "ลงโทษ",
   dismissed: "ยุติเรื่อง",
 })
@@ -128,15 +137,69 @@ export function suspensionText(a) {
   return days ? `${range} (${days} วัน)` : range
 }
 
-// ─── มติคณะกรรมการ (ขั้น 7/8 — AMC 2026-11-12) ───────────────────────────────
-// คณะกรรมการไม่ใช้ระบบ: HR / ผจก. บันทึกผลมติที่ตัดสินนอกระบบ (เลขที่ + วันที่มติ บังคับสำหรับ 7/8)
+// ─── มติ / คำสั่ง (action ที่สร้างจาก "บันทึกวินัยและโทษทางวินัย") ─────────────
 
-/** "มติคณะกรรมการ ครั้งที่ 5/2569 วาระที่ 3 · ลงวันที่ 1 พฤศจิกายน 2569" ("" ถ้าไม่มี) */
+/** "ตามมติ/คำสั่ง คำสั่งที่ 15/2569 · ลงวันที่ 14 พฤศจิกายน 2569" ("" ถ้าไม่มี) */
 export function resolutionText(a) {
   if (!a?.committee_resolution_no) return ""
   const date = a.committee_resolution_date ? ` · ลงวันที่ ${fmtDate(a.committee_resolution_date, { long: true })}` : ""
-  return `มติคณะกรรมการ ${a.committee_resolution_no}${date}`
+  return `ตามมติ/คำสั่ง ${a.committee_resolution_no}${date}`
 }
+
+// ─── บันทึกวินัยและโทษทางวินัย (POST …/record) — คีย์ + ป้ายตาม handoff 2026-11-16 ──
+
+const opts = (pairs) => Object.freeze(pairs.map(([value, label]) => ({ value, label })))
+const labelOf = (list) => {
+  const m = Object.fromEntries(list.map((o) => [o.value, o.label]))
+  return (v, server) => server || m[v] || v || "—"
+}
+
+export const PENALTIES = opts([
+  ["warning", "ตักเตือนเป็นหนังสือ"], ["probation", "ภาคทัณฑ์"], ["suspension", "พักงานโดยไม่จ่ายค่าจ้าง"],
+  ["discharge", "ให้ออก"], ["dismissal", "ไล่ออก"],
+])
+export const PENALTY_STEP = Object.freeze({ warning: 4, probation: 5, suspension: 6, discharge: 7, dismissal: 8 })
+export const penaltyLabel = labelOf(PENALTIES)
+export const isTerminationPenalty = (p) => p === "discharge" || p === "dismissal"
+
+export const FINDINGS = opts([["guilty", "มีความผิด"], ["not_guilty", "ไม่มีความผิด (ยุติเรื่อง)"]])
+export const findingLabel = labelOf(FINDINGS)
+
+export const APPOINTED_BY = opts([["board", "คณะกรรมการดำเนินการ"], ["manager", "ผู้จัดการ"]])
+export const appointedByLabel = labelOf(APPOINTED_BY)
+
+export const ORDERED_BY = opts([["board", "คณะกรรมการดำเนินการ"], ["chairman", "ประธานกรรมการ"], ["manager", "ผู้จัดการ"]])
+export const orderedByLabel = labelOf(ORDERED_BY)
+
+export const NO_COMMITTEE_REASONS = opts([
+  ["imprisonment", "ต้องคำพิพากษาถึงที่สุดให้จำคุก (ข้อ 58(1))"],
+  ["bankruptcy", "ถูกพิพากษาให้เป็นบุคคลล้มละลาย (ข้อ 58(2))"],
+  ["confession", "รับสารภาพเป็นหนังสือว่ากระทำการทุจริต (ข้อ 58(3))"],
+  ["absence_15_days", "ขาดงานติดต่อกันเกิน 15 วันโดยไม่มีเหตุอันสมควร (ข้อ 58(4))"],
+  ["below_discharge", "โทษต่ำกว่าให้ออก ไม่ต้องตั้งคณะกรรมการ"],
+])
+export const noCommitteeReasonLabel = labelOf(NO_COMMITTEE_REASONS)
+
+export const MEMBER_ROLES = opts([["chair", "ประธานกรรมการสอบสวน"], ["member", "กรรมการ"], ["secretary", "กรรมการและเลขานุการ"]])
+export const memberRoleLabel = labelOf(MEMBER_ROLES)
+
+export const APPEAL_RESULTS = opts([["cancelled", "ยกเลิกโทษ"], ["reduced", "ลดโทษ"], ["increased", "เพิ่มโทษ"], ["upheld", "ยืนตามคำสั่งเดิม"]])
+export const appealResultLabel = labelOf(APPEAL_RESULTS)
+
+/** ค่าคงที่ตาม handoff (ข้อ 57 / ข้อ 64) */
+export const COMMITTEE_MIN_MEMBERS = 3
+export const APPEAL_WINDOW_DAYS = 15
+
+/** จำนวนวันจากวันนี้ (ไทย) ถึง YYYY-MM-DD — ติดลบ = ผ่านมาแล้ว */
+export function daysUntil(isoDate) {
+  if (!isoDate) return null
+  const toUtc = (d) => Date.UTC(...String(d).slice(0, 10).split("-").map((v, i) => Number(v) - (i === 1 ? 1 : 0)))
+  const diff = Math.round((toUtc(isoDate) - toUtc(nowBangkok().date)) / 86400000)
+  return Number.isFinite(diff) ? diff : null
+}
+
+/** ข้อระเบียบ → "ข้อ 53(16)" (ต่อท้ายปีเมื่อไม่ใช่ 2561) */
+export const clauseCode = (c) => (c ? `${c.code}${c.regulation_year && Number(c.regulation_year) !== 2561 ? ` (${c.regulation_year})` : ""}` : "")
 
 // ─── ผู้แจ้ง (ความลับ) ──────────────────────────────────────────────────────
 
@@ -159,7 +222,9 @@ export function terminationPrefillFor(caseDetail, serverPrefill) {
     exit_type: "dismiss",
     reason: step === 8 ? "ไล่ออก" : "ให้ออก",
     reference: [a.doc_no, a.committee_resolution_no && `มติคณะกรรมการ ${a.committee_resolution_no}`].filter(Boolean).join(" / ") || null,
-    severance_pay: step === 8 ? 0 : null,
+    severance_pay: caseDetail.record?.severance_paid === true ? null
+      : caseDetail.record?.severance_paid === false || step === 8 ? 0 : null,
+    exit_date: caseDetail.record?.effective_date || null,
     note: a.note || caseDetail.decision_note || "",
   }
 }
@@ -171,6 +236,12 @@ export async function downloadActionPdf(action) {
   const { blob, filename } = await apiDownload(`/hr/discipline/actions/${encodeURIComponent(action.id)}/pdf`)
   const doc = String(action.doc_no || action.id).replace(/[\\/:*?"<>|\s]+/g, "_")
   saveBlob(blob, filename || `discipline_${doc}.pdf`)
+}
+
+/** GET /hr/discipline/cases/{id}/record/pdf — บันทึกวินัยและโทษทางวินัย (bearer → blob) */
+export async function downloadRecordPdf(caseId) {
+  const { blob, filename } = await apiDownload(`/hr/discipline/cases/${encodeURIComponent(caseId)}/record/pdf`)
+  saveBlob(blob, filename || `discipline_record_${caseId}.pdf`)
 }
 
 /** list response → array (รองรับ { items }) */

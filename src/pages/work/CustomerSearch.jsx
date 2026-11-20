@@ -179,7 +179,7 @@ async function patchCustomer(id, body) {
 /** ช่องแสดงผล/แก้ไข 1 ฟิลด์ใน Sheet (label + read-only หรือ input) */
 function Field({ label, editing, display, children, className = "" }) {
   return (
-    <div className={className}>
+    <div className={cx("min-w-0", className)}>
       <span className={labelCls}>{label}</span>
       {editing ? children : <div className={cx(readonlyFieldCls, "min-h-12 break-words")}>{display || "-"}</div>}
     </div>

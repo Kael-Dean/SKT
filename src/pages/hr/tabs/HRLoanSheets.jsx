@@ -18,7 +18,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react"
 import { FileText } from "lucide-react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
-import { deliverBlob, openPopup } from "../../../lib/files"
+import { closeDocWindow, prepareDocWindow, showBlob } from "../../../lib/files"
 import { fmtDateTimeTh } from "../../../lib/approvalActions"
 import {
   cx, baseField, labelCls, helpTextCls, errorTextCls, primaryBtnCls, dangerBtnCls, neutralBtnCls,
@@ -355,13 +355,12 @@ export function LoanPdfButton({ path, label, fallbackName, className = neutralBt
   const open = async () => {
     if (busy || !path) return
     setBusy(true)
+    const win = prepareDocWindow(label) // inside the click — Safari blocks it after the await
     try {
       const { blob, filename } = await apiDownload(path)
-      const url = URL.createObjectURL(blob)
-      const win = openPopup(url)
-      if (!win) await deliverBlob(blob, filename && filename !== "download" ? filename : fallbackName)
-      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      await showBlob(blob, filename && filename !== "download" ? filename : fallbackName, win)
     } catch (err) {
+      closeDocWindow(win)
       toast.error(`เปิด${label}ไม่สำเร็จ`, { description: errText(err, "ลองใหม่อีกครั้ง") })
     } finally {
       setBusy(false)

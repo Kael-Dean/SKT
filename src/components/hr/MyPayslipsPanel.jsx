@@ -11,11 +11,13 @@
 import { useCallback, useEffect, useState } from "react"
 import { ChevronRight, Download } from "lucide-react"
 import { apiAuth, apiDownload } from "../../lib/api"
+import { saveBlob } from "../../lib/files"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { fmtPayMonth, money, parsePayMonth } from "../../lib/payroll"
 import { cx, focusRingCls, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
 import { EmptyState, ErrorState, Sheet, SkeletonCard, SkeletonText, toast } from "../ui"
 import PayoutLines from "./PayoutLines"
+import { EstimatedChip } from "./PayslipEstimated"
 
 const listOf = (d) => (Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [])
 const monthKey = (r) => { const p = parsePayMonth(r.month); return p ? p.year * 100 + p.month : 0 }
@@ -27,13 +29,8 @@ function useDownload() {
     setBusy(row.id)
     try {
       const { blob, filename } = await apiDownload(`/personnel/me/payroll/${row.id}/payslip`)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
       const p = parsePayMonth(row.month)
-      a.download = filename || `payslip_${p ? `${p.year + 543}-${String(p.month).padStart(2, "0")}` : row.id}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
+      await saveBlob(blob, filename && filename !== "download" ? filename : `payslip_${p ? `${p.year + 543}-${String(p.month).padStart(2, "0")}` : row.id}.pdf`)
     } catch (err) {
       toast.error("ดาวน์โหลดสลิปไม่สำเร็จ", { description: err.message || undefined })
     } finally {
@@ -128,7 +125,7 @@ export default function MyPayslipsPanel({ detailHeadingAs = "h2" }) {
               )}
             >
               <span className="min-w-0 flex-1">
-                <span className={cx("block font-medium", active ? "text-indigo-800 dark:text-indigo-200" : "text-gray-900 dark:text-gray-100")}>{monthText(r)}</span>
+                <span className={cx("block font-medium", active ? "text-indigo-800 dark:text-indigo-200" : "text-gray-900 dark:text-gray-100")}>{monthText(r)}<EstimatedChip record={r} className="ml-2 align-middle" /></span>
                 <span className="block text-xs text-gray-500 dark:text-gray-400">รายได้รวม {money(r.gross_income)}</span>
               </span>
               <span className="text-right">

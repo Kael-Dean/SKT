@@ -84,8 +84,8 @@ export const CHECK_ROLE_LABEL = {
 export const checkRoleLabel = (r) => CHECK_ROLE_LABEL[r] || "–"
 
 export const JUSTIFICATION_LABEL = {
-  justified: "สมเหตุสมผล",
-  unjust: "ไม่สมเหตุสมผล",
+  justified: "อนุมัติ",
+  unjust: "ไม่อนุมัติ",
 }
 export const JUSTIFICATION_TONE = {
   justified: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",

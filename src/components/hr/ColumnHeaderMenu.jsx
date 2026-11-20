@@ -80,7 +80,7 @@ function TextFilter({ column, value, onChange, idBase }) {
   )
 }
 
-function EnumFilter({ column, value, onChange, options, idBase }) {
+function EnumFilter({ column, value, onChange, options, idBase, fill = false }) {
   const [q, setQ] = useState("")
   const selected = useMemo(() => new Set(value ?? []), [value])
   const shown = useMemo(() => {
@@ -104,7 +104,7 @@ function EnumFilter({ column, value, onChange, options, idBase }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className={fill ? "flex min-h-0 flex-1 flex-col gap-2" : "space-y-2"}>
       {options.length > 6 && (
         <div className="relative">
           <label htmlFor={`${idBase}-s`} className="sr-only">ค้นหาตัวเลือก{column.label}</label>
@@ -131,7 +131,11 @@ function EnumFilter({ column, value, onChange, options, idBase }) {
       <ul
         role="group"
         aria-label={`ค่าของ${column.label}`}
-        className="max-h-56 overflow-y-auto overscroll-contain rounded-lg ring-1 ring-inset ring-gray-200 py-1 dark:ring-line"
+        className={cx(
+          "overflow-y-auto overscroll-contain rounded-lg ring-1 ring-inset ring-gray-200 py-1 dark:ring-line",
+          // fill (ใน popover) = ยืด/หดตามที่ว่างของ panel → panel ไม่ต้องมี scrollbar ชั้นนอกซ้อน
+          fill ? "min-h-24 flex-1" : "max-h-56",
+        )}
       >
         {shown.length === 0 ? (
           <li className="px-3 py-4 text-center text-sm text-gray-500 dark:text-gray-400">ไม่พบรายการ</li>
@@ -257,11 +261,11 @@ function RangeFilter({ column, value, onChange, idBase }) {
   )
 }
 
-export function ColumnFilterControl({ column, value, onChange, options = [] }) {
+export function ColumnFilterControl({ column, value, onChange, options = [], fill = false }) {
   const idBase = useId()
   if (column.type === "text") return <TextFilter column={column} value={value} onChange={onChange} idBase={idBase} />
   if (column.type === "enum")
-    return <EnumFilter column={column} value={value} onChange={onChange} options={options} idBase={idBase} />
+    return <EnumFilter column={column} value={value} onChange={onChange} options={options} idBase={idBase} fill={fill} />
   return <RangeFilter column={column} value={value} onChange={onChange} idBase={idBase} />
 }
 
@@ -280,7 +284,7 @@ export default function ColumnHeaderMenu({
 }) {
   const panelRef = useRef(null)
   const titleId = useId()
-  const { style } = useAnchoredPanel(anchorRef, { open, maxH: 400, minW: 280, maxW: 320 })
+  const { style } = useAnchoredPanel(anchorRef, { open, maxH: 560, minW: 280, maxW: 320 })
   // focus แรก: คอลัมน์ที่พิมพ์ค้น (text / enum ยาว) → ช่องค้นหา; อื่น ๆ → ปุ่มเรียงปุ่มแรก
   const typeFirst = column.type === "text" || (column.type === "enum" && (options?.length ?? 0) > 6)
   useFocusTrap(panelRef, { active: open, initialSelector: typeFirst ? "input[type=search]" : "[data-sort-first]" })
@@ -311,6 +315,7 @@ export default function ColumnHeaderMenu({
 
   if (!open) return null
   const filterOn = isFilterActive(column.type, filter)
+  const isEnum = column.type === "enum" && column.filterable !== false
 
   return createPortal(
     <div
@@ -329,14 +334,14 @@ export default function ColumnHeaderMenu({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4">
-        <section className="space-y-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4">
+        <section className="shrink-0 space-y-2">
           <h3 className={sectionLabelCls}>เรียงลำดับ</h3>
           <SortControl column={column} sort={sort} onSort={onSort} />
         </section>
 
         {column.filterable !== false && (
-          <section className="space-y-2">
+          <section className={isEnum ? "flex min-h-0 flex-1 flex-col gap-2" : "shrink-0 space-y-2"}>
             <div className="flex items-center justify-between gap-2">
               <h3 className={sectionLabelCls}>ตัวกรอง</h3>
               {filterOn && (
@@ -345,7 +350,7 @@ export default function ColumnHeaderMenu({
                 </button>
               )}
             </div>
-            <ColumnFilterControl column={column} value={filter} onChange={onFilter} options={options} />
+            <ColumnFilterControl column={column} value={filter} onChange={onFilter} options={options} fill={isEnum} />
           </section>
         )}
       </div>

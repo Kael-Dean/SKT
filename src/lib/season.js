@@ -1,7 +1,7 @@
 /**
  * ฤดูกาล/เทศกาลไทยของการ์ดต้อนรับหน้า Home (components/home/WelcomeArt.jsx)
  * ช่วงวันที่เป็นค่าประมาณ — ลอยกระทง/สงกรานต์ขยับทุกปี ปรับที่ getSeason()
- * ดูตัวอย่างตอน dev: เติม ?season=loykrathong|rain|hot|songkran|cool|newyear ที่ URL
+ * ดูตัวอย่างตอน dev: เติม ?season=loykrathong|elephant|rain|hot|songkran|cool|newyear ที่ URL
  */
 
 export const SEASON_LABEL = {
@@ -11,6 +11,7 @@ export const SEASON_LABEL = {
   hot: "ฤดูร้อน",
   rain: "ฤดูฝน",
   loykrathong: "เทศกาลลอยกระทง",
+  elephant: "งานช้างสุรินทร์",
 }
 
 export function getSeason(now = new Date()) {
@@ -21,7 +22,9 @@ export function getSeason(now = new Date()) {
   const md = (now.getMonth() + 1) * 100 + now.getDate()
   if (md >= 1220 || md <= 105) return "newyear"
   if (md >= 410 && md <= 416) return "songkran"
-  if (md >= 1110 && md <= 1130) return "loykrathong"
+  // งานช้างสุรินทร์ ~สัปดาห์ที่ 3 ของ พ.ย. → ต่อด้วยลอยกระทง (ขึ้น 15 ค่ำ เดือน 12; ปี 2569 = 24 พ.ย.)
+  if (md >= 1110 && md <= 1122) return "elephant"
+  if (md >= 1123 && md <= 1130) return "loykrathong"
   if (md >= 1201 || md <= 214) return "cool"
   if (md >= 215 && md <= 514) return "hot"
   return "rain"

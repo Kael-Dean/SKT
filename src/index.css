@@ -537,6 +537,43 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
   animation: shimmer-move 4s linear infinite;
 }
 
+/* ─── Welcome banner seasonal art (components/home/WelcomeArt.jsx) ───────────
+   CSS transform ทับ attribute transform บน element เดียวกัน → ใช้กับ element
+   ที่ไม่มี transform attribute เท่านั้น (ตำแหน่งอยู่ที่ <g> ชั้นนอก).
+   สถานะเริ่มต้น (ไม่มี animation) = ภาพนิ่งที่ดูครบ → reduced-motion ปิด animation ได้เลย */
+.welcome-art svg * { transform-box: fill-box; transform-origin: center; }
+
+@keyframes wa-twinkle { 0%,100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes wa-rise    { 0% { transform: translateY(30px); opacity: 0; } 15%,85% { opacity: 1; } 100% { transform: translateY(-90px); opacity: 0; } }
+@keyframes wa-bob     { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-2.5px) rotate(2deg); } }
+@keyframes wa-drift   { to { transform: translateX(-200px); } }
+@keyframes wa-fall    { 0% { transform: translate(0,-20px); opacity: 0; } 20% { opacity: .7; } 100% { transform: translate(-16px,90px); opacity: 0; } }
+@keyframes wa-ripple  { 0% { transform: scale(.15); opacity: .8; } 100% { transform: scale(1); opacity: 0; } }
+@keyframes wa-sway    { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes wa-spin    { to { transform: rotate(360deg); } }
+@keyframes wa-float   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes wa-mist    { 0%,100% { transform: translateX(-18px); } 50% { transform: translateX(18px); } }
+@keyframes wa-flicker { 0%,100% { opacity: 1; transform: scale(1); } 40% { opacity: .75; transform: scale(.9,1.12); } 70% { opacity: .92; transform: scale(1.05,.95); } }
+@keyframes wa-burst   { 0% { transform: scale(.2); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.15); opacity: 0; } }
+
+.wa-twinkle    { animation: wa-twinkle 3.2s ease-in-out infinite; }
+.wa-rise       { animation: wa-rise 16s linear infinite; }
+.wa-bob        { animation: wa-bob 4.5s ease-in-out infinite; }
+.wa-drift      { animation: wa-drift 9s linear infinite; }
+.wa-drift-slow { animation: wa-drift 16s linear infinite; }
+.wa-fall       { animation: wa-fall 1.6s linear infinite; }
+.wa-ripple     { animation: wa-ripple 3.6s ease-out infinite; }
+.wa-sway       { transform-origin: 50% 100%; animation: wa-sway 3.5s ease-in-out infinite; }
+.wa-spin       { animation: wa-spin 70s linear infinite; }
+.wa-float      { animation: wa-float 6s ease-in-out infinite; }
+.wa-mist       { animation: wa-mist 14s ease-in-out infinite; }
+.wa-flicker    { animation: wa-flicker 1.8s ease-in-out infinite; }
+.wa-burst      { animation: wa-burst 5s ease-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-art svg * { animation: none !important; }
+}
+
 /* ─── Skeleton Shimmer (loading placeholders) ─────────────────────────────── */
 /* Sweeps a light slate highlight across the skeleton block. The global
    prefers-reduced-motion block above targets * and disables this animation

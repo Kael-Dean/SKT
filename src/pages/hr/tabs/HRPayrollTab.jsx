@@ -35,6 +35,7 @@ import ReturnPeriodSheet from "../../../components/hr/ReturnPeriodSheet"
 import DaysWorkedSheet from "../../../components/hr/DaysWorkedSheet"
 import StatusMsg from "../../../components/hr/StatusMsg"
 import HRPayrollPayoutSheet from "./HRPayrollPayoutSheet"
+import { EstimatedChip } from "../../../components/hr/PayslipEstimated"
 import HRPayrollReviewPanel from "./HRPayrollReviewPanel"
 import HRPayrollExternalPanel from "./HRPayrollExternalPanel"
 import { keepBackState, useDrill } from "../../../lib/drill"
@@ -601,7 +602,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
                     <td className="px-4 py-2.5">
                       <button type="button" onClick={() => setDetail(p)} className={cx("group flex items-center gap-1 rounded text-left cursor-pointer", focusRingCls)}>
                         <span>
-                          <span className="block font-medium text-gray-900 group-hover:text-indigo-700 dark:text-gray-100 dark:group-hover:text-indigo-300">{p.employee_name}</span>
+                          <span className="block font-medium text-gray-900 group-hover:text-indigo-700 dark:text-gray-100 dark:group-hover:text-indigo-300">{p.employee_name}<EstimatedChip record={p} className="ml-2 align-middle" /></span>
                           <span className="block text-xs text-gray-500 dark:text-gray-400">
                             {p.branch_name || `รหัส ${p.user_id}`}
                             {p.days_worked != null && <span className="tabular-nums"> · รายวัน {daysWorkedText(p)}</span>}

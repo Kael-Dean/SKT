@@ -17,6 +17,7 @@ import { fmtPayMonth, money, parsePayMonth } from "../../lib/payroll"
 import { cx, focusRingCls, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
 import { EmptyState, ErrorState, Sheet, SkeletonCard, SkeletonText, toast } from "../ui"
 import PayoutLines from "./PayoutLines"
+import { EstimatedChip } from "./PayslipEstimated"
 
 const listOf = (d) => (Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [])
 const monthKey = (r) => { const p = parsePayMonth(r.month); return p ? p.year * 100 + p.month : 0 }
@@ -124,7 +125,7 @@ export default function MyPayslipsPanel({ detailHeadingAs = "h2" }) {
               )}
             >
               <span className="min-w-0 flex-1">
-                <span className={cx("block font-medium", active ? "text-indigo-800 dark:text-indigo-200" : "text-gray-900 dark:text-gray-100")}>{monthText(r)}</span>
+                <span className={cx("block font-medium", active ? "text-indigo-800 dark:text-indigo-200" : "text-gray-900 dark:text-gray-100")}>{monthText(r)}<EstimatedChip record={r} className="ml-2 align-middle" /></span>
                 <span className="block text-xs text-gray-500 dark:text-gray-400">รายได้รวม {money(r.gross_income)}</span>
               </span>
               <span className="text-right">

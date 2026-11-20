@@ -6,6 +6,7 @@ import {
   daysWorkedText, money, netOf, toNum, totalDeductions,
 } from "../../lib/payroll"
 import { cx } from "../../lib/styles"
+import { EstimatedBanner } from "./PayslipEstimated"
 
 const shownLines = (lines, record) => lines.filter((l) => l.key === "base_salary" || toNum(record[l.key]) !== 0)
 
@@ -50,6 +51,7 @@ export default function PayoutLines({ record, className = "" }) {
   const deductions = totalDeductions(record)
   return (
     <div className={cx("space-y-4", className)}>
+      <EstimatedBanner record={record} />
       <div className="grid gap-4 md:grid-cols-2 md:gap-6">
         <Lines title="รายได้" lines={INCOME_LINES} record={record} />
         <div className="space-y-4">

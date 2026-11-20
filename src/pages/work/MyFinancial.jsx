@@ -121,7 +121,7 @@ function OnFileCard() {
         )}
       </div>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-        ค่าที่ฝ่ายบุคคลบันทึกไว้ในทะเบียน (บาท/เดือน) — ยอดที่ได้รับจริงของแต่ละเดือนดูจากสลิปเงินเดือนด้านล่าง
+        ค่าที่ฝ่ายบุคคลบันทึกไว้ในทะเบียน (บาท/เดือน) — ยอดที่ได้รับจริงของแต่ละเดือนดูจากสลิปเงินเดือนด้านบน
       </p>
 
       <div className="mt-4">
@@ -240,8 +240,6 @@ export default function MyFinancial() {
     <div className="space-y-8 pb-10">
       <PageTitle title="ข้อมูลการเงินของฉัน" />
 
-      <OnFileCard />
-
       <section aria-labelledby="fin-slips-h" className="space-y-3">
         <div>
           <h2 id="fin-slips-h" className="text-base font-semibold text-gray-900 dark:text-gray-100">สลิปเงินเดือน</h2>
@@ -249,6 +247,8 @@ export default function MyFinancial() {
         </div>
         <MyPayslipsPanel detailHeadingAs="h3" />
       </section>
+
+      <OnFileCard />
 
       {can("self.history.view") && <StepHistory />}
     </div>

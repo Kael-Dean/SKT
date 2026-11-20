@@ -10,11 +10,12 @@ import { getRecent } from "../../lib/recentRoutes"
 import { cx, focusRingCls } from "../../lib/styles"
 import { Skeleton, SkeletonStat } from "../../components/ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
-import { Lock } from "lucide-react"
+import { Lock, Palette } from "lucide-react"
 import { useOnboarding } from "../../lib/onboarding"
 import { goToOnboardingFromLocked } from "../../lib/onboardingGate"
 import OnboardingBanner from "../../components/onboarding/OnboardingBanner"
 import WelcomeArt from "../../components/home/WelcomeArt"
+import BannerThemeGallery from "../../components/home/BannerThemeGallery"
 import { SEASON_LABEL, getSeason } from "../../lib/season"
 
 const SELF_SERVICE_GROUP = "งานบุคคล"
@@ -233,6 +234,8 @@ export default function Home() {
   const isPhone = useIsPhone()
   const [apiUser, setApiUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [themesOpen, setThemesOpen] = useState(false)
+  const [previewSeason, setPreviewSeason] = useState(null) // Super Admin ดูตัวอย่างลาย (ไม่บันทึก)
   const { locked: onboardingLocked } = useOnboarding()
   // self-service items stay locked until onboarding is done (PR 59) → go fill the data instead
   const openItem = (item) => {
@@ -261,7 +264,9 @@ export default function Home() {
   const now = new Date()
   const hour = now.getHours()
   const greeting = hour < 12 ? "อรุณสวัสดิ์" : hour < 17 ? "สวัสดีตอนบ่าย" : "สวัสดีตอนเย็น"
-  const season = getSeason(now)
+  const todaySeason = getSeason(now)
+  const season = previewSeason ?? todaySeason
+  const canPreviewThemes = can("home.bannerThemes.preview")
   const dateStr = now.toLocaleDateString("th-TH", {
     weekday: "long",
     year: "numeric",
@@ -313,9 +318,24 @@ export default function Home() {
     <div className="space-y-5 py-2">
 
       {/* Welcome Card */}
-      <div className="animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-lg">
+      <div className="group animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-lg">
         <div className="welcome-shimmer pointer-events-none absolute inset-0" aria-hidden="true" />
         <WelcomeArt season={season} />
+        {canPreviewThemes && (
+          // ทั้งการ์ดเป็นปุ่มเปิดแกลเลอรีลาย (Super Admin เท่านั้น) — ปุ่มซ้อนทับ ไม่ห่อ h1 ไว้ในปุ่ม
+          <button
+            type="button"
+            onClick={() => setThemesOpen(true)}
+            aria-label="ดูลายแบนเนอร์ทั้งหมด"
+            aria-haspopup="dialog"
+            className="absolute inset-0 z-10 cursor-pointer rounded-2xl transition-colors duration-200 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80"
+          >
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/25 backdrop-blur-sm transition-opacity duration-200 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100">
+              <Palette aria-hidden="true" className="size-3.5" />
+              {previewSeason ? `ตัวอย่าง: ${SEASON_LABEL[previewSeason]}` : "ดูลายทั้งหมด"}
+            </span>
+          </button>
+        )}
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/20 text-xl font-bold ring-2 ring-white/30">
             {avatarLetter}
@@ -329,10 +349,24 @@ export default function Home() {
           </div>
           <div className="hidden shrink-0 text-right sm:block">
             <p className="text-sm text-indigo-200">{dateStr}</p>
-            <p className="mt-0.5 text-xs font-medium text-indigo-100/80">{SEASON_LABEL[season]}</p>
+            <p className="mt-0.5 text-xs font-medium text-indigo-100/80">
+              {previewSeason ? `ตัวอย่างลาย · ${SEASON_LABEL[season]}` : SEASON_LABEL[season]}
+            </p>
           </div>
         </div>
       </div>
+      {canPreviewThemes && (
+        <BannerThemeGallery
+          open={themesOpen}
+          onClose={() => setThemesOpen(false)}
+          today={todaySeason}
+          shown={season}
+          onPick={(s) => {
+            setPreviewSeason(s === todaySeason ? null : s)
+            setThemesOpen(false)
+          }}
+        />
+      )}
 
       {/* Date — mobile only */}
       <div className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-gray-200/70 dark:bg-gray-800 dark:ring-gray-700/70 sm:hidden">

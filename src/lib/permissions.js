@@ -380,6 +380,7 @@ export const PERMISSIONS = Object.freeze({
   // ── Frontend only (ไม่มีใน matrix — กฎการแสดงผลของหน้าเว็บ ไม่ได้ให้สิทธิ์เพิ่มจาก backend) ──
   "admin.roles.view": { code: "superadmin", no: null, module: "Frontend only", label: "ดูหน้าสิทธิ์ตามบทบาท", en: "View role permission matrix", roles: [1], feOnly: true },
   "admin.onboarding.view": { code: "superadmin", no: null, module: "Frontend only", label: "ดูหน้าตัวอย่างการเริ่มใช้งาน", en: "View onboarding gallery", roles: [1], feOnly: true },
+  "home.bannerThemes.preview": { code: "superadmin", no: null, module: "Frontend only", label: "กดแบนเนอร์หน้าหลักเพื่อดูลายตามฤดูกาลทั้งหมด", en: "Preview all seasonal banner themes", roles: [1], feOnly: true },
   "approval.anyStage": { code: "superadmin", no: null, module: "Frontend only", label: "พิจารณาคำขอได้ทุกขั้น (ใบลา / ออกนอกสถานที่)", en: "Act on any approval stage", roles: [1], feOnly: true, note: "สอดคล้อง backend: role 1 อยู่ในทุก guard ของขั้นอนุมัติ" },
   "nav.hrCompactMenu": { code: (me) => HR_POSITION_IDS.has(me.roleId), no: null, module: "Frontend only", label: "ใช้เมนูด้านข้างแบบ HR (ย่อ)", en: "Use the compact HR sidebar", roles: [3], feOnly: true },
   "home.hrDashboardOnly": { code: (me) => HR_POSITION_IDS.has(me.roleId), no: null, module: "Frontend only", label: "หน้าหลักเป็นแดชบอร์ด HR อย่างเดียว", en: "Home is the HR dashboard only", roles: [3], feOnly: true, note: "ตำแหน่ง HR เปิด /home แล้วไป /hr/dashboard ทันที — ไม่เห็นการ์ดฟังก์ชันอื่นบนหน้าหลัก (sidebar ปกติ)" },

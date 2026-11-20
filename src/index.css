@@ -581,6 +581,12 @@ button:focus-visible:not([class*="focus-visible:ring"]):not([class*="focus:ring"
 .wa-shimmer { animation: wa-shimmer 2.4s ease-in-out infinite; }
 .wa-walk    { animation: wa-walk 1.5s ease-in-out infinite; }
 .wa-flag    { animation: wa-flag 3s ease-in-out infinite; }
+@keyframes wa-ear     { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-7deg) scaleX(.94); } }
+@keyframes wa-trunk   { 0%,100% { transform: rotate(-2.5deg); } 50% { transform: rotate(3deg); } }
+.welcome-art .wa-ear   { transform-origin: 0% 25%; }
+.welcome-art .wa-trunk { transform-origin: 50% 0; }
+.wa-ear     { animation: wa-ear 4.6s ease-in-out infinite; }
+.wa-trunk   { animation: wa-trunk 3s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .welcome-art svg * { animation: none !important; }

@@ -327,37 +327,13 @@ export default function EmployeeTable({
       </div>
 
       {/* Active filter chips */}
-      {activeFilters.length > 0 && (
-        <div className={cx("flex flex-wrap items-center gap-2", isPhone ? "pb-3" : "border-t border-gray-100 px-4 py-2.5 dark:border-line")}>
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-300">ตัวกรองที่ใช้</span>
-          <ul className="contents">
-            {activeFilters.map(({ col, value }) => (
-              <li key={col.key}>
-                <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-indigo-50 py-1 pl-3 pr-1 text-xs text-indigo-800 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-indigo-400/30">
-                  <span className="truncate">
-                    <span className="font-semibold">{col.label}:</span> {filterSummary(col, value)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setFilter(col.key, null)}
-                    aria-label={`ล้างตัวกรอง ${col.label}`}
-                    className={cx("inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-400/20 cursor-pointer", focusRingCls)}
-                  >
-                    <X aria-hidden="true" className="size-3.5" strokeWidth={2} />
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <button
-            type="button"
-            onClick={clearAll}
-            className={cx("ml-1 rounded text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300 cursor-pointer", focusRingCls)}
-          >
-            {serverFiltersActive ? "ล้างตัวกรองทั้งหมด" : "ล้างทั้งหมด"}
-          </button>
-        </div>
-      )}
+      <ActiveFilterChips
+        active={activeFilters}
+        onClear={(key) => setFilter(key, null)}
+        onClearAll={clearAll}
+        clearAllLabel={serverFiltersActive ? "ล้างตัวกรองทั้งหมด" : "ล้างทั้งหมด"}
+        className={isPhone ? "pb-3" : "border-t border-gray-100 px-4 py-2.5 dark:border-line"}
+      />
 
       {isPhone ? (
         <div>
@@ -411,6 +387,43 @@ export default function EmployeeTable({
           ctx={ctx}
         />
       )}
+    </div>
+  )
+}
+
+// ─── Active filter chips (ใช้ร่วมกับตารางเงินเดือน) ─────────────────────────────
+// active = [{ col, value }]
+export function ActiveFilterChips({ active, onClear, onClearAll, clearAllLabel = "ล้างทั้งหมด", className }) {
+  if (!active.length) return null
+  return (
+    <div className={cx("flex flex-wrap items-center gap-2", className)}>
+      <span className="text-xs font-medium text-gray-600 dark:text-gray-300">ตัวกรองที่ใช้</span>
+      <ul className="contents">
+        {active.map(({ col, value }) => (
+          <li key={col.key} className="min-w-0 max-w-full">
+            <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-indigo-50 py-1 pl-3 pr-1 text-xs text-indigo-800 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-200 dark:ring-indigo-400/30">
+              <span className="truncate">
+                <span className="font-semibold">{col.label}:</span> {filterSummary(col, value)}
+              </span>
+              <button
+                type="button"
+                onClick={() => onClear(col.key)}
+                aria-label={`ล้างตัวกรอง ${col.label}`}
+                className={cx("inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-400/20 cursor-pointer", focusRingCls)}
+              >
+                <X aria-hidden="true" className="size-3.5" strokeWidth={2} />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={onClearAll}
+        className={cx("ml-1 rounded text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300 cursor-pointer", focusRingCls)}
+      >
+        {clearAllLabel}
+      </button>
     </div>
   )
 }
@@ -538,7 +551,7 @@ function NameCell({ row, onOpen }) {
   )
 }
 
-function HeaderCell({ col, className, sort, onSort, filter, onFilter, options }) {
+export function HeaderCell({ col, className, sort, onSort, filter, onFilter, options }) {
   const btnRef = useRef(null)
   const panelId = useId()
   const [open, setOpen] = useState(false)
@@ -706,7 +719,7 @@ function ColumnsMenu({ available, unavailable, hiddenSet, onToggle, onReset }) {
 // ─── Mobile ─────────────────────────────────────────────────────────────────
 const DEFAULT_SORT = "__default"
 
-function MobileControls({ columns, sort, onSort, filterCount, onOpenFilters }) {
+export function MobileControls({ columns, sort, onSort, filterCount, onOpenFilters }) {
   const sortOptions = useMemo(() => {
     const opts = [{ value: DEFAULT_SORT, label: "ลำดับเริ่มต้น" }]
     for (const c of columns) {
@@ -747,7 +760,7 @@ function MobileControls({ columns, sort, onSort, filterCount, onOpenFilters }) {
   )
 }
 
-function FilterSheet({ open, onClose, columns, filters, onFilter, options, shown, onClearAll, hasFilters }) {
+export function FilterSheet({ open, onClose, columns, filters, onFilter, options, shown, onClearAll, hasFilters }) {
   return (
     <Sheet
       open={open}

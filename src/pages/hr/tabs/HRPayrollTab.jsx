@@ -14,9 +14,9 @@
 //     generate-bulk / recalculate ตอบ `errors` = คนที่ถูกข้าม (เช่น ยังไม่บันทึกวัน) → แสดงรายชื่อใต้การ์ดงวด
 //     settings.daily_wage ใช้แสดงค่าจ้างโดยประมาณ · backend ยังไม่ migrate (404) → ซ่อนส่วนรายวันทั้งหมด
 // ─────────────────────────────────────────────────────────────────────────────
-import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { AlertTriangle, CalendarDays, ChevronRight, Info, RotateCcw, X } from "lucide-react"
+import { AlertTriangle, CalendarDays, ChevronRight, Info, RotateCcw, Search, X } from "lucide-react"
 import { apiAuth, apiDownload } from "../../../lib/api"
 import { saveBlob } from "../../../lib/files"
 import { useCan } from "../../../lib/permissions"
@@ -41,8 +41,27 @@ import { downloadShortfallPdf } from "../../../lib/shortfall"
 import HRPayrollReviewPanel from "./HRPayrollReviewPanel"
 import HRPayrollExternalPanel from "./HRPayrollExternalPanel"
 import { keepBackState, useDrill } from "../../../lib/drill"
+import { ActiveFilterChips, FilterSheet, HeaderCell, MobileControls } from "../../../components/hr/EmployeeTable"
+import { enumOptions, isFilterActive, matchFilter } from "../../../components/hr/columnFilters"
+import { sortRows, thaiCollator } from "../../../lib/tableSort"
 
-const PAYROLL_COLS = 5
+const PAYROLL_COLS = 6
+
+// ตัวกรอง/เรียงรายคอลัมน์ — ชุดเดียวกับตารางรายชื่อเจ้าหน้าที่ (HeaderCell → ColumnHeaderMenu)
+const PAY_COLUMNS = [
+  { key: "name", label: "เจ้าหน้าที่", type: "text", get: (p) => p.employee_name },
+  { key: "branch", label: "สาขา", type: "enum", get: (p) => p.branch_name },
+  { key: "gross", label: "รายได้รวม", type: "number", align: "right", get: (p) => (p.gross_income == null ? null : toNum(p.gross_income)) },
+  { key: "ded", label: "รายการหัก", type: "number", align: "right", get: (p) => { const d = totalDeductions(p); return d == null ? null : toNum(d) } },
+  { key: "net", label: "สุทธิ", type: "number", align: "right", get: (p) => toNum(netOf(p)) },
+]
+const PAY_COL = Object.fromEntries(PAY_COLUMNS.map((c) => [c.key, c]))
+const byEmpName = (a, b) => thaiCollator.compare(a.employee_name ?? "", b.employee_name ?? "") || Number(a.id) - Number(b.id)
+function sortPayrolls(rows, sort) {
+  const col = sort && PAY_COL[sort.key]
+  if (!col) return rows
+  return sortRows(rows, sort, { get: col.get, text: col.type !== "number", tiebreak: byEmpName })
+}
 const ID_BASE = "payroll"
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const sheetBtn = "h-12 md:pointer-fine:h-10"
@@ -410,6 +429,31 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
   // กันคำตอบของเดือนก่อนมาทับเดือนที่เพิ่งเลือก
   const latest = useRef({ list: 0, period: 0 })
 
+  // เรียง/กรองฝั่ง client — คงไว้ตอนเปลี่ยนเดือน (ดูสาขาเดิมข้ามงวดได้)
+  const [sort, setSort] = useState(null) // { key, dir } | null = ลำดับจาก server
+  const [filters, setFilters] = useState({})
+  const [filterSheet, setFilterSheet] = useState(false)
+  const setFilter = useCallback((key, value) => {
+    setFilters((f) => {
+      const next = { ...f }
+      if (value == null) delete next[key]
+      else next[key] = value
+      return next
+    })
+  }, [])
+  const filterOptions = useMemo(() => ({ branch: enumOptions(PAY_COL.branch, payrolls) }), [payrolls])
+  const activeFilters = useMemo(
+    () => PAY_COLUMNS.filter((c) => isFilterActive(c.type, filters[c.key])).map((c) => ({ col: c, value: filters[c.key] })),
+    [filters],
+  )
+  const shownRows = useMemo(() => {
+    const list = activeFilters.length
+      ? payrolls.filter((p) => activeFilters.every(({ col, value }) => matchFilter(col, p, value)))
+      : payrolls
+    return sortPayrolls(list, sort)
+  }, [payrolls, activeFilters, sort])
+  const filtering = activeFilters.length > 0
+
   const fetchPayrolls = useCallback(() => {
     const { year, month } = splitMonth(filterMonth)
     const req = ++latest.current.list
@@ -511,7 +555,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
   const gross = (p) => p.gross_income ?? null
   const ded = (p) => totalDeductions(p)
   const sum = (fn) => {
-    const vals = payrolls.map(fn)
+    const vals = shownRows.map(fn)
     return vals.some((v) => v == null) ? null : vals.reduce((s, v) => s + Number(v), 0)
   }
   const emptyState = (
@@ -534,12 +578,39 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
         <SelectDropdown value={filterMonth} onChange={setFilterMonth} options={MONTH_OPTIONS} placeholder="เลือกเดือน" />
       </div>
       {!notVisible && (
-        <p className="text-sm text-gray-500 dark:text-gray-400" aria-live="polite">
-          {loading ? "กำลังโหลด…" : `${payrolls.length} รายการ`}
+        <div className="relative order-last w-full min-w-0 sm:order-none sm:w-64">
+          <label htmlFor={`${ID_BASE}-q`} className="sr-only">ค้นหาชื่อเจ้าหน้าที่</label>
+          <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" strokeWidth={1.75} />
+          <input
+            id={`${ID_BASE}-q`}
+            type="search"
+            value={filters.name ?? ""}
+            onChange={(e) => setFilter("name", e.target.value === "" ? null : e.target.value)}
+            placeholder="ค้นหาชื่อเจ้าหน้าที่"
+            autoComplete="off"
+            className={cx(inputCls, "!pl-9")}
+          />
+        </div>
+      )}
+      {!notVisible && (
+        <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400" role="status" aria-live="polite">
+          {loading
+            ? "กำลังโหลด…"
+            : filtering
+              ? `แสดง ${shownRows.length.toLocaleString("th-TH")} จาก ${payrolls.length.toLocaleString("th-TH")} รายการ`
+              : `${payrolls.length.toLocaleString("th-TH")} รายการ`}
         </p>
       )}
     </div>
   )
+  const filteredEmpty = (
+    <EmptyState
+      title="ไม่พบรายการตามตัวกรอง"
+      description="ลองเปลี่ยนคำค้นหรือสาขา หรือล้างตัวกรองเพื่อดูทั้งหมด"
+      action={<button type="button" onClick={() => setFilters({})} className={neutralBtnCls}>ล้างตัวกรอง</button>}
+    />
+  )
+  const hasRows = payrolls.length > 0
 
   if (notVisible) {
     return (
@@ -588,9 +659,37 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
 
       {error && <ErrorState message={error} onRetry={fetchPayrolls} />}
 
+      {isPhone && hasRows && (
+        <MobileControls
+          columns={PAY_COLUMNS}
+          sort={sort}
+          onSort={setSort}
+          filterCount={activeFilters.length}
+          onOpenFilters={() => setFilterSheet(true)}
+        />
+      )}
+      <ActiveFilterChips
+        active={activeFilters}
+        onClear={(key) => setFilter(key, null)}
+        onClearAll={() => setFilters({})}
+      />
+      {isPhone && (
+        <FilterSheet
+          open={filterSheet}
+          onClose={() => setFilterSheet(false)}
+          columns={PAY_COLUMNS}
+          filters={filters}
+          onFilter={setFilter}
+          options={filterOptions}
+          shown={shownRows.length}
+          onClearAll={() => setFilters({})}
+          hasFilters={filtering}
+        />
+      )}
+
       {isPhone ? (
         <DataList
-          items={payrolls}
+          items={shownRows}
           keyOf={(p) => p.id}
           title={(p) => p.employee_name}
           subtitle={(p) => (
@@ -609,7 +708,7 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
           onClick={(p) => setDetail(p)}
           loading={loading}
           skeletonRows={4}
-          emptyState={emptyState}
+          emptyState={hasRows ? filteredEmpty : emptyState}
         />
       ) : (
         <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-gray-200/70 shadow-sm dark:bg-surface dark:ring-line dark:shadow-none">
@@ -617,12 +716,19 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
             <table className="w-full text-sm">
               <caption className="sr-only">รายการเงินเดือนงวด {monthLabel}</caption>
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 dark:border-line dark:bg-white/[.03]">
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">เจ้าหน้าที่ / สาขา</th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">รายได้รวม</th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">รายการหัก</th>
-                  <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">สุทธิ</th>
-                  <th scope="col" className="w-28 px-4 py-3"><span className="sr-only">สลิป</span></th>
+                <tr>
+                  {PAY_COLUMNS.map((c) => (
+                    <HeaderCell
+                      key={c.key}
+                      col={c}
+                      sort={sort}
+                      onSort={(key, dir) => setSort(dir ? { key, dir } : null)}
+                      filter={filters[c.key]}
+                      onFilter={setFilter}
+                      options={filterOptions[c.key]}
+                    />
+                  ))}
+                  <th scope="col" className="w-28 border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-line-strong dark:bg-gray-900"><span className="sr-only">สลิป</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-line">
@@ -630,24 +736,30 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
                   <SkeletonTableRows rows={6} cols={PAYROLL_COLS} />
                 ) : payrolls.length === 0 ? (
                   <tr><td colSpan={PAYROLL_COLS} className="p-0">{emptyState}</td></tr>
-                ) : payrolls.map((p) => (
+                ) : shownRows.length === 0 ? (
+                  <tr><td colSpan={PAYROLL_COLS} className="p-0">{filteredEmpty}</td></tr>
+                ) : shownRows.map((p) => (
                   <tr key={p.id} className="transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.03]">
-                    <td className="px-4 py-2.5">
+                    <td className="px-3 py-2.5">
                       <button type="button" onClick={() => setDetail(p)} className={cx("group flex items-center gap-1 rounded text-left cursor-pointer", focusRingCls)}>
                         <span>
                           <span className="block font-medium text-gray-900 group-hover:text-indigo-700 dark:text-gray-100 dark:group-hover:text-indigo-300">{p.employee_name}<EstimatedChip record={p} className="ml-2 align-middle" /><ShortfallPaidChip record={p} className="ml-2 align-middle" /></span>
-                          <span className="block text-xs text-gray-500 dark:text-gray-400">
-                            {p.branch_name || `รหัส ${p.user_id}`}
-                            {p.days_worked != null && <span className="tabular-nums"> · รายวัน {daysWorkedText(p)}</span>}
-                            {notKeyed(p) && <span className="text-amber-700 dark:text-amber-300"> · ยังไม่บันทึกหักภายนอก</span>}
-                          </span>
+                          {(!p.branch_name || p.days_worked != null || notKeyed(p)) && (
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">
+                              {[!p.branch_name && `รหัส ${p.user_id}`, p.days_worked != null && `รายวัน ${daysWorkedText(p)}`].filter(Boolean).join(" · ")}
+                              {notKeyed(p) && (
+                                <span className="text-amber-700 dark:text-amber-300">{!p.branch_name || p.days_worked != null ? " · " : ""}ยังไม่บันทึกหักภายนอก</span>
+                              )}
+                            </span>
+                          )}
                         </span>
                         <ChevronRight aria-hidden="true" className="size-4 text-gray-400 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100" />
                       </button>
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(gross(p))}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{ded(p) == null ? "—" : money(ded(p))}</td>
-                    <td className={cx("px-4 py-2.5 text-right font-semibold tabular-nums", toNum(netOf(p)) < 0 ? "text-red-700 dark:text-red-300" : "text-gray-900 dark:text-gray-100")}>{money(netOf(p))}</td>
+                    <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300">{p.branch_name || <span className="text-gray-400 dark:text-gray-500">—</span>}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{money(gross(p))}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-gray-700 dark:text-gray-300">{ded(p) == null ? "—" : money(ded(p))}</td>
+                    <td className={cx("px-3 py-2.5 text-right font-semibold tabular-nums", toNum(netOf(p)) < 0 ? "text-red-700 dark:text-red-300" : "text-gray-900 dark:text-gray-100")}>{money(netOf(p))}</td>
                     <td className="px-4 py-2.5 text-right">
                       {perms.slip && (
                         <button
@@ -663,13 +775,16 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
                   </tr>
                 ))}
               </tbody>
-              {!loading && payrolls.length > 0 && (
+              {!loading && shownRows.length > 0 && (
                 <tfoot>
                   <tr className="border-t border-gray-200 bg-gray-50 font-semibold dark:border-line-strong dark:bg-white/[.03]">
-                    <th scope="row" className="px-4 py-3 text-left text-gray-700 dark:text-gray-300">รวม {payrolls.length} คน</th>
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(sum(gross))}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(sum(ded))}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(sum(netOf))}</td>
+                    <th scope="row" colSpan={2} className="px-3 py-3 text-left text-gray-700 dark:text-gray-300">
+                      รวม {shownRows.length.toLocaleString("th-TH")} คน
+                      {filtering && <span className="ml-1.5 text-xs font-normal text-gray-500 dark:text-gray-400">(ตามตัวกรอง)</span>}
+                    </th>
+                    <td className="px-3 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(sum(gross))}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(sum(ded))}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(sum(netOf))}</td>
                     <td />
                   </tr>
                 </tfoot>

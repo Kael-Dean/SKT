@@ -1,13 +1,14 @@
 // src/pages/hr/tabs/HRLeaveTab.jsx
-// อนุมัติ / ปฏิเสธ คำขอลา + ดาวน์โหลด PDF ใบลา
+// อนุมัติ / ปฏิเสธ คำขอลา + พรีวิว/พิมพ์ใบลา (LeaveFormDialog)
 import { useEffect, useState, useCallback } from "react"
-import { apiAuth, apiDownload } from "../../../lib/api"
-import { saveBlob } from "../../../lib/files"
+import { Printer } from "lucide-react"
+import { apiAuth } from "../../../lib/api"
 import DecisionModal from "../../../components/DecisionModal"
+import LeaveFormDialog from "../../../components/hr/LeaveFormDialog"
 import LeaveStageActions from "../../../components/LeaveStageActions"
 import ApprovalHistory from "../../../components/ApprovalHistory"
 import { StageBadge, JustificationBadge } from "../../../components/ApprovalBadges"
-import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab, toast } from "../../../components/ui"
+import { PageLoader, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { cx, tabPanelCls } from "../../../lib/styles"
 import { stageOf } from "../../../lib/approval"
 import { fmtLeaveRowDuration } from "../../../lib/leaveDays"
@@ -27,20 +28,8 @@ export default function HRLeaveTab() {
 
   const [decision, setDecision] = useState(null) // { req, mode: "approve"|"reject" }
   const [banner, setBanner] = useState(null) // { tone: "success"|"error", text }
-  const [downloadingId, setDownloadingId] = useState(null)
   const [historyId, setHistoryId] = useState(null) // แถวที่เปิดดูประวัติการอนุมัติ
-
-  const handlePdfDownload = async (employeeId, leaveId) => {
-    setDownloadingId(leaveId)
-    try {
-      const { blob, filename } = await apiDownload(`/hr/employees/${employeeId}/leaves/${leaveId}/pdf`)
-      await saveBlob(blob, filename && filename !== "download" ? filename : `leave_${leaveId}.pdf`)
-    } catch (err) {
-      toast.error("ดาวน์โหลด PDF ไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
-    } finally {
-      setDownloadingId(null)
-    }
-  }
+  const [formTarget, setFormTarget] = useState(null) // ใบลาที่เปิดพรีวิว/พิมพ์
 
   const fetchRequests = useCallback(() => {
     setLoading(true)
@@ -211,23 +200,12 @@ export default function HRLeaveTab() {
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
                   <button
-                    onClick={() => handlePdfDownload(r.user_id, r.id)}
-                    disabled={downloadingId === r.id}
-                    className="px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1.5"
+                    type="button"
+                    onClick={() => setFormTarget({ employeeId: r.user_id, leaveId: r.id, leave: r })}
+                    className="px-3 py-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold transition-all shadow-sm cursor-pointer flex items-center gap-1.5"
                   >
-                    {downloadingId === r.id ? (
-                      <>
-                        <span className="h-3 w-3 rounded-full border-2 border-gray-400/40 border-t-gray-500 animate-spin" />
-                        โหลด...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        PDF
-                      </>
-                    )}
+                    <Printer aria-hidden="true" className="size-3.5" strokeWidth={2} />
+                    ใบลา
                   </button>
                   <button
                     type="button"
@@ -258,6 +236,7 @@ export default function HRLeaveTab() {
           onConflict={onDecisionConflict}
         />
       )}
+      <LeaveFormDialog target={formTarget} onClose={() => setFormTarget(null)} />
     </div>
   )
 }

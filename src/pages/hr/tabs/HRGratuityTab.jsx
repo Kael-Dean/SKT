@@ -24,7 +24,7 @@ import GratuityEditSheet from "../../../components/hr/GratuityEditSheet"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 
 const TH = "px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
-const TD = "px-3 py-2.5 tabular-nums"
+const TD = "px-3 py-2.5 tabular-nums whitespace-nowrap"
 const norm = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "")
 
 function SourceBadge({ source }) {
@@ -241,7 +241,7 @@ export default function HRGratuityTab() {
                   ) : rows.map((r) => (
                     <tr key={r.id ?? r.user_id}
                       className={cx("transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.03]", r.status === "left" && "text-gray-500 dark:text-gray-400")}>
-                      <td className="max-w-[16rem] py-2.5 pl-4 pr-3">
+                      <td className="min-w-[12rem] max-w-[16rem] py-2.5 pl-4 pr-3">
                         {nameCell(r)}
                         {r.position && <p className="truncate text-xs text-gray-500 dark:text-gray-400" title={r.position}>{r.position}</p>}
                         {r.note && <p className="truncate text-xs italic text-gray-500 dark:text-gray-400" title={r.note}>{r.note}</p>}
@@ -254,14 +254,14 @@ export default function HRGratuityTab() {
                       <td className={cx(TD, "text-right")}><DiffAmount value={r.difference} /></td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-gray-700 dark:text-gray-300">{r.funding ?? <span className="text-gray-400 dark:text-gray-500">—</span>}</td>
                       <td className="px-3 py-2.5">
-                        <span className="inline-flex flex-wrap gap-1 whitespace-nowrap">
+                        <span className="inline-flex gap-1 whitespace-nowrap">
                           <Badge tone={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
                           {r.source !== "calc" && <SourceBadge source={r.source} />}
                         </span>
                       </td>
                       {canRecord && (
-                        <td className="py-2.5 pl-3 pr-4 text-right">
-                          <button type="button" onClick={() => setEditRow(r)} aria-label={`แก้ไขบำเหน็จของ ${r.name ?? ""}`} className={editBtnCls}>แก้ไข</button>
+                        <td className="whitespace-nowrap py-2.5 pl-3 pr-4 text-right">
+                          <button type="button" onClick={() => setEditRow(r)} aria-label={`แก้ไขบำเหน็จของ ${r.name ?? ""}`} className={cx(editBtnCls, "whitespace-nowrap")}>แก้ไข</button>
                         </td>
                       )}
                     </tr>

@@ -22,9 +22,10 @@ import { Badge, EmptyState, ErrorState, Skeleton, toast } from "../../components
 import PageTitle from "../../components/PageTitle"
 import useFormDefaults from "../../hooks/useFormDefaults"
 import { getUser } from "../../lib/auth"
+import { useDrill } from "../../lib/drill"
 import { SalaryCertProgress, SupervisorOpinionNote } from "../../components/hr/SalaryCertParts"
 import {
-  SALARY_CERT_STATUS as S, ORG_LETTERHEAD, bahtText, downloadSalaryCertPdf, isSalaryCertPending, moneyText,
+  SALARY_CERT_STATUS as S, ORG_LETTERHEAD, bahtText, isSalaryCertPending, moneyText,
   salaryCertStatusLabel, salaryCertStatusTone, thaiLongDate, todayIso,
 } from "../../lib/salaryCert"
 import { fmtDateTimeTh } from "../../lib/approvalActions"
@@ -129,7 +130,7 @@ function RequestDetail({ r }) {
   )
 }
 
-function HistoryItem({ r, downloading, onDownload, highlight }) {
+function HistoryItem({ r, onDownload, highlight }) {
   const status = r.status
   const approved = status === S.APPROVED
   const denied = status === S.DENIED
@@ -175,11 +176,10 @@ function HistoryItem({ r, downloading, onDownload, highlight }) {
           <button
             type="button"
             onClick={() => onDownload(r.id)}
-            disabled={downloading}
             className={cx(neutralBtnCls, "md:pointer-fine:!h-9 !px-3 !text-sm")}
-            aria-label={`ดาวน์โหลดหนังสือรับรองเงินเดือน คำขอ #${r.id}`}
+            aria-label={`ดูและพิมพ์หนังสือรับรองเงินเดือน คำขอ #${r.id}`}
           >
-            {downloading ? "กำลังดาวน์โหลด…" : "ดาวน์โหลดหนังสือรับรอง"}
+            ดูและพิมพ์หนังสือรับรอง
           </button>
         </div>
       )}
@@ -203,7 +203,6 @@ export default function MySalaryCert() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState("")
-  const [downloadingId, setDownloadingId] = useState(null)
   const [highlightId, setHighlightId] = useState(null)
 
   const { defaults, loading: defaultsLoading } = useFormDefaults()
@@ -216,7 +215,10 @@ export default function MySalaryCert() {
   useEffect(() => {
     let alive = true
     apiAuth("/personnel/me/financial")
-      .then((d) => { if (alive && d?.current_salary != null && Number(d.current_salary) > 0) setMySalary(d.current_salary) })
+      .then((d) => {
+        const v = d?.financial?.current_salary ?? d?.current_salary
+        if (alive && v != null && Number(v) > 0) setMySalary(v)
+      })
       .catch(() => {})
     return () => { alive = false }
   }, [])
@@ -298,16 +300,9 @@ export default function MySalaryCert() {
     }
   }
 
-  const downloadPdf = async (id) => {
-    setDownloadingId(id)
-    try {
-      await downloadSalaryCertPdf(`/personnel/me/salary-cert-requests/${id}/certificate-pdf`, `salary_cert_${id}.pdf`)
-    } catch (e) {
-      toast.error("ดาวน์โหลดไม่สำเร็จ", { description: apiDetail(e) || e?.message })
-    } finally {
-      setDownloadingId(null)
-    }
-  }
+  // หนังสือแบบใหม่ (หัวกระดาษ + ลายน้ำ) — พิมพ์/บันทึก PDF จากหน้านั้น
+  const { drillTo } = useDrill()
+  const openCertificate = (id) => drillTo(`/my-salary-cert/certificate?request=${id}`, "ขอหนังสือรับรองเงินเดือน")
 
   // ล้างไฮไลต์แถวใหม่หลังผู้ใช้เห็นแล้ว
   useEffect(() => {
@@ -520,7 +515,7 @@ export default function MySalaryCert() {
             <ul className="divide-y divide-gray-100 dark:divide-line">
               {items.map((r) => (
                 <HistoryItem key={r.id} r={r} highlight={highlightId != null && highlightId === r.id}
-                  downloading={downloadingId === r.id} onDownload={downloadPdf} />
+                  onDownload={openCertificate} />
               ))}
             </ul>
           )}

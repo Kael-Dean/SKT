@@ -37,7 +37,8 @@ function Fill({ children, min = "8em" }) {
 /**
  * @param {{ data: {
  *   docNo?: string, issueDate?: string, name?: string, appointedDate?: string,
- *   position?: string, unit?: string, salary?: string|number, signerName?: string, signerTitle?: string,
+ *   position?: string, unit?: string, salary?: string|number, purpose?: string,
+ *   signerName?: string, signerTitle?: string,
  * } }} props
  */
 export function SalaryCertificateSheet({ data }) {
@@ -127,6 +128,12 @@ export function SalaryCertificateSheet({ data }) {
           ได้รับเงินเดือนในอัตราเดือนละ <Fill min="6em">{salary}</Fill> บาท
           {salaryWords && <> ({salaryWords})</>}
         </p>
+
+        {data.purpose?.trim() && (
+          <p style={{ margin: "3mm 0 0", textIndent: "25mm", textAlign: "justify", textJustify: "inter-character", lineHeight: 2 }}>
+            หนังสือรับรองฉบับนี้ออกให้เพื่อ{data.purpose.trim()}
+          </p>
+        )}
 
         <p style={{ margin: "10mm 0 0", textAlign: "center" }}>
           ให้ไว้ ณ วันที่ <Fill min="2.5em">{issue?.day}</Fill> เดือน <Fill min="6em">{issue?.month}</Fill> พ.ศ. <Fill min="3.5em">{issue?.year}</Fill>

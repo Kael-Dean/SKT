@@ -133,6 +133,27 @@ export function moneyText(value) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
+/** คำขอ → ประโยควัตถุประสงค์ท้ายหนังสือ ("…ออกให้เพื่อ<ข้อความนี้>") · ไม่มีข้อมูล → "" */
+export function certPurposeText(r) {
+  if (!r) return ""
+  const t = (v) => (v == null ? "" : String(v).trim())
+  const amount = moneyText(r.loan_amount)
+  const loanTail = [
+    t(r.loan_bank) && `กับ${t(r.loan_bank)}`,
+    t(r.loan_branch_name) && `สาขา${t(r.loan_branch_name).replace(/^สาขา\s*/, "")}`,
+    t(r.loan_purpose) && `วัตถุประสงค์เพื่อ${t(r.loan_purpose)}`,
+    amount && Number(r.loan_amount) > 0 && `วงเงิน ${amount} บาท`,
+  ].filter(Boolean).join(" ")
+  if (r.purpose_type === "document") {
+    return [`ใช้ประกอบหลักฐาน${t(r.purpose_detail)}`, t(r.recipient_name) && `กับ${t(r.recipient_name)}`].filter(Boolean).join(" ")
+  }
+  if (r.purpose_type === "loan_self") return ["ใช้ประกอบหลักฐานการกู้เงิน", loanTail].filter(Boolean).join(" ")
+  if (r.purpose_type === "loan_guarantee") {
+    return [`ใช้ประกอบการค้ำประกันการกู้เงิน${t(r.guarantor_for_name) ? `ของ${t(r.guarantor_for_name)}` : ""}`, loanTail].filter(Boolean).join(" ")
+  }
+  return ""
+}
+
 /** ดาวน์โหลด PDF จาก path ที่ให้มา แล้วสั่ง browser บันทึกไฟล์ */
 export async function downloadSalaryCertPdf(path, fallbackName) {
   const { blob, filename } = await apiDownload(path)

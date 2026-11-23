@@ -1,10 +1,12 @@
 // src/components/hr/DashboardPayrollTrend.jsx
-// แนวโน้มเงินเดือนสุทธิรายเดือน (3H) — GET /hr/dashboard/payroll-trend?months=12[&branch_id]
+// แนวโน้มรายได้รวม (gross) รายเดือน (3H) — GET /hr/dashboard/payroll-trend?months=12[&branch_id]
 //
 // • เงินเป็น decimal string (TOR 3H §5): parseFloat ใช้คำนวณความสูงแท่งเท่านั้น
 //   ตัวเลขที่แสดงจัดรูปจาก string ตรง ๆ (คั่นหลักพัน + ทศนิยม 2 ตำแหน่ง) — ไม่ปัดผ่าน float
 // • เดือนที่ไม่มีการจ่ายเงินเดือน (ศูนย์ทั้งหมด) = ช่องว่าง
-// • change_net / change_net_pct = null (เดือนแรก / หลังช่องว่าง) → "—"
+// • ตัวเลขหลัก/กราฟ/"เทียบเดือนก่อน" ใช้รายได้รวม (total_gross_income) — ลูกค้าขอ พ.ย. 2026
+//   backend ส่งแค่ change_net → คำนวณ change_gross / change_gross_pct เองที่หน้าเว็บ (หน่วยสตางค์)
+//   = null เมื่อเป็นเดือนแรก / เดือนก่อนไม่มีการจ่าย (กฎเดียวกับ change_net ของ backend) → "—"
 // • ข้อมูลครบในตาราง (สลับ "ดูเป็นตาราง") — กราฟเป็น role="img" + สรุปใน aria-label
 import { useEffect, useMemo, useState } from "react"
 import { ArrowDownRight, ArrowUpRight, ChartColumn, Minus, Table2 } from "lucide-react"
@@ -43,6 +45,24 @@ function isEmptyMonth(r) {
   return num(r.total_net_payout) === 0 && num(r.total_gross_income) === 0 && !Number(r.employees_processed)
 }
 
+const toSatang = (v) => Math.round(num(v) * 100)
+
+/** เติม change_gross / change_gross_pct (string ทศนิยม 2 ตำแหน่ง) เทียบกับเดือนก่อนหน้าที่ติดกัน */
+function withGrossChange(list) {
+  return list.map((r, i) => {
+    const prev = i > 0 ? list[i - 1] : null
+    if (!prev || isEmptyMonth(r) || isEmptyMonth(prev)) return { ...r, change_gross: null, change_gross_pct: null }
+    const cur = toSatang(r.total_gross_income)
+    const before = toSatang(prev.total_gross_income)
+    const diff = cur - before
+    return {
+      ...r,
+      change_gross: (diff / 100).toFixed(2),
+      change_gross_pct: before === 0 ? null : ((diff / before) * 100).toFixed(2),
+    }
+  })
+}
+
 /** ป้ายการเปลี่ยนแปลง — สีกลาง (เงินเดือนขึ้น/ลงไม่ใช่ดี/ร้าย) ทิศบอกด้วยไอคอน + เครื่องหมาย */
 function ChangeBadge({ change, pct, className = "" }) {
   if (change == null && pct == null) {
@@ -70,8 +90,8 @@ function TooltipBody({ r }) {
     )
   }
   const rows = [
-    ["รายได้รวม", fmtDecimal(r.total_gross_income)],
     ["รายการหัก", fmtDecimal(r.total_deductions)],
+    ["สุทธิ", fmtDecimal(r.total_net_payout)],
     ["จำนวนคน", `${Number(r.employees_processed || 0).toLocaleString("th-TH")} คน`],
   ]
   return (
@@ -81,7 +101,7 @@ function TooltipBody({ r }) {
         {r.period_status_label && <span className="text-gray-500 dark:text-gray-400">{r.period_status_label}</span>}
       </p>
       <p className="mt-1.5 text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-        {fmtDecimal(r.total_net_payout)} <span className="text-xs font-normal text-gray-500 dark:text-gray-400">บาท สุทธิ</span>
+        {fmtDecimal(r.total_gross_income)} <span className="text-xs font-normal text-gray-500 dark:text-gray-400">บาท รายได้รวม</span>
       </p>
       <dl className="mt-1.5 grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5">
         {rows.map(([k, v]) => (
@@ -92,7 +112,7 @@ function TooltipBody({ r }) {
         ))}
       </dl>
       <div className="mt-2 border-t border-gray-100 pt-1.5 dark:border-line">
-        <ChangeBadge change={r.change_net} pct={r.change_net_pct} />
+        <ChangeBadge change={r.change_gross} pct={r.change_gross_pct} />
       </div>
     </>
   )
@@ -112,11 +132,11 @@ function TrendTable({ rows }) {
           isEmptyMonth(r)
             ? []
             : [
-                { label: "สุทธิ", value: () => fmtDecimal(r.total_net_payout), align: "right", emphasis: true },
-                { label: "รายได้รวม", value: () => fmtDecimal(r.total_gross_income), align: "right" },
+                { label: "รายได้รวม", value: () => fmtDecimal(r.total_gross_income), align: "right", emphasis: true },
                 { label: "รายการหัก", value: () => fmtDecimal(r.total_deductions), align: "right" },
+                { label: "สุทธิ", value: () => fmtDecimal(r.total_net_payout), align: "right" },
                 { label: "จำนวนคน", value: () => Number(r.employees_processed || 0).toLocaleString("th-TH"), align: "right" },
-                { label: "เทียบเดือนก่อน", value: () => <ChangeBadge change={r.change_net} pct={r.change_net_pct} />, span: 2 },
+                { label: "เทียบเดือนก่อน", value: () => <ChangeBadge change={r.change_gross} pct={r.change_gross_pct} />, span: 2 },
               ]
         }
       />
@@ -151,11 +171,11 @@ function TrendTable({ rows }) {
                   <>
                     <td className="px-3 py-2">{r.period_status_label || "—"}</td>
                     <td className={cx(td, "text-right")}>{Number(r.employees_processed || 0).toLocaleString("th-TH")}</td>
-                    <td className={cx(td, "text-right")}>{fmtDecimal(r.total_gross_income)}</td>
+                    <td className={cx(td, "text-right font-semibold text-gray-900 dark:text-gray-100")}>{fmtDecimal(r.total_gross_income)}</td>
                     <td className={cx(td, "text-right")}>{fmtDecimal(r.total_deductions)}</td>
-                    <td className={cx(td, "text-right font-semibold text-gray-900 dark:text-gray-100")}>{fmtDecimal(r.total_net_payout)}</td>
+                    <td className={cx(td, "text-right")}>{fmtDecimal(r.total_net_payout)}</td>
                     <td className={cx(td, "text-right")}>
-                      {r.change_net == null && r.change_net_pct == null ? "—" : <ChangeBadge change={r.change_net} pct={r.change_net_pct} />}
+                      {r.change_gross == null && r.change_gross_pct == null ? "—" : <ChangeBadge change={r.change_gross} pct={r.change_gross_pct} />}
                     </td>
                   </>
                 )}
@@ -182,7 +202,7 @@ export default function DashboardPayrollTrend({ branchId = null, months = 12, cl
     const q = new URLSearchParams({ months: String(months) })
     if (branchId != null) q.set("branch_id", String(branchId))
     apiAuth(`/hr/dashboard/payroll-trend?${q}`)
-      .then((d) => { if (alive) setRows(Array.isArray(d?.months) ? d.months : []) })
+      .then((d) => { if (alive) setRows(withGrossChange(Array.isArray(d?.months) ? d.months : [])) })
       .catch((e) => {
         if (!alive) return
         setRows(null)
@@ -198,7 +218,7 @@ export default function DashboardPayrollTrend({ branchId = null, months = 12, cl
     () =>
       (rows ?? []).map((r, i) => ({
         key: `${r.year}-${r.month}`,
-        value: num(r.total_net_payout),
+        value: num(r.total_gross_income),
         label: MONTH_SHORT[r.month - 1] ?? String(r.month),
         subLabel: i === 0 || r.month === 1 ? String(beYear(r.year)) : null,
         empty: isEmptyMonth(r),
@@ -209,15 +229,15 @@ export default function DashboardPayrollTrend({ branchId = null, months = 12, cl
   )
 
   const ariaLabel = useMemo(() => {
-    if (!rows?.length) return "กราฟเงินเดือนสุทธิรายเดือน — ไม่มีข้อมูล"
+    if (!rows?.length) return "กราฟรายได้รวมรายเดือน — ไม่มีข้อมูล"
     const paid = rows.filter((r) => !isEmptyMonth(r))
     const first = rows[0]
     const last = rows[rows.length - 1]
-    const parts = [`กราฟแท่งเงินเดือนสุทธิรายเดือน ${monthLong(first)} ถึง ${monthLong(last)}`]
-    if (latest) parts.push(`ล่าสุด ${monthLong(latest)} ${fmtDecimal(latest.total_net_payout)} บาท`)
+    const parts = [`กราฟแท่งรายได้รวมรายเดือน ${monthLong(first)} ถึง ${monthLong(last)}`]
+    if (latest) parts.push(`ล่าสุด ${monthLong(latest)} ${fmtDecimal(latest.total_gross_income)} บาท`)
     if (paid.length) {
-      const max = paid.reduce((a, b) => (num(b.total_net_payout) > num(a.total_net_payout) ? b : a))
-      parts.push(`สูงสุด ${monthLong(max)} ${fmtDecimal(max.total_net_payout)} บาท`)
+      const max = paid.reduce((a, b) => (num(b.total_gross_income) > num(a.total_gross_income) ? b : a))
+      parts.push(`สูงสุด ${monthLong(max)} ${fmtDecimal(max.total_gross_income)} บาท`)
     }
     const gaps = rows.length - paid.length
     if (gaps) parts.push(`ไม่มีการจ่าย ${gaps} เดือน`)
@@ -236,15 +256,15 @@ export default function DashboardPayrollTrend({ branchId = null, months = 12, cl
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <h3 id="hr-trend-title" className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            เงินเดือนสุทธิ {months} เดือนล่าสุด
+            รายได้รวม {months} เดือนล่าสุด
           </h3>
           {loading && !rows ? (
             <Skeleton rounded="rounded-md" className="mt-2 h-6 w-48" />
           ) : latest ? (
             <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{fmtDecimal(latest.total_net_payout)}</span>
+              <span className="text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{fmtDecimal(latest.total_gross_income)}</span>
               <span className="text-xs text-gray-500 dark:text-gray-400">บาท · {monthLong(latest)}</span>
-              <ChangeBadge change={latest.change_net} pct={latest.change_net_pct} />
+              <ChangeBadge change={latest.change_gross} pct={latest.change_gross_pct} />
             </div>
           ) : null}
         </div>

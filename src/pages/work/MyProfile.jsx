@@ -20,6 +20,7 @@ import { roleLabel as getRoleLabel } from "../../lib/roles"
 import { can, myRoleLabel } from "../../lib/permissions"
 import EmployeeHistoryCard from "../../components/hr/EmployeeHistoryCard"
 import PageTitle from "../../components/PageTitle"
+import BannerCard from "../../components/home/BannerCard"
 import { backState } from "../../lib/drill"
 import { getTenure, tenureText } from "../../lib/tenure"
 import { ageText } from "../../lib/age"
@@ -309,8 +310,8 @@ export default function MyProfile() {
       </div>
 
       {/* Avatar Card */}
-      <div className="rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-md">
-        <div className="flex items-center gap-4">
+      <BannerCard className="shadow-md">
+        <div className="relative flex items-center gap-4">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold shadow-inner">
             {avatarLetter}
           </div>
@@ -325,7 +326,7 @@ export default function MyProfile() {
             </div>
           </div>
         </div>
-      </div>
+      </BannerCard>
 
       {error && <ErrorState message={error} onRetry={loadProfile} />}
 

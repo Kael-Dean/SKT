@@ -237,16 +237,16 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
 
         {/* เนื้อความ */}
         <div style={{ marginTop: "2mm", display: "grid", rowGap: "1.3mm" }}>
-          <Line style={{ paddingLeft: "15mm" }}>
+          <Line style={{ paddingLeft: "12mm" }}>
             <span>ข้าพเจ้า</span>
-            <Field min="55mm" grow>{data.name}</Field>
+            <Field min="40mm" grow>{data.name}</Field>
             <span>ตำแหน่ง</span>
-            <Field min="45mm" grow>{data.position}</Field>
+            <Field min="32mm" grow>{data.position}</Field>
+            <span>สังกัด</span>
+            <Field min="26mm" grow>{data.branch}</Field>
           </Line>
           <Line>
-            <span>สังกัด</span>
-            <Field min="45mm">{data.branch}</Field>
-            <span style={{ marginLeft: "2mm" }}>ขออนุญาตลา</span>
+            <span style={{ marginRight: "1mm" }}>ขออนุญาตลา</span>
             {FORM_LEAVE_KINDS.map((k) => (
               <span key={k.key} style={{ whiteSpace: "nowrap", marginRight: "2mm" }}>
                 <Box checked={data.kind === k.key} />
@@ -271,7 +271,7 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
             <Field min="34mm">{thaiLongDate(data.toDate)}</Field>
             {data.toTime && (<><span>เวลา</span><Field min="16mm">{hhmm(data.toTime)}</Field></>)}
             <span>รวม</span>
-            <Field min="30mm">{duration !== "—" ? duration : ""}</Field>
+            <Field min="20mm">{duration !== "—" ? duration : ""}</Field>
             {data.extraDays > 0 && (
               <span style={{ fontSize: "11.5pt", color: MUTED }}>(เกินสิทธิ์ {fmtDays(data.extraDays)} วัน)</span>
             )}

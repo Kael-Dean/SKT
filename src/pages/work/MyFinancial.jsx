@@ -4,6 +4,7 @@
 //   a) GET /personnel/me/financial        เงินสะสม + เงินกู้ (การ์ดเงินเดือน/รายการหักประจำเอาออกแล้ว พ.ย. 2026 — ดูจากสลิปแทน)
 //   b) GET /personnel/me/payroll[/{id}]   สลิปรายเดือน (เฉพาะงวดที่อนุมัติ/ปิดแล้ว) → MyPayslipsPanel
 //   c) GET /personnel/me/salary-history   ประวัติการเลื่อนขั้น (เป็น "ขั้น" ไม่ใช่บาท)
+//   d) GET /personnel/me/gratuity         บำเหน็จของฉัน → MyGratuitySection (403/404 = ไม่แสดง)
 // ยอดจริงของแต่ละเดือนมาจากสลิป (b) — การ์ดบน (a) เป็นค่าตั้งต้นในทะเบียน ไม่คำนวณยอดสุทธิจากการ์ดนี้
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useState } from "react"
@@ -12,6 +13,7 @@ import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { useCan } from "../../lib/permissions"
 import { SavingsBlock, LoansBlock } from "../../components/hr/FinanceSavingsLoans"
+import { MyGratuitySection } from "../../components/hr/GratuityBlocks"
 import { fmtDate, fmtLevel, reasonLabel } from "../../components/hr/positionUtils"
 import { cardCls, cx, focusRingCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SkeletonText } from "../../components/ui"
@@ -195,6 +197,8 @@ export default function MyFinancial() {
       </section>
 
       <OnFileCard />
+
+      {can("self.gratuity.view") && <MyGratuitySection />}
 
       {can("self.history.view") && <StepHistory />}
     </div>

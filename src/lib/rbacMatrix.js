@@ -169,6 +169,8 @@ export const PERMISSION_MATRIX = Object.freeze({
   "welfare.submit": { no: null, roles: [106, 117, 130] },
   "welfare.approve": { no: null, roles: [101] },
   "welfare.settings": { no: null, roles: [117] },
+  "gratuity.view": { no: null, roles: [101, 102, 103, 104, 105, 106, 117, 130] },
+  "gratuity.record": { no: null, roles: [117, 130] },
   "discipline.topics": { no: null, roles: [106, 117, 130] },
   "discipline.view": { no: null, roles: [101, 102, 103, 106, 117, 130] },
   "discipline.decide.asst": { no: null, roles: [101, 102, 103] },

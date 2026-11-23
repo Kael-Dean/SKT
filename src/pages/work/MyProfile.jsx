@@ -13,7 +13,7 @@ import AttachmentList from "../../components/AttachmentList"
 import useFileUploads from "../../hooks/useFileUploads"
 import { hasNewValue, isResolvedStatus } from "../../lib/issueReports"
 import DateInput from "../../components/ThaiDateField"
-import { useLeaveBalance } from "../../lib/leaveTypes"
+import { useLeaveAllYears, useLeaveBalance } from "../../lib/leaveTypes"
 import LeaveRegisterTable from "../../components/hr/LeaveRegisterTable"
 import lineIcon from "../../assets/line-icon.png"
 import { roleLabel as getRoleLabel } from "../../lib/roles"
@@ -133,6 +133,7 @@ export default function MyProfile() {
   const { rows: leaveRows, error: leaveRowsError } = useLeaveBalance(
     quotaYear ? `/personnel/me/leave-balance?year=${quotaYear}` : null,
   )
+  const leaveAllYears = useLeaveAllYears(quotaYear ? "/personnel/me/leave-history" : null)
   const [positions, setPositions] = useState([])
   const [myPosition, setMyPosition] = useState(null) // GET /personnel/me/position → position_display (รวมชื่อสาขา)
   const [branches, setBranches] = useState([])
@@ -505,6 +506,7 @@ export default function MyProfile() {
             quota={quota}
             rows={leaveRows}
             error={leaveRowsError}
+            allYears={leaveAllYears}
             newHireNote="พนักงานที่บรรจุระหว่างปีงบประมาณจะยังไม่มีสิทธิ์ลาพักผ่อนในปีแรก"
           />
 

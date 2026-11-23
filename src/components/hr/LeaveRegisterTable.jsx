@@ -1,4 +1,5 @@
 // ทะเบียนการลา — โครงตามแบบฟอร์มกระดาษของสหกรณ์ (ประเภท · สิทธิ์ · ยกมา · ลาแล้ว · คงเหลือ · เกินสิทธิ์ · หลักเกณฑ์)
+// + ลาสะสม = วันที่ลาไปแล้วรวมทุกปีตั้งแต่เริ่มงาน (useLeaveAllYears → leave-history) · ลาสะสมทั้งหมด = ผลรวมทุกประเภท (ไม่รวมขาดงาน)
 // ข้อมูล: leave_quota (LeaveQuotaOut — ยกมาเฉพาะลาพักผ่อน) + แถวจาก useLeaveBalance() → { name, quota, used, remaining }
 // desktop = ตาราง, มือถือ = การ์ดต่อประเภท (คอลัมน์เกิน 4 → ไม่ทำตารางบนจอแคบ)
 import { useState } from "react"
@@ -12,7 +13,7 @@ import { Skeleton } from "../ui"
 const isAbsence = (name) => String(name ?? "").trim().startsWith("ขาดงาน")
 
 /** แปลงแถวจาก API เป็นตัวเลขของทะเบียน — ลาพักผ่อนใช้สิทธิ์ปีนี้ + ยกมาจาก leave_quota */
-function toRegisterRow(row, quota) {
+function toRegisterRow(row, quota, allYears) {
   const type = row.type || row.name
   const used = parseDays(row.used) ?? 0
   const annual = isAnnualLeave(type)
@@ -22,11 +23,16 @@ function toRegisterRow(row, quota) {
   const carried = annual ? parseDays(quota.annual_leave_carried_over) ?? 0 : null
   const cap = prescribed || absence ? null : (entitled ?? 0) + (carried ?? 0)
   const capped = cap != null && cap > 0
+  // null = ยังโหลดไม่ได้/ไม่มีสิทธิ์ดู → ขีด
+  const lifetime = allYears
+    ? (row.id != null ? allYears.byId.get(row.id) ?? 0 : 0) + (allYears.byName.get(row.name) ?? 0)
+    : null
   return {
     key: row.id ?? row.name,
     // HR ตั้ง display_name แล้ว → ใช้ชื่อนั้น, ยังไม่ตั้ง → ชื่อตามแบบฟอร์มทะเบียน
     name: row.name && row.name !== type ? row.name : registerLabel(type),
     used,
+    lifetime,
     entitled,
     carried,
     cap,
@@ -142,7 +148,7 @@ const NUM_COLS = ["สิทธิ์", "ยกมา", "ลาแล้ว", "�
 function RegisterTable({ rows, year }) {
   return (
     <div className={cx("overflow-x-auto rounded-xl border", LINE)}>
-      <table className="w-full min-w-[880px] table-fixed border-separate border-spacing-0">
+      <table className="w-full min-w-[980px] table-fixed border-separate border-spacing-0">
         <caption className="sr-only">ทะเบียนการลา ปีงบประมาณ {year} หน่วยเป็นวัน</caption>
         <colgroup>
           <col className="w-44" />
@@ -151,6 +157,7 @@ function RegisterTable({ rows, year }) {
           <col className="w-24" />
           <col className="w-20" />
           <col className="w-32" />
+          <col className="w-24" />
           <col />
         </colgroup>
         <thead className="bg-gray-50 dark:bg-white/[0.04]">
@@ -160,6 +167,10 @@ function RegisterTable({ rows, year }) {
             </th>
             <th colSpan={5} scope="colgroup" className={cx(TH, "py-1.5 text-center border-b", VLINE, LINE, "bg-indigo-50/70 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300")}>
               ประจำปี {year}
+            </th>
+            <th rowSpan={2} scope="col" className={cx(TH, "text-right align-middle border-b leading-tight", VLINE, LINE)}>
+              ลาสะสม
+              <span className="block text-[11px] font-normal text-gray-500 dark:text-gray-400">ตั้งแต่เริ่มงาน</span>
             </th>
             <th rowSpan={2} scope="col" className={cx(TH, "text-left align-middle border-b", VLINE, LINE)}>
               หลักเกณฑ์
@@ -200,6 +211,7 @@ function RegisterTable({ rows, year }) {
                   {r.capped ? <Num v={r.remaining} strong tone="accent" /> : <Dash />}
                 </td>
                 <td className={cx(TD, rowLine)}><Num v={r.over} tone="warn" /></td>
+                <td className={cx(TD, rowLine)}><Num v={r.lifetime} tone={r.absence ? "danger" : undefined} /></td>
                 <td className={cx("px-3 py-2 align-middle", VLINE, rowLine)}>
                   <CriteriaInline c={r.criteria} />
                 </td>
@@ -235,6 +247,10 @@ function RegisterCard({ r }) {
         </p>
       </div>
       {r.capped && <UsageBar used={r.used} cap={r.cap} className="mt-2" />}
+      <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+        ลาสะสมตั้งแต่เริ่มงาน <Num v={r.lifetime} tone={r.absence ? "danger" : undefined} />
+        {r.lifetime ? " วัน" : ""}
+      </p>
       <dl className="mt-3 grid grid-cols-4 gap-2">
         {cells.map(([label, value]) => (
           <div key={label} className="min-w-0">
@@ -268,20 +284,23 @@ function RegisterCard({ r }) {
  * @param {object[]|null} rows  แถวจาก useLeaveBalance (null = กำลังโหลด)
  * @param {string}  error
  * @param {string}  [newHireNote]  ข้อความเมื่อสิทธิ์ลาพักผ่อนปีนี้ = 0
+ * @param {{byId: Map, byName: Map}|null} [allYears]  วันลาทุกปีจาก useLeaveAllYears (null = แสดงขีด)
  */
-export default function LeaveRegisterTable({ quota, rows, error, newHireNote }) {
+export default function LeaveRegisterTable({ quota, rows, error, newHireNote, allYears = null }) {
   const isPhone = useIsPhone()
-  const reg = (rows ?? []).map((r) => toRegisterRow(r, quota))
+  const reg = (rows ?? []).map((r) => toRegisterRow(r, quota, allYears))
 
   const totalUsed = reg.filter((r) => !r.absence).reduce((s, r) => s + r.used, 0)
   const absenceDays = reg.filter((r) => r.absence).reduce((s, r) => s + r.used, 0)
   const overDays = reg.reduce((s, r) => s + r.over, 0)
+  const lifetimeDays = allYears ? reg.filter((r) => !r.absence).reduce((s, r) => s + (r.lifetime ?? 0), 0) : null
   const annualThisYear = parseDays(quota.annual_leave) ?? 0
 
   const summary = [
     { label: "ลาแล้วทั้งปี", value: totalUsed },
     { label: "ขาดงาน", value: absenceDays, tone: absenceDays > 0 ? "danger" : undefined },
     { label: "เกินสิทธิ์ (งดจ่าย)", value: overDays, tone: overDays > 0 ? "warn" : undefined },
+    { label: "ลาสะสมทั้งหมด (ตั้งแต่เริ่มงาน)", value: lifetimeDays },
   ]
 
   return (
@@ -308,7 +327,7 @@ export default function LeaveRegisterTable({ quota, rows, error, newHireNote }) 
                           : "text-gray-900 dark:text-gray-100",
                     )}
                   >
-                    {fmtDays(s.value)}
+                    {s.value == null ? "–" : fmtDays(s.value)}
                   </span>
                   <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">วัน</span>
                 </dd>

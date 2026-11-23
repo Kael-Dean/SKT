@@ -11,7 +11,7 @@ import EmployeePositionCard from "../../components/hr/EmployeePositionCard"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
 import RelocationPanel from "../../components/hr/RelocationPanel"
 import lineIcon from "../../assets/line-icon.png"
-import { useLeaveBalance } from "../../lib/leaveTypes"
+import { useLeaveAllYears, useLeaveBalance } from "../../lib/leaveTypes"
 import LeaveRegisterTable from "../../components/hr/LeaveRegisterTable"
 import StatusMsg from "../../components/hr/StatusMsg"
 import useModalDismiss from "../../lib/useModalDismiss"
@@ -124,6 +124,8 @@ export default function HRPersonnelDetail() {
   const { rows: leaveRows, error: leaveRowsError } = useLeaveBalance(
     quotaYear ? `/hr/employees/${id}/leave-balance?year=${quotaYear}` : null,
   )
+  // ลาสะสมตั้งแต่เริ่มงาน — ใช้สิทธิ์เดียวกับแท็บ "การลา" ในการ์ดประวัติ
+  const leaveAllYears = useLeaveAllYears(quotaYear && can("hr.leave.quota.view") ? `/hr/employees/${id}/leave-history` : null)
   usePageTitle("ข้อมูลเจ้าหน้าที่")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -423,7 +425,7 @@ export default function HRPersonnelDetail() {
       {Object.keys(quota).length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
           <SectionTitle>ทะเบียนการลา (ปีงบประมาณ {quota.year})</SectionTitle>
-          <LeaveRegisterTable quota={quota} rows={leaveRows} error={leaveRowsError} />
+          <LeaveRegisterTable quota={quota} rows={leaveRows} error={leaveRowsError} allYears={leaveAllYears} />
           <p className="mt-3 text-xs text-gray-400 dark:text-gray-500 leading-relaxed">
             หน่วยเป็นวัน · นับจากใบลาที่อนุมัติแล้วในปีงบประมาณนี้ วันที่ลาเกินสิทธิ์จะถูกงดจ่ายเงินเดือน
           </p>

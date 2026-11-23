@@ -107,7 +107,7 @@ function NoteBox({ lines }) {
       }}
     >
       {lines.map((l, i) => (
-        <div key={i} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: l.muted ? MUTED : INK }}>
+        <div key={i} style={{ color: l.muted ? MUTED : INK, overflowWrap: "anywhere" }}>
           {l.text}
         </div>
       ))}

@@ -62,6 +62,7 @@ const SIZE = {
   sm: "md:max-w-md",
   md: "md:max-w-lg",
   lg: "md:max-w-2xl",
+  xl: "md:max-w-3xl",
   full: "md:max-w-4xl md:pointer-fine:h-[90dvh] md:pointer-coarse:h-(--sheet-md-max-h)",
 }
 

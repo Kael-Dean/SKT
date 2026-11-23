@@ -14,7 +14,7 @@ import { Lock, Palette } from "lucide-react"
 import { useOnboarding } from "../../lib/onboarding"
 import { goToOnboardingFromLocked } from "../../lib/onboardingGate"
 import OnboardingBanner from "../../components/onboarding/OnboardingBanner"
-import WelcomeArt from "../../components/home/WelcomeArt"
+import BannerCard from "../../components/home/BannerCard"
 import BannerThemeGallery from "../../components/home/BannerThemeGallery"
 import { SEASON_LABEL, getSeason } from "../../lib/season"
 
@@ -318,9 +318,7 @@ export default function Home() {
     <div className="space-y-5 py-2">
 
       {/* Welcome Card */}
-      <div className="group animate-fade-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 text-white shadow-lg">
-        <div className="welcome-shimmer pointer-events-none absolute inset-0" aria-hidden="true" />
-        <WelcomeArt season={season} />
+      <BannerCard season={season} className="group animate-fade-up shadow-lg">
         {canPreviewThemes && (
           // ทั้งการ์ดเป็นปุ่มเปิดแกลเลอรีลาย (Super Admin เท่านั้น) — ปุ่มซ้อนทับ ไม่ห่อ h1 ไว้ในปุ่ม
           <button
@@ -354,7 +352,7 @@ export default function Home() {
             </p>
           </div>
         </div>
-      </div>
+      </BannerCard>
       {canPreviewThemes && (
         <BannerThemeGallery
           open={themesOpen}

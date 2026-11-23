@@ -325,7 +325,7 @@ export default function HRGratuityTab() {
                   ) : rows.map((r) => (
                     <tr key={r.id ?? r.user_id}
                       className={cx("transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.03]", r.status === "left" && "text-gray-500 dark:text-gray-400")}>
-                      <td className="min-w-[10.5rem] max-w-[12rem] px-3 py-2.5">
+                      <td className="min-w-[10.5rem] max-w-[11.5rem] px-3 py-2.5">
                         {nameCell(r)}
                         {r.position && <p className="truncate text-xs text-gray-500 dark:text-gray-400" title={r.position}>{r.position}</p>}
                         {r.note && <p className="truncate text-xs italic text-gray-500 dark:text-gray-400" title={r.note}>{r.note}</p>}

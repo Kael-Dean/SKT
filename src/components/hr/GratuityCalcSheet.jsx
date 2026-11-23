@@ -17,7 +17,7 @@ import { useIsPhone } from "../../hooks/useMediaQuery"
 
 const btnCls = "h-12 md:pointer-fine:h-10 md:!px-5 md:!py-0 md:!text-sm"
 const TH = "px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap"
-const TD = "px-3 py-2 tabular-nums"
+const TD = "px-3 py-2 tabular-nums whitespace-nowrap"
 
 function Switch({ id, checked, onChange, disabled, describedBy }) {
   return (
@@ -114,7 +114,7 @@ export default function GratuityCalcSheet({ open, fiscalYear, onClose, onDone })
         onClose={onClose}
         title={`คำนวณบำเหน็จ ปีบัญชี ${fiscalYear}`}
         subtitle={`ตัวอย่างผลคำนวณ ยังไม่บันทึก · ${fiscalYearRangeText(fiscalYear)}`}
-        size="xl"
+        size="full"
         busy={busy}
         initialFocus={null}
         footer={
@@ -198,7 +198,7 @@ export default function GratuityCalcSheet({ open, fiscalYear, onClose, onDone })
                       <tbody className="divide-y divide-gray-100 dark:divide-line">
                         {rows.map((r) => (
                           <tr key={r.user_id} className="text-gray-800 dark:text-gray-200">
-                            <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{r.name}</td>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{r.name}</td>
                             <td className={cx(TD, "whitespace-nowrap")}>{thaiDate(r.hired_on)}</td>
                             <td className={cx(TD, "text-right")}>{money(r.last_salary)}</td>
                             <td className={cx(TD, "text-right", r.year_counts === false && "text-amber-700 dark:text-amber-300")}>{toNum(r.net_days) ?? "—"}</td>

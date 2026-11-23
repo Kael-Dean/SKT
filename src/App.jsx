@@ -62,6 +62,7 @@ const MyWelfare = lazyWithReload(() => import("./pages/work/MyWelfare.jsx"))
 const MyDiscipline = lazyWithReload(() => import("./pages/work/MyDiscipline.jsx"))
 const MyKpi = lazyWithReload(() => import("./pages/work/MyKpi.jsx"))
 const MySalaryCert = lazyWithReload(() => import("./pages/work/MySalaryCert.jsx"))
+const HRSalaryCertificate = lazyWithReload(() => import("./pages/hr/HRSalaryCertificate.jsx"))
 const MyProfile = lazyWithReload(() => import("./pages/work/MyProfile.jsx"))
 const MyPayslips = lazyWithReload(() => import("./pages/work/MyPayslips.jsx"))
 const MyFinancial = lazyWithReload(() => import("./pages/work/MyFinancial.jsx"))
@@ -165,6 +166,7 @@ function App() {
         <Route path="/hr/kpi" element={<RequirePermission anyOf={["hr.kpi.evaluations.view", "hr.kpi.monthlyForm", "hr.kpi.score.branchHead", "hr.kpi.branch"]}><HRKpiPage /></RequirePermission>} />
         <Route path="/hr/issues" element={guard("hr.issues.list", <HRIssueReports />)} />
         <Route path="/hr/personnel/:id" element={guard("hr.employees.view", <HRPersonnelDetail />)} />
+        <Route path="/hr/salary-cert/certificate" element={guard("hr.salaryCert.print", <HRSalaryCertificate />)} />
         <Route path="/hr/salary-tier" element={guard("hr.salaryLadder.view", <HRSalaryTier />)} />
         <Route path="/hr/welfare" element={guard("hr.welfare.view", <HRWelfare />)} />
         <Route path="/hr/discipline" element={guard("hr.discipline.cases", <HRDiscipline />)} />

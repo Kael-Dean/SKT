@@ -17,8 +17,10 @@ import {
 import { SalaryCertProgress, SupervisorOpinionNote } from "../../../components/hr/SalaryCertParts"
 import { PageLoader, ErrorState, EmptyState, Badge, Tabs, Sheet, toast, tabId, panelId, useSubTab } from "../../../components/ui"
 import {
-  cx, tabPanelCls, baseField, labelCls, errorTextCls, neutralBtnCls, submitBtnCls, dangerBtnCls,
+  cx, tabPanelCls, baseField, labelCls, errorTextCls, neutralBtnCls, submitBtnCls, dangerBtnCls, primaryBtnCls,
 } from "../../../lib/styles"
+import { Printer, FilePlus2 } from "lucide-react"
+import { useDrill } from "../../../lib/drill"
 
 function fmtDate(d) {
   if (!d) return "—"
@@ -111,7 +113,7 @@ function DecisionSheet({ req, action, onClose, onDone }) {
 }
 
 // ─── แถว ─────────────────────────────────────────────────────────────────────
-function RequestCard({ r, canDecide, canPrint, pdfLoading, onDecide, onPdf }) {
+function RequestCard({ r, canDecide, canPrint, pdfLoading, onDecide, onPdf, onIssue }) {
   const pending = isSalaryCertPending(r.status)
   const decided = r.status === S.APPROVED || r.status === S.DENIED
   return (
@@ -172,8 +174,14 @@ function RequestCard({ r, canDecide, canPrint, pdfLoading, onDecide, onPdf }) {
           {canPrint && (
             <div className="flex flex-wrap gap-2">
               {r.status === S.APPROVED && (
+                <button type="button" onClick={() => onIssue(r)} className={cx(primaryBtnCls, smBtn, "gap-1.5")} aria-label={`ออกหนังสือรับรองเงินเดือนของ ${r.user_name ?? `#${r.id}`}`}>
+                  <Printer className="size-4" aria-hidden="true" />
+                  ออกหนังสือรับรอง
+                </button>
+              )}
+              {r.status === S.APPROVED && (
                 <button type="button" onClick={() => onPdf(r.id, "certificate")} disabled={pdfLoading[`${r.id}_certificate`]} className={cx(neutralBtnCls, smBtn)}>
-                  {pdfLoading[`${r.id}_certificate`] ? "กำลังโหลด…" : "หนังสือรับรอง (PDF)"}
+                  {pdfLoading[`${r.id}_certificate`] ? "กำลังโหลด…" : "PDF จากระบบ"}
                 </button>
               )}
               <button type="button" onClick={() => onPdf(r.id, "form")} disabled={pdfLoading[`${r.id}_form`]} className={cx(neutralBtnCls, smBtn)}>
@@ -192,6 +200,8 @@ export default function HRSalaryCertTab() {
   const { can } = useCan()
   const canDecide = can("hr.salaryCert.decide")
   const canPrint = can("hr.salaryCert.print")
+  const { drillTo } = useDrill()
+  const issue = (r) => drillTo(r ? `/hr/salary-cert/certificate?request=${r.id}` : "/hr/salary-cert/certificate", "หนังสือรับรองเงินเดือน")
 
   const [subTab, setSubTab] = useSubTab(["pending", "all"], "pending")
   const [requests, setRequests] = useState([])
@@ -228,6 +238,7 @@ export default function HRSalaryCertTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
       <Tabs
         items={[
           { value: "pending", label: "รอพิจารณา", count: pendingCount > 0 ? pendingCount : null },
@@ -238,6 +249,13 @@ export default function HRSalaryCertTab() {
         ariaLabel="สถานะคำขอหนังสือรับรองเงินเดือน"
         idBase="hr-salary-cert"
       />
+        {canPrint && (
+          <button type="button" onClick={() => issue(null)} className={cx(neutralBtnCls, smBtn, "gap-1.5")}>
+            <FilePlus2 className="size-4" aria-hidden="true" />
+            ออกหนังสือโดยไม่มีคำขอ
+          </button>
+        )}
+      </div>
 
       <div role="tabpanel" id={panelId("hr-salary-cert", subTab)} aria-labelledby={tabId("hr-salary-cert", subTab)} tabIndex={0} className={cx("space-y-4", tabPanelCls)}>
         {error && <ErrorState message={error} onRetry={fetchRequests} />}
@@ -262,6 +280,7 @@ export default function HRSalaryCertTab() {
                 pdfLoading={pdfLoading}
                 onDecide={(req, action) => setDecision({ req, action })}
                 onPdf={downloadPdf}
+                onIssue={issue}
               />
             ))}
           </div>

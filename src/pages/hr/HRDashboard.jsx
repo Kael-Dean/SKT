@@ -31,6 +31,7 @@ import HRSalaryTab from "./tabs/HRSalaryTab"
 import HRPayrollTab from "./tabs/HRPayrollTab"
 import HRPayrollSettingsTab from "./tabs/HRPayrollSettingsTab"
 import HRLoansTab from "./tabs/HRLoansTab"
+import HRGratuityTab from "./tabs/HRGratuityTab"
 import HRKpiTab from "./tabs/HRKpiTab"
 import HRPositionsTab from "./tabs/HRPositionsTab"
 import HRLeaveTypesTab from "./tabs/HRLeaveTypesTab"
@@ -134,6 +135,7 @@ function renderSection(key, { onGoToPositions, onDependantsCount, overview }) {
     case "payroll":            return <HRPayrollTab />
     case "payroll-settings":   return <HRPayrollSettingsTab />
     case "loans":              return <HRLoansTab />
+    case "gratuity":           return <HRGratuityTab />
     case "kpi":                return <HRKpiTab />
     case "positions":          return <HRPositionsTab />
     case "leave-types":        return <HRLeaveTypesTab />

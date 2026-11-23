@@ -40,6 +40,7 @@ const DASHBOARD_TABS = [
   ["salary", "เงินเดือน", "HRSalaryTab"],
   ["payroll", "จ่ายเงินเดือน", "HRPayrollTab"],
   ["loans", "สินเชื่อ", "HRLoansTab"],
+  ["gratuity", "บำเหน็จเจ้าหน้าที่", "HRGratuityTab"],
   ["kpi", "KPI", "HRKpiTab"],
   ["positions", "ตำแหน่งงาน", "HRPositionsTab"],
   ["leave-types", "ประเภทการลา", "HRLeaveTypesTab"],

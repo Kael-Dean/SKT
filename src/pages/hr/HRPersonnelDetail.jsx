@@ -18,6 +18,7 @@ import useModalDismiss from "../../lib/useModalDismiss"
 import { roleLabel } from "../../lib/roles"
 import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import FinanceSavingsLoans from "../../components/hr/FinanceSavingsLoans"
+import { EmployeeGratuityPanel } from "../../components/hr/GratuityBlocks"
 import GuaranteeBankEditSheet from "../../components/hr/GuaranteeBankEditSheet"
 import Can from "../../components/Can"
 import { can } from "../../lib/permissions"
@@ -418,6 +419,14 @@ export default function HRPersonnelDetail() {
             <InfoRow label="อัตราเงินสะสม" value={reserveRateText(fin.reserve_rate_pct)} />
           )}
           <FinanceSavingsLoans fin={fin} className="mt-5 border-t border-gray-100 pt-5 dark:border-line" />
+        </div>
+      )}
+
+      {/* บำเหน็จ — GET /hr/employees/{id}/gratuity?exit_date= (gratuity.view) */}
+      {can("hr.gratuity.view") && (
+        <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
+          <SectionTitle>บำเหน็จ</SectionTitle>
+          <EmployeeGratuityPanel employeeId={id} />
         </div>
       )}
 

@@ -51,6 +51,7 @@ export const MODULE_LABEL = Object.freeze({
   "HR: Salary certificates": "HR · หนังสือรับรองเงินเดือน",
   "HR: Welfare": "HR · สวัสดิการ",
   "HR: Discipline": "HR · วินัยและการตักเตือน",
+  "HR: Gratuity": "HR · บำเหน็จ",
   "HR: System": "HR · ระบบ",
   "HR: Reports": "HR · รายงาน",
   "Debt accounting": "บัญชีหนี้",
@@ -100,6 +101,7 @@ export const PERMISSIONS = Object.freeze({
   // 3P / 3Q — self-service ที่ backend เช็คแค่การล็อกอิน (ยังไม่มีเลขฟังก์ชันใน matrix)
   "self.welfare.view": { code: "login", no: null, module: "Employee self-service", label: "ดูสวัสดิการของฉัน (คำขอเบิก / สิทธิ์คงเหลือ / ครอบครัวที่ได้รับสิทธิ์)", en: "View own welfare", roles: "any", note: "GET /personnel/me/welfare" },
   "self.discipline.report": { code: "login", no: null, module: "Employee self-service", label: "แจ้งเรื่องการกระทำผิดระเบียบของเพื่อนร่วมงาน / ดูสถานะเรื่องที่แจ้ง", en: "Report misconduct / view own reports' status", roles: "any", note: "POST/GET /personnel/me/discipline-reports" },
+  "self.gratuity.view": { code: "login", no: null, module: "Employee self-service", label: "ดูบำเหน็จของฉัน (ประมาณการหากออกวันนี้ + ประวัติรายปีบัญชี)", en: "View own gratuity", roles: "any", note: "GET /personnel/me/gratuity (ต้องกรอกข้อมูลเริ่มต้นแล้ว)" },
   "self.discipline.history": { code: "login", no: null, module: "Employee self-service", label: "ดูประวัติการตักเตือนของฉัน + หนังสือ (PDF)", en: "View own discipline history", roles: "any", note: "GET /personnel/me/discipline" },
 
   // ── HR: Employee records ──
@@ -247,6 +249,10 @@ export const PERMISSIONS = Object.freeze({
   "hr.welfare.board": { code: ["welfare.approve", "welfare.submit"], no: null, module: "HR: Welfare", label: "บันทึกมติคณะกรรมการ (เมื่อตั้งค่าให้ต้องผ่านคณะกรรมการ)", en: "Record board approval", roles: [1, 2, 3], variant: true, note: "POST …/{id}/board — ผจก. หรือ HR" },
   "hr.welfare.settings": { code: "welfare.settings", no: null, module: "HR: Welfare", label: "แก้ไขการตั้งค่าสวัสดิการ / อัตราค่าเล่าเรียนบุตร", en: "Edit welfare settings / education rates", roles: [1, 3], note: "PATCH /hr/welfare/settings · PUT /hr/welfare/education-rates" },
   "hr.welfare.dependants.view": { code: ["hr.employee.view", "welfare.view"], no: null, module: "HR: Welfare", label: "ดูผู้มีสิทธิ์รับสวัสดิการของพนักงาน", en: "View employee dependants", roles: [1, 2, 3, 7], variant: true, note: "GET /hr/employees/{id}/dependants — แก้ไขใช้ hr.employees.editPersonal" },
+
+  // ── HR: Gratuity — บำเหน็จเจ้าหน้าที่ (ปีบัญชี 1 เม.ย.–31 มี.ค.) — code ใหม่ยังไม่มีเลขฟังก์ชันใน matrix ──
+  "hr.gratuity.view": { code: "gratuity.view", no: null, module: "HR: Gratuity", label: "ดูทะเบียนบำเหน็จเจ้าหน้าที่รายปีบัญชี / ประวัติและประมาณการบำเหน็จรายบุคคล", en: "View gratuity reserve / employee gratuity", roles: [1, 2, 3, 4, 7], note: "GET /hr/gratuity · GET /hr/employees/{id}/gratuity" },
+  "hr.gratuity.record": { code: "gratuity.record", no: null, module: "HR: Gratuity", label: "คำนวณบำเหน็จประจำปีบัญชี / แก้ไขรายการบำเหน็จ", en: "Calculate / edit gratuity", roles: [1, 3], note: "POST /hr/gratuity/{fy}/calculate · PATCH /hr/gratuity/{id}" },
 
   // ── HR: Discipline (3Q, งวด 4) — code ใหม่ยังไม่มีเลขฟังก์ชันใน matrix ──
   "hr.discipline.topics": { code: "discipline.topics", no: null, module: "HR: Discipline", label: "จัดการหัวข้อระเบียบ + การตั้งค่าวินัย", en: "Manage discipline topics & settings", roles: [1, 3], note: "POST/PATCH/DELETE /hr/discipline/topics · PATCH /hr/discipline/settings" },
@@ -586,7 +592,7 @@ export const HR_HUB_PERMS = Object.freeze([
   "hr.dashboard.view",
   ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.month.view", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", "hr.onboarding.list", "hr.dependants.list", ...HR_KPI_PERMS,
     // WP0 scaffold: 3H ปฏิทินการลา · 3P สวัสดิการ · 3Q วินัย · 3F สถิติคำร้อง
-    "hr.leave.calendar", "hr.welfare.view", "hr.welfare.submit", "hr.welfare.settings", "hr.discipline.cases", "hr.discipline.topics", "hr.issues.stats"]),
+    "hr.leave.calendar", "hr.welfare.view", "hr.welfare.submit", "hr.welfare.settings", "hr.gratuity.view", "hr.discipline.cases", "hr.discipline.topics", "hr.issues.stats"]),
 ])
 
 /** คีย์ Phase 1 report ทั้ง 19 ตัว (P01–P19) */

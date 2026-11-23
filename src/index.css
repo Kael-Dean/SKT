@@ -849,11 +849,13 @@ html[data-theme-transition] *::after {
   transition: none !important;
 }
 
-/* ── หนังสือรับรองเงินเดือน: พิมพ์เฉพาะแผ่น A4 (SalaryCertificateDocument → PrintPortal) ── */
+/* ── หนังสือรับรองเงินเดือน / ใบลา: พิมพ์เฉพาะแผ่น A4 (SalaryCertificateDocument → PrintPortal) ──
+   ใบลาพิมพ์จากใน Sheet ที่ล็อก scroll (overflow:hidden + padding-right) → คืนค่าตอนพิมพ์ */
 .salary-cert-print { display: none; }
 @media print {
   @page { size: A4 portrait; margin: 0; }
   html, body { background: #fff !important; min-height: 0 !important; }
+  body:has(> .salary-cert-print) { overflow: visible !important; padding: 0 !important; margin: 0 !important; }
   body:has(> .salary-cert-print) > :not(.salary-cert-print) { display: none !important; }
   .salary-cert-print { display: block; }
 }

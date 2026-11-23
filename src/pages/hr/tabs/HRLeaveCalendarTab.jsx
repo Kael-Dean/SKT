@@ -15,14 +15,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CalendarDays, ChevronLeft, ChevronRight, FileText, Loader2 } from "lucide-react"
 import { canPickAnyBranch, can } from "../../../lib/permissions"
-import { apiDownload } from "../../../lib/api"
-import { saveBlob } from "../../../lib/files"
+import LeaveFormDialog from "../../../components/hr/LeaveFormDialog"
 import { useDrill } from "../../../lib/drill"
 import { cx, iconBtnCls, neutralBtnCls } from "../../../lib/styles"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
 import SelectDropdown from "../../../components/SelectDropdown"
 import ThaiDateField from "../../../components/ThaiDateField"
-import { Badge, DataList, EmptyState, ErrorState, Sheet, Skeleton, toast } from "../../../components/ui"
+import { Badge, DataList, EmptyState, ErrorState, Sheet, Skeleton } from "../../../components/ui"
 import {
   WEEKDAY_SHORT,
   WEEKDAY_LONG,
@@ -320,24 +319,12 @@ const linkCls =
   "rounded text-left cursor-pointer hover:text-indigo-700 hover:underline dark:hover:text-indigo-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
 
 function PersonRow({ p, onOpenProfile }) {
-  const [busy, setBusy] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
   const time = p.halfDay && (p.fromTime || p.toTime) ? `${fmtTime(p.fromTime) || "—"}–${fmtTime(p.toTime) || "—"} น.` : ""
   const span = p.fromDate && p.toDate && p.fromDate !== p.toDate ? `${fmtDayShortTH(p.fromDate)} – ${fmtDayShortTH(p.toDate)}` : ""
   const canProfile = p.employeeId != null && onOpenProfile && can("hr.employees.view")
   const canPdf = p.leaveId != null && p.employeeId != null && can("hr.leave.list")
 
-  const openLeave = async () => {
-    if (busy) return
-    setBusy(true)
-    try {
-      const { blob, filename } = await apiDownload(`/hr/employees/${p.employeeId}/leaves/${p.leaveId}/pdf`)
-      saveBlob(blob, filename && filename !== "download" ? filename : `leave_${p.leaveId}.pdf`)
-    } catch (e) {
-      toast.error("เปิดใบลาไม่สำเร็จ", { description: e?.message || "ลองใหม่อีกครั้ง" })
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <li className="flex items-start gap-3 py-2.5">
@@ -359,17 +346,22 @@ function PersonRow({ p, onOpenProfile }) {
       {p.leaveId != null && (canPdf ? (
         <button
           type="button"
-          onClick={openLeave}
-          disabled={busy}
+          onClick={() => setFormOpen(true)}
           aria-label={`เปิดใบลา #${p.leaveId} ของ ${p.name}`}
-          className={cx(linkCls, "inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-xs tabular-nums text-gray-600 dark:text-gray-300 md:pointer-fine:min-h-0 md:pt-0.5 disabled:cursor-wait")}
+          className={cx(linkCls, "inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-xs tabular-nums text-gray-600 dark:text-gray-300 md:pointer-fine:min-h-0 md:pt-0.5")}
         >
-          {busy ? <Loader2 aria-hidden="true" className="size-3.5 animate-spin" /> : <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.75} />}
+          <FileText aria-hidden="true" className="size-3.5" strokeWidth={1.75} />
           ใบลา #{p.leaveId}
         </button>
       ) : (
         <span className="shrink-0 pt-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">ใบลา #{p.leaveId}</span>
       ))}
+      {canPdf && (
+        <LeaveFormDialog
+          target={formOpen ? { employeeId: p.employeeId, leaveId: p.leaveId } : null}
+          onClose={() => setFormOpen(false)}
+        />
+      )}
     </li>
   )
 }

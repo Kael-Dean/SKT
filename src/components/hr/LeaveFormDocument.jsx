@@ -44,7 +44,8 @@ function Field({ children, min = "6em", grow = false, align = "center" }) {
       style={{
         display: "inline-block",
         minWidth: min,
-        flex: grow ? 1 : undefined,
+        flex: grow ? "1 0 auto" : undefined,
+        maxWidth: "100%",
         padding: "0 1.5mm",
         borderBottom: `1.2px dotted ${RULE}`,
         textAlign: align,

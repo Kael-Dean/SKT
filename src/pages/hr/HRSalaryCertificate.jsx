@@ -18,7 +18,7 @@ import { apiAuth } from "../../lib/api"
 import { apiDetail } from "../../lib/apiErrors"
 import { useCan } from "../../lib/permissions"
 import {
-  DEFAULT_SIGNER, SALARY_CERT_STATUS as S, bahtText, downloadSalaryCertPdf, moneyText,
+  DEFAULT_SIGNER, SALARY_CERT_STATUS as S, bahtText, certPurposeText, downloadSalaryCertPdf, moneyText,
   salaryCertPurposeLabel, salaryCertStatusLabel, salaryCertStatusTone, todayIso,
 } from "../../lib/salaryCert"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
@@ -39,6 +39,7 @@ const EMPTY = {
   position: "",
   unit: "",
   salary: "",
+  purpose: "",
   signerName: DEFAULT_SIGNER.name,
   signerTitle: DEFAULT_SIGNER.title,
 }
@@ -55,6 +56,7 @@ function prefillFrom(req, person) {
     position: s(currentPositionLabel(person, person?.position_title ?? person?.position_name ?? "")),
     unit: s(req?.branch_name ?? person?.home_branch?.branch_name ?? person?.branch_name),
     salary: fin.current_salary != null && fin.current_salary !== "" ? String(fin.current_salary) : "",
+    purpose: certPurposeText(req),
   }
 }
 
@@ -221,6 +223,20 @@ export default function HRSalaryCertificate() {
                   placeholder: "0.00",
                   hint: salaryWords ? `${moneyText(form.salary)} บาท · ${salaryWords}` : undefined,
                 })}
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor={`${uid}-purpose`} className={labelCls}>ออกให้เพื่อ (ไม่บังคับ)</label>
+                <textarea
+                  id={`${uid}-purpose`}
+                  rows={2}
+                  value={form.purpose}
+                  onChange={set("purpose")}
+                  maxLength={300}
+                  placeholder="เช่น ใช้ประกอบหลักฐานการกู้เงินกับ ธ.ก.ส. สาขาสุรินทร์"
+                  className={cx(fieldCls, "resize-y")}
+                />
+                <p className={helpTextCls}>ขึ้นเป็นย่อหน้า "หนังสือรับรองฉบับนี้ออกให้เพื่อ…" — เว้นว่างได้</p>
               </div>
 
               <div className="space-y-3">

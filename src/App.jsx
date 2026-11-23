@@ -63,6 +63,7 @@ const MyDiscipline = lazyWithReload(() => import("./pages/work/MyDiscipline.jsx"
 const MyKpi = lazyWithReload(() => import("./pages/work/MyKpi.jsx"))
 const MySalaryCert = lazyWithReload(() => import("./pages/work/MySalaryCert.jsx"))
 const HRSalaryCertificate = lazyWithReload(() => import("./pages/hr/HRSalaryCertificate.jsx"))
+const MySalaryCertificate = lazyWithReload(() => import("./pages/work/MySalaryCertificate.jsx"))
 const MyProfile = lazyWithReload(() => import("./pages/work/MyProfile.jsx"))
 const MyPayslips = lazyWithReload(() => import("./pages/work/MyPayslips.jsx"))
 const MyFinancial = lazyWithReload(() => import("./pages/work/MyFinancial.jsx"))
@@ -189,6 +190,7 @@ function App() {
         <Route path="/my-discipline" element={<RequirePermission anyOf={["self.discipline.report", "self.discipline.history"]}><MyDiscipline /></RequirePermission>} />
         <Route path="/my-kpi" element={guard("self.kpi.result", <MyKpi />)} />
         <Route path="/my-salary-cert" element={guard("self.salaryCert.request", <MySalaryCert />)} />
+        <Route path="/my-salary-cert/certificate" element={guard("self.salaryCert.request", <MySalaryCertificate />)} />
 
         {/* รายรับ-รายจ่ายศูนย์เรียนรู้ */}
         <Route path="/facility-report" element={guard("facility.view", <FacilityReport />)} />

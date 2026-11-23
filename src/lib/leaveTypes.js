@@ -123,3 +123,37 @@ export function useLeaveBalance(path) {
   }, [path])
   return state.path === path ? state : { rows: null, error: "" }
 }
+
+/**
+ * วันลาสะสมตั้งแต่เริ่มงาน (ทุกปีงบ) ต่อประเภท — จาก GET {base}/leave-history
+ * (ปีที่มีในระบบ = ใบลาที่อนุมัติแล้ว, ปีเก่า = ทะเบียนกระดาษที่นำเข้า; backend ไม่ซ้อนกันในปีเดียวกัน)
+ * @param {string|null} path  เช่น "/personnel/me/leave-history"; null = ไม่โหลด (ไม่มีสิทธิ์)
+ * @returns {{ byId: Map, byName: Map }|null}  null = กำลังโหลด / โหลดไม่ได้ → แสดงขีด
+ */
+export function useLeaveAllYears(path) {
+  const [state, setState] = useState({ path: null, totals: null })
+  useEffect(() => {
+    if (!path) return undefined
+    let alive = true
+    apiAuth(path)
+      .then((years) => {
+        const byId = new Map()
+        const byName = new Map()
+        for (const y of Array.isArray(years) ? years : []) {
+          for (const it of Array.isArray(y?.items) ? y.items : []) {
+            const d = parseDays(it?.days) ?? 0
+            if (it?.leave_type_id != null) byId.set(it.leave_type_id, (byId.get(it.leave_type_id) ?? 0) + d)
+            else if (it?.leave_type_name) byName.set(it.leave_type_name, (byName.get(it.leave_type_name) ?? 0) + d)
+          }
+        }
+        if (alive) setState({ path, totals: { byId, byName } })
+      })
+      .catch(() => {
+        if (alive) setState({ path, totals: null })
+      })
+    return () => {
+      alive = false
+    }
+  }, [path])
+  return state.path === path ? state.totals : null
+}

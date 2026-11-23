@@ -38,6 +38,14 @@ const humanComment = (c) =>
     .filter((t) => t && t !== "final" && !/^[a-z_]+=\S*$/i.test(t))
     .join("; ")
 
+/** step.at เป็น null ได้ — ใช้เวลาของขั้นนั้นจากตัวใบลา/ประวัติแทน */
+function stepTimeFallback(action, r) {
+  const a = String(action ?? "")
+  if (/BRANCH_HEAD/.test(a)) return r?.branch_head_at ?? null
+  if (/ASSIST/.test(a)) return r?.assistant_manager_at ?? null
+  return r?.action_at ?? null
+}
+
 async function personnel(id) {
   if (id == null) return null
   try {
@@ -156,7 +164,7 @@ export async function loadLeaveForm({ employeeId, leaveId, leave: given }) {
       label: s.label || s.action,
       name: s.actor_name || nameOf(s.actor_id),
       position: positionOf(s.actor_id),
-      at: s.at,
+      at: s.at ?? stepTimeFallback(s.action, history ?? leave),
       comment: humanComment(s.comment),
     })),
     review: {

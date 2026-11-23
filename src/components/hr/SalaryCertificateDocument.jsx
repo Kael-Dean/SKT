@@ -116,7 +116,7 @@ export function SalaryCertificateSheet({ data }) {
             margin: "8mm 0 0",
             textIndent: "25mm",
             textAlign: "justify",
-            textJustify: "inter-character",
+
             lineHeight: 2,
           }}
         >
@@ -130,7 +130,7 @@ export function SalaryCertificateSheet({ data }) {
         </p>
 
         {data.purpose?.trim() && (
-          <p style={{ margin: "3mm 0 0", textIndent: "25mm", textAlign: "justify", textJustify: "inter-character", lineHeight: 2 }}>
+          <p style={{ margin: "3mm 0 0", textIndent: "25mm", textAlign: "justify", lineHeight: 2 }}>
             หนังสือรับรองฉบับนี้ออกให้เพื่อ{data.purpose.trim()}
           </p>
         )}

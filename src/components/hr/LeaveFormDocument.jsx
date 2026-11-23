@@ -18,8 +18,8 @@ const RULE = "#9aa39d"
 const BRAND = "#1f7a3a" // เขียวตรา สกต.
 const TINT = "#eef6f0"
 
-const NOTE_LINES = 4
-const LINE_H = "8.2mm"
+const NOTE_LINES = 3
+const LINE_H = "7.2mm"
 
 const STATUS_TEXT = {
   approved: "อนุมัติแล้ว",
@@ -99,7 +99,7 @@ function NoteBox({ lines }) {
         height: `calc(${LINE_H} * ${NOTE_LINES})`,
         overflow: "hidden",
         lineHeight: LINE_H,
-        fontSize: "12.5pt",
+        fontSize: "11.5pt",
         backgroundImage: `repeating-linear-gradient(to bottom, transparent 0, transparent calc(${LINE_H} - 1px), ${RULE} calc(${LINE_H} - 1px), ${RULE} ${LINE_H})`,
         backgroundSize: `100% ${LINE_H}`,
         printColorAdjust: "exact",
@@ -164,8 +164,8 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
     ? [{ text: data.review.note }, ...(data.review.at ? [{ text: `ตรวจเมื่อ ${shortDate(data.review.at)}`, muted: true }] : [])]
     : []
 
-  const th = { padding: "1.6mm 2.5mm", fontWeight: 600, fontSize: "12pt", borderBottom: `1.2px solid ${BRAND}`, textAlign: "right", whiteSpace: "nowrap" }
-  const td = { padding: "1.3mm 2.5mm", textAlign: "right", fontVariantNumeric: "tabular-nums", borderBottom: `0.6px solid #d8ddd9` }
+  const th = { padding: "1.1mm 2.5mm", fontWeight: 600, fontSize: "11.5pt", borderBottom: `1.2px solid ${BRAND}`, textAlign: "right", whiteSpace: "nowrap" }
+  const td = { padding: "0.8mm 2.5mm", textAlign: "right", fontVariantNumeric: "tabular-nums", borderBottom: `0.6px solid #d8ddd9` }
 
   return (
     <article
@@ -174,14 +174,14 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
         position: "relative",
         width: "210mm",
         height: "297mm",
-        padding: "14mm 18mm 12mm 20mm",
+        padding: "11mm 17mm 10mm 19mm",
         boxSizing: "border-box",
         overflow: "hidden",
         background: "#fff",
         color: INK,
         fontFamily: "'Sarabun', 'TH Sarabun New', sans-serif",
-        fontSize: "13.5pt",
-        lineHeight: 1.6,
+        fontSize: "12.5pt",
+        lineHeight: 1.45,
         printColorAdjust: "exact",
         WebkitPrintColorAdjust: "exact",
         display: "flex",
@@ -200,7 +200,7 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
       <div style={{ position: "relative", display: "flex", flexDirection: "column", flex: 1 }}>
         {/* หัวกระดาษ */}
         <header style={{ display: "flex", alignItems: "center", gap: "4mm" }}>
-          <img src={ORG_LETTERHEAD.sealSrc} alt="ตรา สกต.สุรินทร์" style={{ width: "19mm", height: "19mm", flexShrink: 0 }} />
+          <img src={ORG_LETTERHEAD.sealSrc} alt="ตรา สกต.สุรินทร์" style={{ width: "16mm", height: "16mm", flexShrink: 0 }} />
           <div style={{ minWidth: 0, flex: 1, lineHeight: 1.35 }}>
             <p style={{ margin: 0, fontSize: "14.5pt", fontWeight: 600 }}>{ORG_LETTERHEAD.nameTh}</p>
             <p style={{ margin: 0, fontSize: "10.5pt", color: MUTED }}>{ORG_LETTERHEAD.addressTh}</p>
@@ -218,19 +218,17 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
             )}
           </div>
         </header>
-        <div aria-hidden="true" style={{ marginTop: "3mm", borderTop: `2px solid ${BRAND}` }} />
+        <div aria-hidden="true" style={{ marginTop: "2.5mm", borderTop: `2px solid ${BRAND}` }} />
         <div aria-hidden="true" style={{ marginTop: "0.7mm", borderTop: `0.5px solid ${BRAND}` }} />
 
         {/* ชื่อเอกสาร + วันที่ */}
-        <h1 style={{ margin: "5mm 0 0", textAlign: "center", fontSize: "21pt", fontWeight: 700, letterSpacing: "0.04em" }}>ใบลา</h1>
-        <Line style={{ justifyContent: "flex-end", marginTop: "1mm" }}>
-          <span>วันที่</span>
-          <Field min="40mm">{created}</Field>
-        </Line>
+        <h1 style={{ margin: "3mm 0 0", textAlign: "center", fontSize: "19pt", fontWeight: 700, letterSpacing: "0.04em", lineHeight: 1.3 }}>ใบลา</h1>
 
-        <Line style={{ marginTop: "2mm" }}>
+        <Line style={{ marginTop: "1mm" }}>
           <span style={{ fontWeight: 600, width: "12mm" }}>เรื่อง</span>
           <span>ขออนุญาตลาหยุดงาน{data.typeName ? ` (${data.typeName})` : ""}</span>
+          <span style={{ marginLeft: "auto" }}>วันที่</span>
+          <Field min="38mm">{created}</Field>
         </Line>
         <Line>
           <span style={{ fontWeight: 600, width: "12mm" }}>เรียน</span>
@@ -238,7 +236,7 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
         </Line>
 
         {/* เนื้อความ */}
-        <div style={{ marginTop: "3mm", display: "grid", rowGap: "2mm" }}>
+        <div style={{ marginTop: "2mm", display: "grid", rowGap: "1.3mm" }}>
           <Line style={{ paddingLeft: "15mm" }}>
             <span>ข้าพเจ้า</span>
             <Field min="55mm" grow>{data.name}</Field>
@@ -272,9 +270,7 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
             <span>ถึงวันที่</span>
             <Field min="34mm">{thaiLongDate(data.toDate)}</Field>
             {data.toTime && (<><span>เวลา</span><Field min="16mm">{hhmm(data.toTime)}</Field></>)}
-          </Line>
-          <Line>
-            <span>รวมระยะเวลา</span>
+            <span>รวม</span>
             <Field min="30mm">{duration !== "—" ? duration : ""}</Field>
             {data.extraDays > 0 && (
               <span style={{ fontSize: "11.5pt", color: MUTED }}>(เกินสิทธิ์ {fmtDays(data.extraDays)} วัน)</span>
@@ -283,29 +279,29 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
           <Line>
             <span>ระหว่างลาติดต่อได้ที่</span>
             <Field min="70mm" grow align="left">{data.address}</Field>
-          </Line>
-          <Line>
-            <span>หมายเลขโทรศัพท์</span>
+            <span>โทรศัพท์</span>
             <Field min="40mm">{data.phone}</Field>
           </Line>
-          <p style={{ margin: "1mm 0 0", paddingLeft: "15mm" }}>จึงเรียนมาเพื่อโปรดพิจารณา</p>
         </div>
 
-        {/* ผู้ขอลา */}
-        <div style={{ margin: "3mm 0 0 auto", width: "82mm", textAlign: "center", lineHeight: 1.7 }}>
-          <p style={{ margin: 0 }}>ขอแสดงความนับถือ</p>
-          <Line style={{ marginTop: "6mm", flexWrap: "nowrap" }}>{signLine("ผู้ขออนุญาตลา")}</Line>
-          <Line style={{ flexWrap: "nowrap" }}>{nameLine(data.name)}</Line>
+        {/* จึงเรียน + ผู้ขอลา — แถวเดียวกัน */}
+        <div style={{ marginTop: "1.5mm", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "6mm" }}>
+          <p style={{ margin: 0, paddingLeft: "15mm" }}>จึงเรียนมาเพื่อโปรดพิจารณา</p>
+          <div style={{ width: "80mm", flexShrink: 0, textAlign: "center", lineHeight: 1.5 }}>
+            <p style={{ margin: 0 }}>ขอแสดงความนับถือ</p>
+            <Line style={{ marginTop: "5mm", flexWrap: "nowrap" }}>{signLine("ผู้ขออนุญาตลา")}</Line>
+            <Line style={{ flexWrap: "nowrap" }}>{nameLine(data.name)}</Line>
+          </div>
         </div>
 
         {/* สถิติการลา */}
-        <section style={{ marginTop: "4mm" }}>
+        <section style={{ marginTop: "3mm" }}>
           <p style={{ margin: "0 0 1mm", fontSize: "12.5pt", fontWeight: 600, color: BRAND }}>
             สถิติการลาในปีงบประมาณ {data.fiscalYear ?? "—"}
             <span style={{ fontWeight: 400, color: MUTED }}> (หน่วย: วัน)</span>
           </p>
           {data.stats.length ? (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5pt" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12pt" }}>
               <thead>
                 <tr style={{ background: TINT }}>
                   <th style={{ ...th, textAlign: "left" }}>ประเภทการลา</th>
@@ -342,9 +338,9 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
         {/* ความเห็น / ตรวจสอบ — grid 2 คอลัมน์ แถวต่อแถว */}
         <section
           style={{
-            marginTop: "5mm",
+            marginTop: "4mm",
             display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
             rowGap: "1.6mm",
             border: `1px solid ${RULE}`,
             borderRadius: "1.5mm",
@@ -355,16 +351,16 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
             backgroundRepeat: "no-repeat",
           }}
         >
-          <h2 style={{ margin: 0, padding: "1.6mm 3mm", fontSize: "12.5pt", fontWeight: 600, color: BRAND, background: TINT, borderTopLeftRadius: "1.5mm" }}>
+          <h2 style={{ margin: 0, padding: "1.2mm 3mm", fontSize: "12pt", fontWeight: 600, color: BRAND, background: TINT, borderTopLeftRadius: "1.5mm" }}>
             ความเห็นผู้บังคับบัญชา
           </h2>
-          <h2 style={{ margin: 0, padding: "1.6mm 3mm", fontSize: "12.5pt", fontWeight: 600, color: BRAND, background: TINT, borderTopRightRadius: "1.5mm" }}>
+          <h2 style={{ margin: 0, padding: "1.2mm 3mm", fontSize: "12pt", fontWeight: 600, color: BRAND, background: TINT, borderTopRightRadius: "1.5mm" }}>
             บันทึกผู้ตรวจสอบ (ฝ่ายบุคคล)
           </h2>
           <div style={{ padding: "0 3mm" }}><NoteBox lines={leftLines} /></div>
           <div style={{ padding: "0 3mm" }}><NoteBox lines={rightLines} /></div>
-          <div aria-hidden="true" style={{ height: "4mm" }} />
-          <div aria-hidden="true" style={{ height: "4mm" }} />
+          <div aria-hidden="true" style={{ height: "2mm" }} />
+          <div aria-hidden="true" style={{ height: "2mm" }} />
           <SignRow left={signLine("ผู้บันทึก")} right={signLine("ผู้ตรวจ")} />
           <SignRow left={nameLine(finalApproval?.name)} right={nameLine(data.review.name)} />
           <SignRow left={labeledLine("ตำแหน่ง", finalApproval?.position)} right={labeledLine("ตำแหน่ง", data.review.position)} />

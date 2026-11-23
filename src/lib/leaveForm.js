@@ -30,7 +30,13 @@ const fullName = (first, last) => [first, last].map((s) => String(s ?? "").trim(
 const iso = (d) => (d ? String(d).slice(0, 10) : "")
 const fyOf = (dateIso) => (dateIso ? currentFiscalYearBE(new Date(`${iso(dateIso)}T00:00:00`)) : null)
 const kindOf = (name) => FORM_LEAVE_KINDS.find((k) => k.match(String(name ?? "").trim()))?.key ?? "other"
-const skipComment = (c) => !c || /^extra_days=/.test(String(c))
+/** ตัดส่วนที่ระบบเขียนเอง ("final; extra_days=1.0; check=assistant_manager") ออก เหลือแต่ข้อความของคน */
+const humanComment = (c) =>
+  String(c ?? "")
+    .split(";")
+    .map((t) => t.trim())
+    .filter((t) => t && t !== "final" && !/^[a-z_]+=\S*$/i.test(t))
+    .join("; ")
 
 async function personnel(id) {
   if (id == null) return null
@@ -151,7 +157,7 @@ export async function loadLeaveForm({ employeeId, leaveId, leave: given }) {
       name: s.actor_name || nameOf(s.actor_id),
       position: positionOf(s.actor_id),
       at: s.at,
-      comment: skipComment(s.comment) ? "" : s.comment,
+      comment: humanComment(s.comment),
     })),
     review: {
       note: [history?.justification_note ?? leave.justification_note, leave.hr_comment].filter(Boolean).join(" · "),

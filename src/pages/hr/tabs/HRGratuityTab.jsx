@@ -22,10 +22,37 @@ import { DiffAmount } from "../../../components/hr/GratuityBlocks"
 import GratuityCalcSheet from "../../../components/hr/GratuityCalcSheet"
 import GratuityEditSheet from "../../../components/hr/GratuityEditSheet"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
+import { ActiveFilterChips, FilterSheet, HeaderCell, MobileControls } from "../../../components/hr/EmployeeTable"
+import { enumOptions, isFilterActive, matchFilter } from "../../../components/hr/columnFilters"
+import { sortRows, thaiCollator } from "../../../lib/tableSort"
 
 const TH = "px-3 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 whitespace-nowrap"
 const TD = "px-3 py-2.5 tabular-nums whitespace-nowrap"
 const norm = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "")
+const numOrNull = (v) => (v == null || v === "" || Number.isNaN(Number(v)) ? null : Number(v))
+
+// เรียง/กรองรายคอลัมน์ — ชุดเดียวกับตารางรายชื่อเจ้าหน้าที่และตารางเงินเดือน (HeaderCell → ColumnHeaderMenu)
+const G_COLUMNS = [
+  { key: "name", label: "เจ้าหน้าที่", type: "text", get: (r) => r.name },
+  {
+    key: "hired_on", label: "เริ่มงาน", type: "date", get: (r) => r.hired_on,
+    sortGet: (r) => { const t = r.hired_on ? Date.parse(String(r.hired_on).slice(0, 10)) : NaN; return Number.isNaN(t) ? null : t },
+  },
+  { key: "last_salary", label: "เงินเดือนเดือนสุดท้าย", type: "number", align: "right", get: (r) => numOrNull(r.last_salary) },
+  { key: "years", label: "ปีที่นับ", type: "number", align: "right", unit: "ปี", get: (r) => numOrNull(r.years_counted) },
+  { key: "amount", label: "บำเหน็จ", type: "number", align: "right", get: (r) => numOrNull(r.amount) },
+  { key: "previous", label: "ปีก่อน", type: "number", align: "right", get: (r) => numOrNull(r.previous_amount) },
+  { key: "difference", label: "ผลต่าง", type: "number", align: "right", get: (r) => numOrNull(r.difference) },
+  { key: "funding", label: "แหล่งเงิน", type: "enum", get: (r) => r.funding },
+  { key: "status", label: "สถานะ", type: "enum", get: (r) => (r.status ? statusLabel(r.status) : null) },
+]
+const G_COL = Object.fromEntries(G_COLUMNS.map((c) => [c.key, c]))
+const byName = (a, b) => thaiCollator.compare(a.name ?? "", b.name ?? "")
+function sortGratuity(rows, sort) {
+  const col = sort && G_COL[sort.key]
+  if (!col) return rows
+  return sortRows(rows, sort, { get: col.sortGet ?? col.get, text: col.type === "text" || col.type === "enum", tiebreak: byName })
+}
 
 function SourceBadge({ source }) {
   if (!source) return null
@@ -95,11 +122,33 @@ export default function HRGratuityTab() {
 
   const allRows = useMemo(() => (Array.isArray(data?.rows) ? data.rows : []), [data])
   const leftCount = useMemo(() => allRows.filter((r) => r.status === "left").length, [allRows])
+  const [sort, setSort] = useState(null) // { key, dir } | null = ลำดับจาก server (วันที่เริ่มงาน)
+  const [filters, setFilters] = useState({})
+  const [filterSheet, setFilterSheet] = useState(false)
+  const setFilter = useCallback((key, value) => {
+    setFilters((f) => {
+      const next = { ...f }
+      if (value == null) delete next[key]
+      else next[key] = value
+      return next
+    })
+  }, [])
+  const filterOptions = useMemo(
+    () => ({ funding: enumOptions(G_COL.funding, allRows), status: enumOptions(G_COL.status, allRows) }),
+    [allRows],
+  )
+  const activeFilters = useMemo(
+    () => G_COLUMNS.filter((c) => isFilterActive(c.type, filters[c.key])).map((c) => ({ col: c, value: filters[c.key] })),
+    [filters],
+  )
   const rows = useMemo(() => {
     const q = norm(query)
-    if (!q) return allRows
-    return allRows.filter((r) => norm(r.name).includes(q) || norm(r.position).includes(q))
-  }, [allRows, query])
+    let list = q ? allRows.filter((r) => norm(r.name).includes(q) || norm(r.position).includes(q)) : allRows
+    if (activeFilters.length) list = list.filter((r) => activeFilters.every(({ col, value }) => matchFilter(col, r, value)))
+    return sortGratuity(list, sort)
+  }, [allRows, query, activeFilters, sort])
+  const narrowing = !!query || activeFilters.length > 0
+  const clearAll = () => { setQuery(""); setFilters({}) }
 
   const fyNum = Number(fy)
   const fyOptions = useMemo(() => fiscalYearOptions(currentFy, { back: 6, ahead: 1 }), [currentFy])
@@ -115,9 +164,13 @@ export default function HRGratuityTab() {
     load()
   }
 
-  const emptyState = query && allRows.length > 0 ? (
-    <EmptyState title="ไม่พบชื่อที่ค้นหา" description={`ไม่มีเจ้าหน้าที่ชื่อ “${query}” ในปีบัญชี ${fy}`}
-      action={<button type="button" onClick={() => setQuery("")} className={neutralBtnCls}>ล้างคำค้นหา</button>} />
+  const emptyState = narrowing && allRows.length > 0 ? (
+    <EmptyState
+      title={activeFilters.length ? "ไม่พบรายการตามตัวกรอง" : "ไม่พบชื่อที่ค้นหา"}
+      description={activeFilters.length
+        ? "ลองเปลี่ยนคำค้นหรือตัวกรองในหัวคอลัมน์ หรือล้างเพื่อดูทั้งหมด"
+        : `ไม่มีเจ้าหน้าที่ชื่อ “${query}” ในปีบัญชี ${fy}`}
+      action={<button type="button" onClick={clearAll} className={neutralBtnCls}>{activeFilters.length ? "ล้างตัวกรองทั้งหมด" : "ล้างคำค้นหา"}</button>} />
   ) : (
     <EmptyState
       title={`ยังไม่มีรายการบำเหน็จปีบัญชี ${fy}`}
@@ -184,8 +237,33 @@ export default function HRGratuityTab() {
 
           {!loading && allRows.length > 0 && (
             <p className="text-sm tabular-nums text-gray-500 dark:text-gray-400" aria-live="polite">
-              {query ? `พบ ${rows.length} จาก ${allRows.length} คน` : `${allRows.length} คน · เรียงตามวันที่เริ่มงาน`}
+              {narrowing ? `พบ ${rows.length} จาก ${allRows.length} คน` : `${allRows.length} คน`}
+              {!sort && " · เรียงตามวันที่เริ่มงาน"}
             </p>
+          )}
+
+          {isPhone && allRows.length > 0 && (
+            <MobileControls
+              columns={G_COLUMNS}
+              sort={sort}
+              onSort={setSort}
+              filterCount={activeFilters.length}
+              onOpenFilters={() => setFilterSheet(true)}
+            />
+          )}
+          <ActiveFilterChips active={activeFilters} onClear={(key) => setFilter(key, null)} onClearAll={() => setFilters({})} />
+          {isPhone && (
+            <FilterSheet
+              open={filterSheet}
+              onClose={() => setFilterSheet(false)}
+              columns={G_COLUMNS}
+              filters={filters}
+              onFilter={setFilter}
+              options={filterOptions}
+              shown={rows.length}
+              onClearAll={() => setFilters({})}
+              hasFilters={activeFilters.length > 0}
+            />
           )}
 
           {isPhone ? (
@@ -220,17 +298,23 @@ export default function HRGratuityTab() {
             <div className={cx(cardCls, "overflow-x-auto")}>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50 text-left dark:border-line dark:bg-white/[.03]">
-                    <th scope="col" className={cx(TH, "pl-4")}>เจ้าหน้าที่</th>
-                    <th scope="col" className={TH}>เริ่มงาน</th>
-                    <th scope="col" className={cx(TH, "text-right")}>เงินเดือนเดือนสุดท้าย</th>
-                    <th scope="col" className={cx(TH, "text-right")}>ปีที่นับ</th>
-                    <th scope="col" className={cx(TH, "text-right")}>บำเหน็จ</th>
-                    <th scope="col" className={cx(TH, "text-right")}>ปีก่อน</th>
-                    <th scope="col" className={cx(TH, "text-right")}>ผลต่าง</th>
-                    <th scope="col" className={TH}>แหล่งเงิน</th>
-                    <th scope="col" className={TH}>สถานะ</th>
-                    {canRecord && <th scope="col" className={cx(TH, "pr-4")}><span className="sr-only">จัดการ</span></th>}
+                  <tr>
+                    {G_COLUMNS.map((c) => (
+                      <HeaderCell
+                        key={c.key}
+                        col={c}
+                        sort={sort}
+                        onSort={(key, dir) => setSort(dir ? { key, dir } : null)}
+                        filter={filters[c.key]}
+                        onFilter={setFilter}
+                        options={filterOptions[c.key]}
+                      />
+                    ))}
+                    {canRecord && (
+                      <th scope="col" className={cx(TH, "border-b border-gray-200 bg-gray-50 pr-4 dark:border-line-strong dark:bg-gray-900")}>
+                        <span className="sr-only">จัดการ</span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-line">
@@ -241,7 +325,7 @@ export default function HRGratuityTab() {
                   ) : rows.map((r) => (
                     <tr key={r.id ?? r.user_id}
                       className={cx("transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.03]", r.status === "left" && "text-gray-500 dark:text-gray-400")}>
-                      <td className="min-w-[12rem] max-w-[16rem] py-2.5 pl-4 pr-3">
+                      <td className="min-w-[12rem] max-w-[16rem] px-3 py-2.5">
                         {nameCell(r)}
                         {r.position && <p className="truncate text-xs text-gray-500 dark:text-gray-400" title={r.position}>{r.position}</p>}
                         {r.note && <p className="truncate text-xs italic text-gray-500 dark:text-gray-400" title={r.note}>{r.note}</p>}

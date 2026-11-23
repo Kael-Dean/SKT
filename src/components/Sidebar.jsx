@@ -6,7 +6,7 @@ import { Download, Lock, LogOut, Moon, Sun, X } from "lucide-react"
 import { logoutAndReload, getRoleId } from "../lib/auth"
 import { useCan } from "../lib/permissions"
 import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
-import { HR_MENUS, PERSONAL_MENUS, canSeeSidebarItem } from "../lib/sidebarMenus"
+import { HR_MENUS, PERSONAL_MENUS, canSeeSidebarItem, groupSidebarItems } from "../lib/sidebarMenus"
 import { useOnboarding } from "../lib/onboarding"
 import { goToOnboardingFromLocked } from "../lib/onboardingGate"
 import { lockBodyScroll, unlockBodyScroll } from "../lib/scrollLock"
@@ -43,6 +43,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
     () => (can("nav.hrCompactMenu") ? HR_MENUS : PERSONAL_MENUS).filter((item) => canSeeSidebarItem(item, perms)),
     [can, perms]
   )
+  const menuSections = useMemo(() => groupSidebarItems(visibleMenus), [visibleMenus])
 
   // หมวด "ธุรกิจรวบรวมผลผลิต" — เฉพาะอุปกรณ์สัมผัสและจอเล็ก (md:pointer-fine:hidden) ให้ไปหน้าซื้อ/ขาย/คลังได้โดยไม่ต้องกลับ Home
   const tradingMenus = useMemo(() => {
@@ -136,8 +137,13 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
 
           {/* Nav items */}
           <nav aria-label="เมนูส่วนตัว" data-tour="self-service-menu" className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
-            <ul className="space-y-1">
-              {visibleMenus.map((item) => {
+            {menuSections.map((sec, si) => (
+            <div key={sec.group || "top"} className={si ? "mt-4" : undefined}>
+              {sec.group && (
+                <p id={`sidebar-group-${si}`} className="px-2 pb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{sec.group}</p>
+              )}
+            <ul className="space-y-1" aria-labelledby={sec.group ? `sidebar-group-${si}` : undefined}>
+              {sec.items.map((item) => {
                 const active = isActive(item.path)
                 const tone = TONES[item.tone] ?? TONES.indigo
                 const Icon = item.icon
@@ -187,6 +193,8 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                 )
               })}
             </ul>
+            </div>
+            ))}
             {onboardingLocked && visibleMenus.some((i) => i.gated) && (
               <p id="sidebar-locked-hint" className="mt-2 px-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                 เมนูที่ล็อกจะเปิดเมื่อกรอกข้อมูลเริ่มต้นครบ

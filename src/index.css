@@ -848,3 +848,12 @@ html[data-theme-transition] *::before,
 html[data-theme-transition] *::after {
   transition: none !important;
 }
+
+/* ── หนังสือรับรองเงินเดือน: พิมพ์เฉพาะแผ่น A4 (SalaryCertificateDocument → PrintPortal) ── */
+.salary-cert-print { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  html, body { background: #fff !important; min-height: 0 !important; }
+  body:has(> .salary-cert-print) > :not(.salary-cert-print) { display: none !important; }
+  .salary-cert-print { display: block; }
+}

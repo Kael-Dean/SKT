@@ -35,6 +35,7 @@ const PARENT_ROUTES = {
   // หน้า KPI แยกสำหรับ ผจก./ผช.ผจก. (ไม่มีสิทธิ์เข้า /hr/dashboard) — กลับหน้าหลัก
   "/hr/kpi": { path: "/home", label: "หน้าหลัก" },
   "/company-add/new": { path: "/company-add", label: "แก้ไขคู่ค้า/บริษัท" },
+  "/hr/salary-cert/certificate": { path: "/hr/dashboard?tab=salary-cert", label: "หนังสือรับรองเงินเดือน" },
 }
 
 const getInitialDark = () => {

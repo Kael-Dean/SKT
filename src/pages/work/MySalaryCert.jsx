@@ -20,20 +20,23 @@ import {
 } from "../../lib/styles"
 import { Badge, EmptyState, ErrorState, Skeleton, toast } from "../../components/ui"
 import PageTitle from "../../components/PageTitle"
-import FormApplicantHeader from "../../components/FormApplicantHeader"
+import useFormDefaults from "../../hooks/useFormDefaults"
+import { getUser } from "../../lib/auth"
 import { SalaryCertProgress, SupervisorOpinionNote } from "../../components/hr/SalaryCertParts"
 import {
-  SALARY_CERT_STATUS as S, downloadSalaryCertPdf, isSalaryCertPending, salaryCertStatusLabel, salaryCertStatusTone,
+  SALARY_CERT_STATUS as S, ORG_LETTERHEAD, bahtText, downloadSalaryCertPdf, isSalaryCertPending, moneyText,
+  salaryCertStatusLabel, salaryCertStatusTone, thaiLongDate, todayIso,
 } from "../../lib/salaryCert"
 import { fmtDateTimeTh } from "../../lib/approvalActions"
 
 // ออกหนังสือให้ครั้งละ 1 ฉบับเท่านั้น
 const COPIES_PER_REQUEST = 1
 
+// formLabel = ถ้อยคำตามแบบฟอร์มกระดาษ · label = ป้ายสั้นในประวัติ
 const PURPOSE_OPTIONS = Object.freeze([
-  { value: "document",       label: "เพื่อใช้เป็นหลักฐาน",     hint: "ยื่นประกอบเอกสาร เช่น ขอวีซ่า เช่าที่อยู่" },
-  { value: "loan_self",      label: "เพื่อกู้เงิน",            hint: "ใช้ยื่นธนาคาร/สถาบันการเงินในนามตัวเอง" },
-  { value: "loan_guarantee", label: "เพื่อค้ำประกันเงินกู้",   hint: "ค้ำประกันเงินกู้ให้ผู้อื่น" },
+  { value: "document",       label: "เพื่อใช้เป็นหลักฐาน",   formLabel: "ประกอบหลักฐาน",           hint: "ยื่นประกอบเอกสารกับร้าน บริษัท หรือหน่วยงาน เช่น ขอวีซ่า เช่าที่พัก" },
+  { value: "loan_self",      label: "เพื่อกู้เงิน",          formLabel: "ประกอบหลักฐานการกู้เงิน", hint: "ยื่นธนาคารหรือสถาบันการเงินเพื่อกู้ในนามตัวเอง" },
+  { value: "loan_guarantee", label: "เพื่อค้ำประกันเงินกู้", formLabel: "ค้ำประกันการกู้เงิน",     hint: "เป็นผู้ค้ำประกันเงินกู้ให้ผู้อื่น" },
 ])
 const PURPOSE_LABEL = Object.fromEntries(PURPOSE_OPTIONS.map((o) => [o.value, o.label]))
 
@@ -55,13 +58,48 @@ const EMPTY_FORM = {
 const FIELDS_BY_PURPOSE = {
   document:       ["purpose_detail", "recipient_name"],
   loan_self:      ["loan_bank", "loan_branch_name", "loan_purpose", "loan_amount"],
-  loan_guarantee: ["guarantor_for_name", "loan_bank", "loan_branch_name", "loan_amount"],
+  loan_guarantee: ["guarantor_for_name", "loan_bank", "loan_branch_name", "loan_purpose", "loan_amount"],
 }
 const FIELD_ORDER = ["purpose_type", "purpose_detail", "guarantor_for_name", "loan_bank", "loan_amount"]
 
 const num = (v) => {
   const s = String(v ?? "").replace(/,/g, "").trim()
   return s === "" ? null : Number(s)
+}
+
+// ─── ชิ้นส่วนฟอร์ม ───────────────────────────────────────────────────────────
+
+function FormStep({ n, title, note, required, children }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+        <span aria-hidden="true" className="grid size-6 shrink-0 translate-y-[-1px] place-items-center rounded-full bg-indigo-600 text-xs font-semibold text-white tabular-nums dark:bg-indigo-500">{n}</span>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          {title}{required && <span className="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>}
+        </h3>
+        {note && <span className="text-xs text-gray-500 dark:text-gray-400">{note}</span>}
+      </div>
+      <div className="sm:pl-8.5">{children}</div>
+    </section>
+  )
+}
+
+function ReadItem({ label, value, wide, muted }) {
+  return (
+    <div className={cx("min-w-0", wide && "col-span-2")}>
+      <dt className="text-xs text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className={cx("mt-0.5 break-words text-sm", muted ? "text-gray-500 dark:text-gray-400" : "font-medium text-gray-900 dark:text-gray-100")}>
+        {value || <span className="font-normal text-gray-400 dark:text-gray-500">—</span>}
+      </dd>
+    </div>
+  )
+}
+
+/** ค่าที่ยังไม่กรอกในข้อความตรวจทาน → เส้นจุดแบบแบบฟอร์ม */
+function Blank({ children }) {
+  const v = typeof children === "string" ? children.trim() : children
+  if (v) return <span className="font-semibold text-gray-900 underline decoration-indigo-300 decoration-dotted underline-offset-4 dark:text-gray-50 dark:decoration-indigo-400/60">{v}</span>
+  return <span aria-label="ยังไม่ได้กรอก" className="inline-block w-24 translate-y-[-0.3em] border-b border-dotted border-gray-400 align-baseline dark:border-gray-500" />
 }
 
 // ─── ประวัติ ─────────────────────────────────────────────────────────────────
@@ -168,6 +206,21 @@ export default function MySalaryCert() {
   const [downloadingId, setDownloadingId] = useState(null)
   const [highlightId, setHighlightId] = useState(null)
 
+  const { defaults, loading: defaultsLoading } = useFormDefaults()
+  const user = getUser() || {}
+  const applicantName = defaults.name || user.full_name || user.username || ""
+  const unitText = [defaults.department, defaults.branch].filter(Boolean).join(" / ")
+
+  // อัตราเงินเดือนของตัวเอง (ถ้า backend ส่งมา) — แสดงอย่างเดียว ไม่ได้ส่งไปกับคำขอ
+  const [mySalary, setMySalary] = useState(null)
+  useEffect(() => {
+    let alive = true
+    apiAuth("/personnel/me/financial")
+      .then((d) => { if (alive && d?.current_salary != null && Number(d.current_salary) > 0) setMySalary(d.current_salary) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+
   const fetchList = useCallback(() => {
     setLoading(true)
     setListError("")
@@ -270,8 +323,8 @@ export default function MySalaryCert() {
   })
   const errMsg = (k) => (errors[k] ? <p id={`${uid}-${k}-err`} className={errorTextCls}>{errors[k]}</p> : null)
   const req = <span className="text-red-600 dark:text-red-400" aria-hidden="true"> *</span>
-  const textField = (k, label, { required, placeholder, hint, inputMode } = {}) => (
-    <div>
+  const textField = (k, label, { required, placeholder, hint, inputMode, wide } = {}) => (
+    <div className={cx("min-w-0", wide && "sm:col-span-2")}>
       <label htmlFor={`${uid}-${k}`} className={labelCls}>{label}{required && req}</label>
       <input {...fieldProps(k)} type="text" inputMode={inputMode} value={form[k]} maxLength={255}
         onChange={(e) => setField(k, e.target.value)} placeholder={placeholder} aria-required={required || undefined}
@@ -282,84 +335,154 @@ export default function MySalaryCert() {
 
   const pendingCount = items.filter((r) => isSalaryCertPending(r.status)).length
 
+  const amountText = loanAmount > 0 ? `${money(loanAmount)} บาท` : ""
+  const purposeSentence = purpose === "document" ? (
+    <> ประกอบหลักฐาน <Blank>{form.purpose_detail}</Blank> กับ <Blank>{form.recipient_name}</Blank></>
+  ) : purpose === "loan_self" ? (
+    <> ประกอบหลักฐานการกู้เงินกับ <Blank>{form.loan_bank}</Blank> สาขา <Blank>{form.loan_branch_name}</Blank>{" "}
+      วัตถุประสงค์การกู้เงินเพื่อ <Blank>{form.loan_purpose}</Blank> วงเงิน <Blank>{amountText}</Blank></>
+  ) : purpose === "loan_guarantee" ? (
+    <> ค้ำประกันการกู้เงินของ <Blank>{form.guarantor_for_name}</Blank> กับ <Blank>{form.loan_bank}</Blank>{" "}
+      สาขา <Blank>{form.loan_branch_name}</Blank> วัตถุประสงค์การกู้เงินเพื่อ <Blank>{form.loan_purpose}</Blank> วงเงิน <Blank>{amountText}</Blank></>
+  ) : (
+    <> <span className="text-gray-500 dark:text-gray-400">(เลือกกรณีในข้อ 2)</span></>
+  )
+
   return (
     <div className="w-full space-y-5 pb-12" data-tour="salary-cert">
       <PageTitle title="ขอหนังสือรับรองเงินเดือน" />
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-        {/* ══════════ FORM ══════════ */}
-        <form onSubmit={handleSubmit} noValidate aria-labelledby={`${uid}-form-h`} className={cx(cardCls, "space-y-4 p-5")}>
-          <h2 id={`${uid}-form-h`} className="text-base font-semibold text-gray-900 dark:text-gray-100">ยื่นคำขอใหม่</h2>
-
-          <FormApplicantHeader />
-
-          <fieldset aria-describedby={errors.purpose_type ? `${uid}-purpose_type-err` : undefined}>
-            <legend className={labelCls}>วัตถุประสงค์{req}</legend>
-            <div className="mt-1 space-y-2">
-              {PURPOSE_OPTIONS.map((o, i) => {
-                const active = purpose === o.value
-                return (
-                  <label
-                    key={o.value}
-                    className={cx(
-                      "flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors duration-200",
-                      "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500",
-                      active
-                        ? "border-indigo-500 bg-indigo-50 dark:border-indigo-400 dark:bg-indigo-500/10"
-                        : "border-gray-300 hover:bg-gray-50 dark:border-line-field dark:hover:bg-white/[.03]",
-                      errors.purpose_type && !purpose && "!border-red-400 dark:!border-red-500",
-                    )}
-                  >
-                    <input
-                      id={i === 0 ? `${uid}-purpose_type` : undefined}
-                      type="radio"
-                      name={`${uid}-purpose_type`}
-                      value={o.value}
-                      checked={active}
-                      onChange={() => setField("purpose_type", o.value)}
-                      className="mt-1 accent-indigo-600"
-                    />
-                    <span className="min-w-0">
-                      <span className={cx("block text-sm font-medium", active ? "text-indigo-800 dark:text-indigo-200" : "text-gray-800 dark:text-gray-200")}>{o.label}</span>
-                      <span className="block text-xs text-gray-500 dark:text-gray-400">{o.hint}</span>
-                    </span>
-                  </label>
-                )
-              })}
-            </div>
-            {errMsg("purpose_type")}
-          </fieldset>
-
-          {purpose === "document" && (
-            <div className="space-y-3">
-              {textField("purpose_detail", "ใช้เพื่อ", { required: true, placeholder: "เช่น ประกอบการขอวีซ่า" })}
-              {textField("recipient_name", "ยื่นต่อ", { placeholder: "หน่วยงาน/บุคคลที่จะยื่น (ถ้ามี)" })}
-            </div>
-          )}
-
-          {(purpose === "loan_self" || purpose === "loan_guarantee") && (
-            <div className="space-y-3">
-              {purpose === "loan_guarantee" && textField("guarantor_for_name", "ค้ำประกันให้", { required: true, placeholder: "ชื่อ-นามสกุลผู้กู้" })}
-              <div className="grid gap-3 sm:grid-cols-2">
-                {textField("loan_bank", "ธนาคาร/สถาบันการเงิน", { required: true, placeholder: "เช่น ธนาคารออมสิน" })}
-                {textField("loan_branch_name", "สาขา", { placeholder: "เช่น สาขาสุรินทร์" })}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] xl:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
+        {/* ══════════ FORM (โครงตามแบบฟอร์มกระดาษ "คำขอหนังสือรับรองเงินเดือน") ══════════ */}
+        <form onSubmit={handleSubmit} noValidate aria-labelledby={`${uid}-form-h`} className={cx(cardCls, "overflow-hidden")}>
+          <header className="border-b border-gray-100 bg-gray-50/70 px-5 py-4 dark:border-line dark:bg-white/[.02]">
+            <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400">{ORG_LETTERHEAD.nameTh}</p>
+                <h2 id={`${uid}-form-h`} className="mt-0.5 text-lg font-semibold text-gray-900 dark:text-gray-100">คำขอหนังสือรับรองเงินเดือน</h2>
               </div>
-              {purpose === "loan_self" && textField("loan_purpose", "กู้เพื่อ", { placeholder: "เช่น ปลูกสร้างบ้าน" })}
-              {textField("loan_amount", "วงเงินกู้ (บาท)", {
-                inputMode: "decimal",
-                placeholder: "0.00",
-                hint: loanAmount > 0 ? `${money(loanAmount)} บาท` : "ไม่บังคับ",
-              })}
+              <dl className="grid grid-cols-[auto_auto] gap-x-2 text-xs text-gray-600 sm:text-right dark:text-gray-300">
+                <dt className="text-gray-500 dark:text-gray-400">เขียนที่</dt>
+                <dd>{defaults.branch || ORG_LETTERHEAD.short}</dd>
+                <dt className="text-gray-500 dark:text-gray-400">วันที่</dt>
+                <dd className="tabular-nums">{thaiLongDate(todayIso())}</dd>
+              </dl>
             </div>
-          )}
+            <dl className="mt-3 grid grid-cols-[3.5rem_minmax(0,1fr)] gap-y-0.5 text-sm">
+              <dt className="text-gray-500 dark:text-gray-400">เรื่อง</dt>
+              <dd className="text-gray-800 dark:text-gray-200">ขอหนังสือรับรองเงินเดือน</dd>
+              <dt className="text-gray-500 dark:text-gray-400">เรียน</dt>
+              <dd className="text-gray-800 dark:text-gray-200">ผู้จัดการ {ORG_LETTERHEAD.short}</dd>
+            </dl>
+          </header>
 
-          <p className="text-sm text-gray-600 dark:text-gray-300">ออกให้ครั้งละ {COPIES_PER_REQUEST} ฉบับ</p>
+          <div className="space-y-7 p-5">
+            {/* 1 — ผู้ขอ */}
+            <FormStep n={1} title="ข้อมูลผู้ขอ" note="ระบบเติมให้จากทะเบียนเจ้าหน้าที่">
+              {defaultsLoading ? (
+                <div className="grid grid-cols-2 gap-3" aria-hidden="true">
+                  {[0, 1, 2, 3].map((i) => <Skeleton key={i} rounded="rounded-lg" className="h-11" />)}
+                </div>
+              ) : (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-gray-50 px-4 py-3 ring-1 ring-gray-200/70 dark:bg-white/[.03] dark:ring-line">
+                  <ReadItem label="ด้วยข้าพเจ้า" value={applicantName} wide />
+                  <ReadItem label="ตำแหน่ง" value={defaults.position} />
+                  <ReadItem label="สังกัด (แผนก/ฝ่าย/สาขา)" value={unitText} />
+                  <ReadItem label="อัตราเงินเดือน" value={mySalary ? `${moneyText(mySalary)} บาท` : "ฝ่ายบุคคลกรอกตามทะเบียน"} muted={!mySalary} />
+                  <ReadItem label="จำนวน" value={`${COPIES_PER_REQUEST} ฉบับ`} />
+                </dl>
+              )}
+            </FormStep>
 
-          {formError && <ErrorState message={formError} />}
+            {/* 2 — กรณีที่ใช้ */}
+            <FormStep n={2} title="เพื่อนำไปใช้ในกรณี" required>
+              <fieldset aria-describedby={errors.purpose_type ? `${uid}-purpose_type-err` : undefined}>
+                <legend className="sr-only">เพื่อนำไปใช้ในกรณี</legend>
+                <div className="space-y-2.5">
+                  {PURPOSE_OPTIONS.map((o, i) => {
+                    const active = purpose === o.value
+                    return (
+                      <div
+                        key={o.value}
+                        className={cx(
+                          "rounded-xl border transition-colors duration-200",
+                          active
+                            ? "border-indigo-500 bg-indigo-50/60 dark:border-indigo-400 dark:bg-indigo-500/[.07]"
+                            : "border-gray-300 hover:bg-gray-50 dark:border-line-field dark:hover:bg-white/[.03]",
+                          errors.purpose_type && !purpose && "!border-red-400 dark:!border-red-500",
+                        )}
+                      >
+                        <label className="flex min-h-touch cursor-pointer items-start gap-3 rounded-xl px-3.5 py-3 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-500">
+                          <input
+                            id={i === 0 ? `${uid}-purpose_type` : undefined}
+                            type="radio"
+                            name={`${uid}-purpose_type`}
+                            value={o.value}
+                            checked={active}
+                            onChange={() => setField("purpose_type", o.value)}
+                            className="mt-1 size-4 shrink-0 accent-indigo-600"
+                          />
+                          <span className="min-w-0">
+                            <span className={cx("block text-sm font-semibold", active ? "text-indigo-800 dark:text-indigo-200" : "text-gray-800 dark:text-gray-200")}>{o.formLabel}</span>
+                            <span className="block text-xs text-gray-500 dark:text-gray-400">{o.hint}</span>
+                          </span>
+                        </label>
 
-          <button type="submit" disabled={submitting} className={cx(primaryBtnCls, "w-full !h-11")}>
-            {submitting ? "กำลังยื่นคำขอ…" : "ยื่นคำขอ"}
-          </button>
+                        {active && (
+                          <div className="grid gap-3 border-t border-indigo-200/70 px-3.5 pt-3 pb-4 sm:grid-cols-2 dark:border-indigo-400/20">
+                            {o.value === "document" && (
+                              <>
+                                {textField("purpose_detail", "ประกอบหลักฐาน", { required: true, placeholder: "เช่น การขอวีซ่า, การเช่าที่พัก", wide: true })}
+                                {textField("recipient_name", "กับ (ร้าน/บริษัท/หน่วยงาน)", { placeholder: "เช่น สถานทูตญี่ปุ่น", wide: true })}
+                              </>
+                            )}
+                            {o.value === "loan_guarantee" && textField("guarantor_for_name", "ค้ำประกันการกู้เงินของ", { required: true, placeholder: "ชื่อ-นามสกุลผู้กู้", wide: true })}
+                            {(o.value === "loan_self" || o.value === "loan_guarantee") && (
+                              <>
+                                {textField("loan_bank", o.value === "loan_self" ? "กู้เงินกับ" : "กับ (สถาบันการเงิน)", { required: true, placeholder: "เช่น ธ.ก.ส., ธนาคารออมสิน" })}
+                                {textField("loan_branch_name", "สาขา", { placeholder: "เช่น สาขาสุรินทร์" })}
+                                {textField("loan_purpose", "วัตถุประสงค์การกู้เงินเพื่อ", { placeholder: "เช่น ปลูกสร้างบ้าน", wide: true })}
+                                {textField("loan_amount", "วงเงิน (บาท)", {
+                                  inputMode: "decimal",
+                                  placeholder: "0.00",
+                                  hint: loanAmount > 0 ? `${money(loanAmount)} บาท · ${bahtText(loanAmount)}` : "ไม่บังคับ",
+                                  wide: true,
+                                })}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {errMsg("purpose_type")}
+              </fieldset>
+            </FormStep>
+
+            {/* 3 — ตรวจทาน */}
+            <FormStep n={3} title="ตรวจทานข้อความในคำขอ">
+              <div className="rounded-xl bg-[#fbfaf6] px-4 py-4 text-[15px] leading-8 text-gray-800 ring-1 ring-[#e8e3d3] dark:bg-white/[.03] dark:text-gray-200 dark:ring-line">
+                <p className="indent-10">
+                  ด้วยข้าพเจ้า <Blank>{applicantName}</Blank> ตำแหน่ง <Blank>{defaults.position}</Blank>{" "}
+                  สังกัด <Blank>{unitText}</Blank> มีความประสงค์ขอรับหนังสือรับรองเงินเดือน จำนวน {COPIES_PER_REQUEST} ฉบับ{" "}
+                  เพื่อนำไปใช้ในกรณี{purposeSentence}
+                </p>
+                <p className="mt-1 indent-10">จึงเรียนมาเพื่อโปรดพิจารณา</p>
+              </div>
+            </FormStep>
+
+            {formError && <ErrorState message={formError} />}
+
+            <div className="space-y-2">
+              <button type="submit" disabled={submitting} className={cx(primaryBtnCls, "w-full !h-11")}>
+                {submitting ? "กำลังยื่นคำขอ…" : "ยื่นคำขอ"}
+              </button>
+              <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                ผู้บังคับบัญชาให้ความเห็น → ผู้จัดการอนุมัติ → ดาวน์โหลดหรือรับฉบับจริงที่ฝ่ายบุคคล
+              </p>
+            </div>
+          </div>
         </form>
 
         {/* ══════════ MY REQUESTS ══════════ */}

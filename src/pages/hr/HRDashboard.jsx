@@ -264,7 +264,7 @@ function OnboardingBreakdownCard({ breakdown, onGo }) {
   const done = parts[0].n
   const summary = `กรอกข้อมูลเริ่มต้นเสร็จแล้ว ${nf(done)} จาก ${nf(total)} คน`
 
-  const body = (
+  const head = (
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">กรอกข้อมูลเริ่มต้น</p>
@@ -278,34 +278,59 @@ function OnboardingBreakdownCard({ breakdown, onGo }) {
           <span key={p.key} className={cx("h-full first:rounded-l-full last:rounded-r-full", p.bar)} style={{ flexGrow: p.n, flexBasis: 0, minWidth: 4 }} />
         ))}
       </div>
-      <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
-        {parts.map((p) => (
-          <li key={p.key} className="inline-flex items-center gap-1.5">
-            <span aria-hidden="true" className={cx("size-2 rounded-full", p.bar)} />
-            {p.label}
-            <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">{nf(p.n)}</span>
-          </li>
-        ))}
-      </ul>
+    </>
+  )
+
+  const legendItem = (p) => (
+    <>
+      <span aria-hidden="true" className={cx("size-2 shrink-0 rounded-full", p.bar)} />
+      {p.label}
+      <span className="font-semibold tabular-nums text-gray-900 dark:text-gray-100">{nf(p.n)}</span>
     </>
   )
 
   if (!onGo) {
-    return <section aria-label={summary} className={cx(cardCls, "p-4")}>{body}</section>
+    return (
+      <section aria-label={summary} className={cx(cardCls, "p-4")}>
+        {head}
+        <ul className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
+          {parts.map((p) => <li key={p.key} className="inline-flex items-center gap-1.5">{legendItem(p)}</li>)}
+        </ul>
+      </section>
+    )
   }
+
+  // หัวการ์ด + แถบ → รายชื่อทั้งหมด · แต่ละสถานะใต้แถบ → รายชื่อเฉพาะสถานะนั้น (&sub=<status>)
+  const focusRing = "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
   return (
-    <button
-      type="button"
-      onClick={onGo}
-      aria-label={`${summary} — ดูรายชื่อ`}
-      className={cx(
-        "block w-full rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-gray-200/70 cursor-pointer",
-        "transition-colors duration-150 hover:ring-gray-300 dark:bg-gray-800 dark:ring-gray-700/70 dark:hover:ring-gray-600",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
-      )}
-    >
-      {body}
-    </button>
+    <section aria-label={summary} className={cx(cardCls, "p-2")}>
+      <button
+        type="button"
+        onClick={() => onGo()}
+        aria-label={`${summary} — ดูรายชื่อทั้งหมด`}
+        className={cx("block w-full cursor-pointer rounded-xl p-2 text-left transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.04]", focusRing)}
+      >
+        {head}
+      </button>
+      <ul className="flex flex-wrap gap-x-1 text-xs text-gray-600 dark:text-gray-300">
+        {parts.map((p) => (
+          <li key={p.key}>
+            <button
+              type="button"
+              onClick={() => onGo(p.key)}
+              aria-label={`ดูรายชื่อ${p.label} ${p.n} คน`}
+              className={cx(
+                "inline-flex min-h-touch cursor-pointer items-center gap-1.5 rounded-lg px-2 transition-colors duration-150 md:min-h-8",
+                "hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/[.06] dark:hover:text-gray-100",
+                focusRing,
+              )}
+            >
+              {legendItem(p)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -742,8 +767,8 @@ export default function HRDashboard() {
     return { ...(base || {}), ...extra, ...(pendingDependants == null ? {} : { pending_dependants: pendingDependants }) }
   }, [canSeeStats, loadingStats, statsError, stats, pendingDependants, pendingCounts.salaryCert, pendingCounts.loans, pendingCounts.ooo, pendingCounts.welfare, pendingCounts.discipline])
 
-  const setTab = useCallback((key) => {
-    setSearchParams({ tab: key }) // push; drops `sub`
+  const setTab = useCallback((key, sub) => {
+    setSearchParams(sub ? { tab: key, sub } : { tab: key }) // push; drops `sub` unless given
     const main = rootRef.current?.closest("main")
     const behavior = prefersReducedMotion() ? "auto" : "smooth"
     if (main) main.scrollTo({ top: 0, behavior })
@@ -842,7 +867,7 @@ export default function HRDashboard() {
       {canSeeStats && !loadingStats && !statsError && (
         <OnboardingBreakdownCard
           breakdown={stats?.status_breakdown?.onboarding}
-          onGo={nav.byKey.onboarding ? () => setTab("onboarding") : null}
+          onGo={nav.byKey.onboarding ? (status) => setTab("onboarding", status) : null}
         />
       )}
 

@@ -26,6 +26,7 @@ import { useIsPhone } from "../../../hooks/useMediaQuery"
 import Can from "../../../components/Can"
 import { useCan } from "../../../lib/permissions"
 import { useDrill } from "../../../lib/drill"
+import useSubTab from "../../../lib/useSubTab"
 import { fmtDateTh } from "../../../lib/approvalActions"
 import {
   Badge,
@@ -54,6 +55,7 @@ const FILTERS = [
   { value: "done", label: ONBOARDING_STATUS.done.label },
   { value: "exempt", label: ONBOARDING_STATUS.exempt.label },
 ]
+const FILTER_VALUES = FILTERS.map((f) => f.value)
 
 /** สถานะตามลำดับความสำคัญ exempt > done > in_progress > not_started (ใช้ค่าจาก backend ถ้าถูกต้อง) */
 function statusOf(r) {
@@ -155,7 +157,8 @@ export default function HROnboardingTab() {
   const [error, setError] = useState("")
   const [grown, setGrown] = useState(false)
 
-  const [status, setStatus] = useState("")
+  // สถานะที่กรองอยู่เก็บใน URL (&sub=<status>) — การ์ดภาพรวมบนแดชบอร์ดกดสถานะแล้วเปิดแท็บนี้ที่สถานะนั้นได้
+  const [status, setStatus] = useSubTab(FILTER_VALUES, "")
   const [query, setQuery] = useState("")
   const branchLock = useBranchLock()
   const [branch, setBranch] = useState(branchLock.activeKey)

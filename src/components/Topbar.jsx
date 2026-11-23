@@ -22,6 +22,7 @@ import { useMyPermissionsVersion } from "../lib/myPermissions";
 import { isActingAsRole, isRealSuperAdmin } from "../lib/actAsRole";
 import { canGoBack } from "../lib/drill";
 import { switchTheme } from "../lib/themeTransition"
+import { badgeLabel, usePendingCounts } from "../lib/pendingCounts"
 
 // Shared chrome for the icon buttons; display + size are set per button so
 // `hidden md:inline-flex` on the dark toggle is not out-ranked by `inline-flex`.
@@ -98,7 +99,8 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
     () => (darkMode ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"),
     [darkMode]
   );
-  const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : "แสดงเมนู";
+  const inboxBadge = badgeLabel(usePendingCounts().inbox);
+  const sidebarBtnLabel = isSidebarOpen ? "ซ่อนเมนู" : inboxBadge ? `แสดงเมนู — มีงานรออนุมัติ ${inboxBadge} รายการ` : "แสดงเมนู";
   const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`;
 
   const displayName = userInfo.username || "ไม่พบผู้ใช้";
@@ -131,7 +133,7 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
           <button
             onClick={onToggleSidebar}
             data-sidebar-toggle
-            className={chromeBtnCls}
+            className={`${chromeBtnCls} relative`}
             aria-label={sidebarBtnLabel}
             title={sidebarBtnLabel}
             type="button"
@@ -140,6 +142,11 @@ const Topbar = ({ onToggleSidebar, isSidebarOpen, darkMode, setDarkMode, back = 
               <X aria-hidden="true" className="size-5" strokeWidth={2} />
             ) : (
               <Menu aria-hidden="true" className="size-5" strokeWidth={2} />
+            )}
+            {inboxBadge && !isSidebarOpen && (
+              <span aria-hidden="true" className="pointer-events-none absolute -top-1 -right-1 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none tabular-nums text-white ring-2 ring-white dark:bg-red-500 dark:ring-canvas">
+                {inboxBadge}
+              </span>
             )}
           </button>
 

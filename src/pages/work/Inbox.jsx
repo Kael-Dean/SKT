@@ -49,6 +49,7 @@ import PageTitle from "../../components/PageTitle"
 import { fmtLeaveRowDuration } from "../../lib/leaveDays"
 import SalaryCertSupervisorQueue from "../../components/hr/SalaryCertSupervisorQueue"
 import { keepBackState, useDrill } from "../../lib/drill"
+import { usePendingCounts } from "../../lib/pendingCounts"
 
 const cardCls =
   "rounded-2xl bg-white dark:bg-gray-800 shadow-sm ring-1 ring-gray-200/70 dark:ring-gray-700/70 p-5"
@@ -434,6 +435,28 @@ function LoanQueueNotice() {
   )
 }
 
+// ─── หนังสือรับรองเงินเดือนรอผู้จัดการ — พิจารณาที่ /hr/dashboard?tab=salary-cert ───────────
+// ผู้มีสิทธิ์ hr.salaryCert.decide เห็นทางเข้าจากกล่องงานนี้ (ตัวเลขจาก pendingCounts ชุดเดียวกับป้ายเมนู)
+function SalaryCertDecisionNotice() {
+  const { drillTo } = useDrill()
+  const count = usePendingCounts().salaryCert
+  if (!count) return null
+  return (
+    <div className={`${cardCls} flex flex-wrap items-center justify-between gap-3`}>
+      <p className="text-sm text-gray-700 dark:text-gray-200">
+        คำขอหนังสือรับรองเงินเดือนรอพิจารณา <strong className="tabular-nums text-gray-900 dark:text-gray-100">{count}</strong> รายการ
+      </p>
+      <button
+        type="button"
+        onClick={() => drillTo("/hr/dashboard?tab=salary-cert&sub=pending", "กล่องงานรออนุมัติ")}
+        className="inline-flex min-h-touch cursor-pointer items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors duration-200 hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 md:pointer-fine:min-h-0 dark:focus-visible:ring-offset-gray-900"
+      >
+        ไปพิจารณาหนังสือรับรอง
+      </button>
+    </div>
+  )
+}
+
 // ─── page ───────────────────────────────────────────────────────────────────
 export default function Inbox() {
   const { drillTo } = useDrill()
@@ -633,6 +656,7 @@ export default function Inbox() {
       </div>
 
       {can("hr.loans.queue", roleId) && <LoanQueueNotice />}
+      {can("hr.salaryCert.decide", roleId) && <SalaryCertDecisionNotice />}
 
       {/* หนังสือรับรองเงินเดือน — หัวหน้าให้ความเห็น (ทุกคนเรียกได้; ไม่ใช่หัวหน้า = คิวว่าง ไม่แสดง) */}
       <SalaryCertSupervisorQueue onCount={setCertQueueCount} />

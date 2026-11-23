@@ -119,8 +119,8 @@ function LadderTrack({ c }) {
             <div className="min-w-0">
               <p className={cx("text-sm", state === "idle" ? "text-gray-500 dark:text-gray-400" : "font-medium text-gray-900 dark:text-gray-100")}>
                 {stepLabel(s.step, isNext ? ladder.next_step_label : allowed.get(s.step)?.label)}
-                {state === "next" && <span className="ml-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300">ขั้นถัดไป</span>}
-                {state === "issued" && <span className="ml-2 text-xs font-semibold text-red-700 dark:text-red-300">ในเรื่องนี้</span>}
+                {state === "next" && <span className="ml-2 whitespace-nowrap text-xs font-semibold text-indigo-700 dark:text-indigo-300">ขั้นถัดไป</span>}
+                {state === "issued" && <span className="ml-2 whitespace-nowrap text-xs font-semibold text-red-700 dark:text-red-300">ในเรื่องนี้</span>}
               </p>
               {done && (
                 <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">
@@ -639,7 +639,7 @@ function CaseSheet({ caseId, initialMode = "view", onClose, onChanged, onOpenTer
   const subtitle = c ? `${accusedName(c)} · ${c.topic ? `${c.topic} · ` : ""}เรื่อง #${c.id}` : undefined
 
   return (
-    <Sheet open onClose={onClose} busy={busy} size={mode === "record" ? "full" : "lg"} title={title} subtitle={subtitle} footer={footer}
+    <Sheet open onClose={onClose} busy={busy} size={mode === "record" ? "full" : mode === "view" ? "xl" : "lg"} title={title} subtitle={subtitle} footer={footer}
       initialFocus={mode === "escalate" || mode === "dismiss" ? `#${ID_BASE}-reason` : undefined}>
       {loading && !c ? (
         <div className="space-y-3" aria-busy="true"><span className="sr-only">กำลังโหลด…</span><Skeleton className="h-6 w-2/3" /><Skeleton className="h-24" /><Skeleton className="h-40" /></div>
@@ -673,7 +673,7 @@ function CaseSheet({ caseId, initialMode = "view", onClose, onChanged, onOpenTer
               onEdit={() => setSubSheet({ kind: "recordPatch" })} />
           )}
 
-          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,17rem)]">
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
             <div className="min-w-0 space-y-5">
               <dl className="divide-y divide-gray-100 dark:divide-line">
                 <DetailRow label="ผู้ถูกแจ้ง">{accusedName(c)}</DetailRow>

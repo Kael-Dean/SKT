@@ -5,6 +5,7 @@
 // URL contract: ?tab=<key> (push on navigation, invalid → replace to the first allowed tab);
 // sub-tabs inside sections write &sub=<value> with replace (see lib/useSubTab).
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { usePendingCounts } from "../../lib/pendingCounts"
 import { Link, useSearchParams } from "react-router-dom"
 import {
   AlertCircle,
@@ -730,11 +731,16 @@ export default function HRDashboard() {
   }, [canSeeDependants])
 
   // Badges only when stats loaded cleanly (the strip reports errors itself)
+  // + คิวที่ /hr/dashboard ไม่ได้นับให้ (หนังสือรับรอง / สินเชื่อ / ออกนอกสถานที่ / สวัสดิการ / วินัย) จาก pendingCounts
+  const pendingCounts = usePendingCounts()
   const badges = useMemo(() => {
     const base = canSeeStats && !loadingStats && !statsError ? stats : null
-    if (pendingDependants == null) return base
-    return { ...(base || {}), pending_dependants: pendingDependants }
-  }, [canSeeStats, loadingStats, statsError, stats, pendingDependants])
+    const extra = {
+      salaryCert: pendingCounts.salaryCert, loans: pendingCounts.loans, ooo: pendingCounts.ooo,
+      welfare: pendingCounts.welfare, discipline: pendingCounts.discipline,
+    }
+    return { ...(base || {}), ...extra, ...(pendingDependants == null ? {} : { pending_dependants: pendingDependants }) }
+  }, [canSeeStats, loadingStats, statsError, stats, pendingDependants, pendingCounts.salaryCert, pendingCounts.loans, pendingCounts.ooo, pendingCounts.welfare, pendingCounts.discipline])
 
   const setTab = useCallback((key) => {
     setSearchParams({ tab: key }) // push; drops `sub`

@@ -13,6 +13,7 @@ import { lockBodyScroll, unlockBodyScroll } from "../lib/scrollLock"
 import { useInstallOption } from "../lib/pwa"
 import InstallGuideLazy from "./InstallGuideLazy"
 import { switchTheme } from "../lib/themeTransition"
+import { badgeLabel, usePendingCounts } from "../lib/pendingCounts"
 
 // สีของ icon chip — ต้องเขียน class เต็ม (Tailwind v4 ตรวจ class ที่ต่อ string ไม่เจอ)
 const TONES = {
@@ -35,6 +36,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
   const closeBtnRef = useRef(null)
   const { locked: onboardingLocked } = useOnboarding()
   const installOption = useInstallOption()
+  const pending = usePendingCounts()
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
 
   const visibleMenus = useMemo(
@@ -140,6 +142,7 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                 const tone = TONES[item.tone] ?? TONES.indigo
                 const Icon = item.icon
                 const isLocked = item.gated && onboardingLocked
+                const badge = !isLocked && item.badgeKey ? badgeLabel(pending[item.badgeKey]) : null
                 return (
                   <li key={item.path}>
                     <button
@@ -167,6 +170,12 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                         <Icon strokeWidth={1.75} className="size-[18px]" />
                       </span>
                       <span className={`min-w-0 flex-1 truncate ${isLocked ? "text-gray-500 dark:text-gray-400" : ""}`}>{item.label}</span>
+                      {badge && (
+                        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-semibold tabular-nums text-white dark:bg-red-500">
+                          <span aria-hidden="true">{badge}</span>
+                          <span className="sr-only">รอดำเนินการ {badge} รายการ</span>
+                        </span>
+                      )}
                       {isLocked && (
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-white/[.06] dark:text-gray-300">
                           <Lock aria-hidden="true" className="size-3" strokeWidth={2.25} />

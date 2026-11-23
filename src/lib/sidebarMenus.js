@@ -31,7 +31,7 @@ export const SELF_SERVICE_MENUS = [
   { label: "ข้อมูลส่วนตัว",       icon: UserRound,      tone: "sky",     path: "/my-profile",    perm: "self.profile.view" },
   { label: "ข้อมูลการเงินของฉัน",  icon: PiggyBank,      tone: "teal",    path: "/my-financial",  perm: "self.payroll.view", gated: true },
   { label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view", gated: true },
-  { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox" },
+  { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox", badgeKey: "inbox" },
   { label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request", gated: true },
   { label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request", gated: true },
   { label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request", gated: true },

@@ -33,6 +33,7 @@ import {
   UserMinus,
   Users,
   Wrench,
+  ListOrdered,
 } from "lucide-react"
 import { HR_KPI_PERMS } from "./permissions"
 
@@ -90,6 +91,9 @@ export const HR_NAV = [
       { key: "holiday-work", perm: "hr.holidayWork.view", label: "ทำงานวันหยุด", icon: CalendarClock,
         description: "บันทึกการทำงานในวันหยุดของเจ้าหน้าที่",
         keywords: ["วันหยุด", "โอที", "ot"] },
+      { key: "leave-log", perm: "hr.leave.quota.view", label: "การลารายคน", icon: ListOrdered,
+        description: "ดูว่าพนักงานแต่ละคนลากี่ครั้ง ลาวันไหน รวมใบที่ยกเลิก",
+        keywords: ["ลากี่ครั้ง", "ประวัติการลา", "ลารายครั้ง", "ยกเลิกลา", "leave log"] },
       { key: "leave-calendar", perm: "hr.leave.calendar", label: "ปฏิทินการลา", icon: CalendarRange,
         description: "ดูว่าใครลาวันไหน แยกตามสาขา ในมุมมองปฏิทินรายเดือน",
         keywords: ["ปฏิทิน", "ลา", "ขาดงาน", "calendar"] },

@@ -12,6 +12,7 @@
 import { useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { DEFAULT_SIGNER, ORG_LETTERHEAD, bahtText, moneyText, thaiDateParts, thaiLongDate } from "../../lib/salaryCert"
+import SignatureMark from "../SignatureMark"
 
 const SHEET_W_PX = 794 // 210mm @ 96dpi
 const SHEET_H_PX = 1123 // 297mm @ 96dpi
@@ -39,6 +40,7 @@ function Fill({ children, min = "8em" }) {
  *   docNo?: string, issueDate?: string, name?: string, appointedDate?: string,
  *   position?: string, unit?: string, salary?: string|number, purpose?: string,
  *   signerName?: string, signerTitle?: string,
+ *   signature?: { image: string } | null,   // ลายเซ็นของผู้อนุมัติจริง (lib/signatures) — ไม่มี = เส้นจุดว่าง
  * } }} props
  */
 export function SalaryCertificateSheet({ data }) {
@@ -143,7 +145,7 @@ export function SalaryCertificateSheet({ data }) {
         <div style={{ margin: "24mm 0 0 auto", width: "85mm", textAlign: "center", lineHeight: 1.6 }}>
           <p style={{ margin: 0, display: "flex", alignItems: "flex-end", gap: "2mm" }}>
             <span>(ลงชื่อ)</span>
-            <span aria-hidden="true" style={{ flex: 1, borderBottom: `1.5px dotted ${MUTED}`, height: "1.2em" }} />
+            <SignatureMark src={data.signature?.image} name={signerName} rule={`1.5px dotted ${MUTED}`} lineHeight="1.2em" height="16mm" />
           </p>
           <p style={{ margin: "2mm 0 0" }}>({signerName})</p>
           <p style={{ margin: 0 }}>{signerTitle}</p>

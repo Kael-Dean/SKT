@@ -262,6 +262,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.discipline.cases":{ code: (me) => ["discipline.view", "discipline.decide.asst", "discipline.decide.manager"].some((c) => me.has(c)) || Boolean(me.senior), no: null, module: "HR: Discipline", label: "เปิดรายการเรื่องร้องเรียน (หัวหน้าเห็นเฉพาะเรื่องของตน)", en: "Open discipline case list", roles: [1, 2, 3, 6, 7], feOnly: true, note: "GET /hr/discipline/cases — backend กรองรายการตามสิทธิ์เอง" },
 
   // ── HR: System ──
+  "hr.signatures.manage": { code: ["signature.manage", "hr.employee.edit_personal"], no: null, module: "HR: System", label: "จัดการลายเซ็นอิเล็กทรอนิกส์ของเจ้าหน้าที่", en: "Manage employee e-signatures", roles: [1, 3], note: "handoff/api-handoff-e-signature.md — ระหว่างรอ BE เพิ่ม signature.manage ใช้ hr.employee.edit_personal (ฝ่ายบุคคล) แทน" },
   "hr.audit.view": { no: 97, module: "HR: System", label: "ดูบันทึกการใช้งานระบบ (Audit log)", en: "View audit log", roles: [1, 3] },
 
   // ── HR: Reports ──
@@ -590,7 +591,7 @@ export const HR_KPI_PERMS = Object.freeze(Object.keys(PERMISSIONS).filter((k) =>
  */
 export const HR_HUB_PERMS = Object.freeze([
   "hr.dashboard.view",
-  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.month.view", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", "hr.onboarding.list", "hr.dependants.list", ...HR_KPI_PERMS,
+  ...new Set(["hr.employees.list", "hr.positions.view", "hr.promotions.eligible", "hr.promotions.exams", "hr.employees.terminate", "hr.reports.resignedRetired", "hr.leave.list", "hr.reports.leaveAnnual", "hr.reports.leaveRegister", "hr.ooo.list", "hr.holidayWork.view", "hr.relocation.list", "hr.reports.relocations", "hr.salaryLadder.view", "hr.salaryRoster.view", "hr.salary.history", "hr.salary.stepAward", "hr.payroll.list", "hr.payroll.month.view", "hr.payroll.settings.view", "hr.payroll.period.approve", "hr.loans.list", "hr.loans.queue", "hr.loans.approve.finance", "hr.loans.fundLedger","hr.salaryCert.list", "hr.leaveTypes.manage", "hr.holidays.manage", "hr.issues.list", "hr.audit.view", "hr.signatures.manage", "hr.onboarding.list", "hr.dependants.list", ...HR_KPI_PERMS,
     // WP0 scaffold: 3H ปฏิทินการลา · 3P สวัสดิการ · 3Q วินัย · 3F สถิติคำร้อง
     "hr.leave.calendar", "hr.welfare.view", "hr.welfare.submit", "hr.welfare.settings", "hr.gratuity.view", "hr.discipline.cases", "hr.discipline.topics", "hr.issues.stats"]),
 ])

@@ -11,6 +11,7 @@
 import { ORG_LETTERHEAD, thaiLongDate } from "../../lib/salaryCert"
 import { FORM_LEAVE_KINDS } from "../../lib/leaveForm"
 import { fmtDays, fmtLeaveDuration } from "../../lib/leaveDays"
+import SignatureMark from "../SignatureMark"
 
 const INK = "#1d2420"
 const MUTED = "#5b6660"
@@ -129,10 +130,11 @@ function SignRow({ left, right }) {
   )
 }
 
-const signLine = (role) => (
+/** sig = { image, name } จาก lib/signatures — ไม่มี = เส้นจุดว่างให้เซ็นมือ */
+const signLine = (role, sig) => (
   <>
     <span>ลงชื่อ</span>
-    <span aria-hidden="true" style={{ flex: 1, borderBottom: `1.2px dotted ${RULE}`, height: "1.1em" }} />
+    <SignatureMark src={sig?.image} name={sig?.name} rule={`1.2px dotted ${RULE}`} height="11mm" />
     <span>{role}</span>
   </>
 )
@@ -290,7 +292,7 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
           <p style={{ margin: 0, paddingLeft: "15mm" }}>จึงเรียนมาเพื่อโปรดพิจารณา</p>
           <div style={{ width: "80mm", flexShrink: 0, textAlign: "center", lineHeight: 1.5 }}>
             <p style={{ margin: 0 }}>ขอแสดงความนับถือ</p>
-            <Line style={{ marginTop: "5mm", flexWrap: "nowrap" }}>{signLine("ผู้ขออนุญาตลา")}</Line>
+            <Line style={{ marginTop: "5mm", flexWrap: "nowrap" }}>{signLine("ผู้ขออนุญาตลา", data.signatures?.requester)}</Line>
             <Line style={{ flexWrap: "nowrap" }}>{nameLine(data.name)}</Line>
           </div>
         </div>
@@ -362,7 +364,7 @@ export function LeaveFormSheet({ data, printedAt = new Date() }) {
           <div style={{ padding: "0 3mm" }}><NoteBox lines={rightLines} /></div>
           <div aria-hidden="true" style={{ height: "2mm" }} />
           <div aria-hidden="true" style={{ height: "2mm" }} />
-          <SignRow left={signLine("ผู้บันทึก")} right={signLine("ผู้ตรวจ")} />
+          <SignRow left={signLine("ผู้บันทึก", data.signatures?.approver)} right={signLine("ผู้ตรวจ", data.signatures?.reviewer)} />
           <SignRow left={nameLine(finalApproval?.name)} right={nameLine(data.review.name)} />
           <SignRow left={labeledLine("ตำแหน่ง", finalApproval?.position)} right={labeledLine("ตำแหน่ง", data.review.position)} />
           <SignRow left={labeledLine("วันที่", shortDate(finalApproval?.at))} right={labeledLine("วันที่", shortDate(data.review.at))} />

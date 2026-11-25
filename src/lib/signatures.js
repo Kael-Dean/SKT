@@ -121,7 +121,10 @@ export function normalizeName(raw) {
       }
     }
   }
-  return s.replace(/[\s.]+/g, "").replace(/\p{Cf}+/gu, "") // \p{Cf} = zero-width / format chars
+  return s
+    .replace(/[\s.]+/g, "")
+    .replace(/\p{Cf}+/gu, "") // zero-width / format chars
+    .replace(/เเ/g, "แ") // สระเอ 2 ตัวที่พิมพ์แทนสระแอ
 }
 
 /** "001.นางสาวกมลทิพย์  พิมพ์เสน_0.png" → "นางสาวกมลทิพย์ พิมพ์เสน" */
@@ -143,13 +146,15 @@ const personKeys = (p) => {
   ]
   return pairs
     .filter(([f, l]) => f || l)
-    .map(([f, l]) => ({ full: normalizeName(`${f ?? ""}${l ?? ""}`), first: normalizeName(f) }))
+    .map(([f, l]) => ({ full: normalizeName(`${f ?? ""}${l ?? ""}`), first: normalizeName(f), last: normalizeName(l) }))
 }
 
 /**
  * จับคู่ไฟล์กับเจ้าหน้าที่จากชื่อ
  * → { person, confidence: "exact" | "first" | "none", candidates }
- *   exact = ชื่อ+สกุลตรงคนเดียว · first = ชื่อตรงคนเดียวแต่สกุลไม่ตรง (ให้ HR ตรวจ) · none = ไม่เจอหรือซ้ำหลายคน
+ *   exact = ชื่อ+สกุลตรงคนเดียว
+ *   first = ตรงบางส่วน (ชื่อตรงคนเดียว หรือนามสกุลตรงคนเดียว) — สะกดต่าง/เปลี่ยนสกุล ให้ HR ตรวจก่อน
+ *   none  = ไม่เจอ หรือตรงหลายคน
  */
 export function matchPerson(filename, people) {
   const target = normalizeName(nameFromFilename(filename))
@@ -160,5 +165,9 @@ export function matchPerson(filename, people) {
   if (exact.length > 1) return { person: null, confidence: "none", candidates: exact }
   const first = list.filter((p) => personKeys(p).some((k) => k.first && target.startsWith(k.first)))
   if (first.length === 1) return { person: first[0], confidence: "first", candidates: first }
-  return { person: null, confidence: "none", candidates: first }
+  const parts = nameFromFilename(filename).split(" ")
+  const lastName = parts.length > 1 ? normalizeName(parts[parts.length - 1]) : ""
+  const byLast = lastName ? list.filter((p) => personKeys(p).some((k) => k.last && k.last === lastName)) : []
+  if (byLast.length === 1) return { person: byLast[0], confidence: "first", candidates: byLast }
+  return { person: null, confidence: "none", candidates: [...first, ...byLast] }
 }

@@ -84,12 +84,12 @@ function SignatureThumb({ userId, version, name }) {
 // ─── นำเข้าหลายไฟล์ ────────────────────────────────────────────────────────────
 const MATCH_TEXT = {
   exact: ["ชื่อตรงกัน", badgeSuccess],
-  first: ["ชื่อตรง นามสกุลไม่ตรง — ตรวจก่อน", badgePending],
+  first: ["ตรงบางส่วน — ตรวจก่อน", badgePending],
   manual: ["เลือกเอง", badgeNeutral],
   none: ["ไม่พบชื่อนี้ — เลือกเจ้าหน้าที่", badgePending],
 }
 
-function BulkImportSheet({ open, onClose, people, signed, onDone }) {
+function BulkImportSheet({ open, onClose, people, signed, onDone, canUpload }) {
   const [rows, setRows] = useState([])
   const [busy, setBusy] = useState(false)
   const fileRef = useRef(null)
@@ -186,12 +186,12 @@ function BulkImportSheet({ open, onClose, people, signed, onDone }) {
       footer={rows.length ? (
         <div className="grid grid-cols-2 gap-3 md:flex md:items-center md:justify-end md:gap-2">
           <p className={cx(helpTextCls, "col-span-2 md:mr-auto")} aria-live="polite">
-            {busy ? `กำลังอัปโหลด… ${done} ไฟล์เสร็จแล้ว` : `เลือกไว้ ${ready.length} ไฟล์ · อัปโหลดแล้ว ${done} ไฟล์`}
+            {!canUpload ? `ตรวจการจับคู่ได้ — อัปโหลดได้เมื่อระบบหลังบ้านพร้อม` : busy ? `กำลังอัปโหลด… ${done} ไฟล์เสร็จแล้ว` : `เลือกไว้ ${ready.length} ไฟล์ · อัปโหลดแล้ว ${done} ไฟล์`}
           </p>
           <button type="button" className={cx(neutralBtnCls, "!h-12 md:!h-10")} onClick={onClose} disabled={busy}>
             {done ? "ปิด" : "ยกเลิก"}
           </button>
-          <button type="button" className={cx(primaryBtnCls, "!h-12 gap-2 md:!h-10")} onClick={upload} disabled={busy || !ready.length}>
+          <button type="button" className={cx(primaryBtnCls, "!h-12 gap-2 md:!h-10")} onClick={upload} disabled={busy || !ready.length || !canUpload}>
             <Upload className="size-4" aria-hidden="true" />
             อัปโหลด {ready.length} ไฟล์
           </button>
@@ -393,7 +393,7 @@ export default function HRSignaturesTab() {
             </p>
             <p className={helpTextCls}>ใส่ในใบลาและหนังสือรับรองให้อัตโนมัติ เฉพาะคนที่ยื่น อนุมัติ หรือตรวจรายการนั้นจริง</p>
           </div>
-          <button type="button" className={cx(primaryBtnCls, "!h-11 ml-auto gap-2")} onClick={() => setBulkOpen(true)} disabled={disabled || state.loading}>
+          <button type="button" className={cx(primaryBtnCls, "!h-11 ml-auto gap-2")} onClick={() => setBulkOpen(true)} disabled={state.loading}>
             <ImageUp className="size-4" aria-hidden="true" />
             นำเข้าหลายไฟล์
           </button>
@@ -411,10 +411,11 @@ export default function HRSignaturesTab() {
               className={cx(baseField, "!rounded-lg !py-2 !pl-9 !pr-3 md:!text-sm")}
             />
           </label>
-          <div className={segmentedCls} role="group" aria-label="กรองตามสถานะลายเซ็น">
-            {[["all", "ทั้งหมด"], ["has", "มีแล้ว"], ["missing", "ยังไม่มี"]].map(([k, l]) => (
-              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={cx(segmentedItemCls, filter === k && segmentedItemActiveCls)}>
+          <div className={cx(segmentedCls, "sm:!w-auto")} role="group" aria-label="กรองตามสถานะลายเซ็น">
+            {[["all", "ทั้งหมด", total], ["has", "มีแล้ว", have], ["missing", "ยังไม่มี", total - have]].map(([k, l, n]) => (
+              <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)} className={cx(segmentedItemCls, "whitespace-nowrap", filter === k && segmentedItemActiveCls)}>
                 {l}
+                {!state.loading && <span className="ml-1.5 tabular-nums opacity-60">{n}</span>}
               </button>
             ))}
           </div>
@@ -444,7 +445,7 @@ export default function HRSignaturesTab() {
                   {sig ? (
                     <SignatureThumb userId={p.id} version={sig.sha256 ?? sig.uploaded_at} name={name} />
                   ) : (
-                    <span className={cx("flex h-12 w-28 shrink-0 items-center justify-center rounded-lg border border-dashed border-gray-300 text-xs text-gray-400 sm:w-36 dark:border-line-strong dark:text-gray-500")}>
+                    <span className="flex h-12 w-28 shrink-0 items-center justify-center text-xs text-gray-400 sm:w-36 dark:text-gray-500">
                       ยังไม่มีลายเซ็น
                     </span>
                   )}
@@ -483,6 +484,7 @@ export default function HRSignaturesTab() {
         onClose={() => setBulkOpen(false)}
         people={people}
         signed={signed}
+        canUpload={sigs.ready}
         onDone={() => { thumbCache.clear(); refreshSigs() }}
       />
 

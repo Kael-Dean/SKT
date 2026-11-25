@@ -86,9 +86,11 @@ export async function listSignatures() {
 
 export const loadSignatureImage = (userId) => imageAt(`/hr/signatures/${userId}/image`)
 
-export function uploadSignature(userId, file) {
+/** source: "upload" (รายคน) | "import" (นำเข้าหลายไฟล์) — backend บันทึกเป็นประวัติการเปลี่ยนลายเซ็น */
+export function uploadSignature(userId, file, { source = "upload" } = {}) {
   const body = new FormData()
   body.append("file", file, file.name || `signature-${userId}.png`)
+  body.append("source", source)
   return apiAuth(`/hr/signatures/${userId}`, { method: "PUT", body })
 }
 

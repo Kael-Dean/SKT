@@ -163,7 +163,7 @@ function BulkImportSheet({ open, onClose, people, signed, onDone, canUpload }) {
       for (let r = queue.shift(); r; r = queue.shift()) {
         update(r.key, { status: "uploading", error: "" })
         try {
-          await uploadSignature(r.userId, r.file)
+          await uploadSignature(r.userId, r.file, { source: "import" })
           update(r.key, { status: "done" })
         } catch (e) {
           update(r.key, { status: "error", error: errMsg(e, "อัปโหลดไม่สำเร็จ") })

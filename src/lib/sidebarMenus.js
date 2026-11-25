@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Target,
   UserRound,
+  ListOrdered,
 } from "lucide-react"
 import { HR_HUB_PERMS } from "./permissions"
 
@@ -33,6 +34,7 @@ export const SELF_SERVICE_MENUS = [
   { group: "ข้อมูลของฉัน", label: "สลิปเงินเดือนของฉัน",  icon: ReceiptText,    tone: "emerald", path: "/my-payslips",   perm: "self.payroll.view", gated: true },
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox", badgeKey: "inbox" },
   { group: "ลาและการทำงาน", label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request", gated: true },
+  { group: "ลาและการทำงาน", label: "ประวัติการลาของฉัน",   icon: ListOrdered,    tone: "emerald", path: "/my-leave-log",  perm: "self.leave.view", gated: true },
   { group: "ลาและการทำงาน", label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request", gated: true },
   { group: "ลาและการทำงาน", label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request", gated: true },
   { group: "การเงินและสวัสดิการ", label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply", gated: true },

@@ -273,6 +273,8 @@ const KEYWORDS = {
   "/hr/dashboard?tab=dependants": ["ข้อมูลครอบครัว", "ผู้มีสิทธิ์"],
   "/hr/dashboard?tab=leave-types": ["โควตาลา", "leave types"],
   "/hr/dashboard?tab=leave-calendar": ["ใครลา", "leave calendar"],
+  "/hr/dashboard?tab=leave-log": ["ลากี่ครั้ง", "ประวัติการลารายคน", "ลารายครั้ง", "leave log"],
+  "/my-leave-log": ["ประวัติการลา", "ลากี่ครั้ง", "ลาวันไหน", "การลาของฉัน", "leave history"],
   "/hr/dashboard?tab=relocation-history": ["ประวัติการย้าย", "โอนย้าย"],
   "/hr/dashboard?tab=salary": ["ปรับเงินเดือน", "ขึ้นเงินเดือน", "ทะเบียนเงินเดือน"],
   "/hr/dashboard?tab=welfare": ["เบิกสวัสดิการ"],

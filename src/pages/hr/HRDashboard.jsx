@@ -49,6 +49,7 @@ import HROnboardingTab from "./tabs/HROnboardingTab"
 import HRDependantsVerifyTab from "./tabs/HRDependantsVerifyTab"
 // WP0 scaffold — stub ที่ WP1/WP2/WP3/WP5 เติมเนื้อหา
 import HRLeaveCalendarTab from "./tabs/HRLeaveCalendarTab"
+import HRLeaveLogTab from "./tabs/HRLeaveLogTab"
 import HRWelfareTab from "./tabs/HRWelfareTab"
 import HRWelfareSettingsTab from "./tabs/HRWelfareSettingsTab"
 import HRDisciplineTab from "./tabs/HRDisciplineTab"
@@ -152,6 +153,7 @@ function renderSection(key, { onGoToPositions, onDependantsCount, overview }) {
     case "onboarding":         return <HROnboardingTab />
     case "dependants":         return <HRDependantsVerifyTab onCountChange={onDependantsCount} />
     case "leave-calendar":     return <HRLeaveCalendarTab />
+    case "leave-log":          return <HRLeaveLogTab />
     case "welfare":            return <HRWelfareTab />
     case "welfare-settings":   return <HRWelfareSettingsTab />
     case "discipline":         return <HRDisciplineTab />

@@ -68,6 +68,7 @@ const MyProfile = lazyWithReload(() => import("./pages/work/MyProfile.jsx"))
 const MyPayslips = lazyWithReload(() => import("./pages/work/MyPayslips.jsx"))
 const MyFinancial = lazyWithReload(() => import("./pages/work/MyFinancial.jsx"))
 const LeaveRequest = lazyWithReload(() => import("./pages/work/LeaveRequest.jsx"))
+const MyLeaveLog = lazyWithReload(() => import("./pages/work/MyLeaveLog.jsx"))
 /** งวด 2 — 3O ขอออกนอกสถานที่ */
 const OutOfOffice = lazyWithReload(() => import("./pages/work/OutOfOffice.jsx"))
 const OutOfOfficeApprovals = lazyWithReload(() => import("./pages/work/OutOfOfficeApprovals.jsx"))
@@ -178,6 +179,7 @@ function App() {
         <Route path="/my-payslips" element={guard("self.payroll.view", <MyPayslips />)} />
         <Route path="/my-financial" element={guard("self.payroll.view", <MyFinancial />)} />
         <Route path="/leave-request" element={guard("self.leave.request", <LeaveRequest />)} />
+        <Route path="/my-leave-log" element={guard("self.leave.view", <MyLeaveLog />)} />
         <Route path="/out-of-office" element={guard("self.ooo.request", <OutOfOffice />)} />
         <Route path="/out-of-office/approvals" element={guard("hr.ooo.list", <OutOfOfficeApprovals />)} />
         {/* กล่องงานรออนุมัติ: เปิดให้ทุกคน — เนื้อหาในหน้ากรองตามสิทธิ์อนุมัติเอง */}

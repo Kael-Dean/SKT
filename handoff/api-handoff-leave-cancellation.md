@@ -109,7 +109,8 @@ Add these to the leave objects returned by:
 - `GET /personnel/me/leaves`
 - `GET /hr/leave-requests` (+ `?mine=true`)
 - `GET /hr/leave-requests/{id}` / `.../history`
-- employee leave history used on the HR personnel page (`employee_router.py`)
+- `GET /hr/employees/{employee_id}/leaves` (`employee_router.py`, `LeaveHistoryItemOut`): used by the new
+  per-employee leave log page (HR tab "การลารายคน"); `/personnel/me/leaves` feeds the employee's own log page
 
 ```json
 {

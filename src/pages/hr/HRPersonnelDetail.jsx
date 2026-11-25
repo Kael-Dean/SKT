@@ -3,7 +3,8 @@ import { cx, baseField, editBtnCls } from "../../lib/styles"
 // โปรไฟล์เจ้าหน้าที่แบบเต็ม — GET /hr/personnel/{user_id}
 import { useEffect, useState, useCallback } from "react"
 import ReactDOM from "react-dom"
-import { useParams } from "react-router-dom"
+import { Link, useParams } from "react-router-dom"
+import { backState } from "../../lib/drill"
 import { apiAuth } from "../../lib/api"
 import { PageLoader, ErrorState, Badge, Skeleton } from "../../components/ui"
 import BranchAssignmentCard from "./BranchAssignmentCard"
@@ -580,6 +581,15 @@ export default function HRPersonnelDetail() {
 
       {/* โควตาประเภทการลาที่ HR เพิ่มเอง (ซ่อนเองเมื่อไม่มี / ไม่มีสิทธิ์ดู) */}
       {can("hr.leave.quota.view") && <CustomLeaveQuotaCard employeeId={id} />}
+      {can("hr.leave.quota.view") && (
+        <Link
+          to={`/hr/dashboard?tab=leave-log&emp=${id}`}
+          state={backState()}
+          className="inline-flex min-h-touch items-center gap-1.5 rounded-xl px-1 text-sm font-semibold text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 md:min-h-0 dark:text-indigo-300"
+        >
+          ดูการลารายครั้ง (รวมใบที่ยกเลิก) ›
+        </Link>
+      )}
 
       {/* ประวัติ: ตำแหน่ง / โยกย้าย / การลา / ขั้นเงินเดือน — แต่ละส่วนตามสิทธิ์ของ endpoint */}
       <EmployeeHistoryCard

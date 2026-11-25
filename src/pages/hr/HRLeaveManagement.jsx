@@ -15,6 +15,8 @@ import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } fro
 import { can } from "../../lib/permissions"
 import PageTitle from "../../components/PageTitle"
 import { fmtLeaveRowDuration } from "../../lib/leaveDays"
+import { canHrCancel, cancelLeaveAsHr } from "../../lib/leaveCancel"
+import { CancelLeaveButton, CancelLeaveDialog, CancelledNote } from "../../components/LeaveCancel"
 
 // ระหว่างดำเนินการ = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (stage จาก backend — api-handoff-4 §1)
 const isPending = (r) => r?.status === "pending" || !!stageOf(r)
@@ -52,6 +54,17 @@ export default function HRLeaveManagement() {
   const requests = tab === "pending" ? allRequests.filter(isPending) : allRequests
   const pendingCount = allRequests.filter(isPending).length
   const [historyId, setHistoryId] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null) // ใบลาที่กำลังยกเลิก
+
+  const onCancelDone = (r) => {
+    setCancelTarget(null)
+    setBanner({
+      tone: "success",
+      text: `ยกเลิกใบลาของ ${requesterName(r)} แล้ว${r.status === "approved" ? " — คืนวันลาเข้าสิทธิ์แล้ว" : ""}`,
+    })
+    requestNotificationsRefresh()
+    fetchRequests()
+  }
 
   const openDecision = (req, mode) => {
     setBanner(null)
@@ -172,6 +185,7 @@ export default function HRLeaveManagement() {
                       <p className="font-medium text-gray-800 dark:text-gray-200">{fmtDate(r.created_at)}</p>
                     </div>
                   </div>
+                  <CancelledNote leave={r} />
                   {r.address_during_leave && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
                       ที่อยู่ระหว่างลา: {r.address_during_leave}
@@ -224,6 +238,9 @@ export default function HRLeaveManagement() {
                     {historyId === r.id ? "ซ่อนประวัติ" : "ประวัติการอนุมัติ"}
                   </button>
                   <LeaveStageActions req={r} kind={KIND.LEAVE} onDecide={openDecision} />
+                  {canHrCancel(r, can) && (
+                    <CancelLeaveButton onClick={() => { setBanner(null); setCancelTarget(r) }} />
+                  )}
                 </div>
               </div>
               {r.justification_note && (
@@ -253,6 +270,14 @@ export default function HRLeaveManagement() {
         />
       )}
       <LeaveFormDialog target={formTarget} onClose={() => setFormTarget(null)} />
+      <CancelLeaveDialog
+        leave={cancelTarget}
+        byHr
+        who={cancelTarget ? requesterName(cancelTarget) : undefined}
+        onSubmit={(reason) => cancelLeaveAsHr(cancelTarget, reason)}
+        onClose={() => setCancelTarget(null)}
+        onDone={onCancelDone}
+      />
     </div>
   )
 }

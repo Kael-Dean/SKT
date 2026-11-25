@@ -9,11 +9,13 @@ import { sortLeaveTypes } from "../../lib/leaveTypes"
 import { printPage } from "../../lib/files"
 import { getUser } from "../../lib/auth"
 import useFormDefaults from "../../hooks/useFormDefaults"
-import { STATUS_LABEL as APPROVAL_STATUS_LABEL, isPendingStatus } from "../../lib/approval"
+import { STATUS_LABEL as APPROVAL_STATUS_LABEL } from "../../lib/approval"
 import { StageBadge, JustificationBadge } from "../../components/ApprovalBadges"
 import { Skeleton, ErrorState, EmptyState, toast } from "../../components/ui"
 import PageTitle from "../../components/PageTitle"
 import ThaiDateField from "../../components/ThaiDateField"
+import { CancelLeaveButton, CancelLeaveDialog, CancelledNote } from "../../components/LeaveCancel"
+import { canSelfCancel, cancelOwnLeave } from "../../lib/leaveCancel"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -500,17 +502,13 @@ export default function LeaveRequest() {
     if (tab === "history") fetchHistory()
   }, [tab, fetchHistory])
 
-  const handleCancel = async (id) => {
-    setCancellingId(id)
-    try {
-      await apiAuth(`/personnel/me/leaves/${id}/cancel`, { method: "POST", body: {} })
-      fetchHistory()
-    } catch (err) {
-      if (err?.onboardingRequired) return // gate 403 → AppLayout redirects to /onboarding
-      toast.error("ยกเลิกไม่สำเร็จ", { description: err.message || "เกิดข้อผิดพลาด" })
-    } finally {
-      setCancellingId(null)
-    }
+  // ยกเลิกใบลา — เปิดกล่องยืนยัน (ใบที่อนุมัติแล้วต้องใส่เหตุผล); ใบลายังอยู่ในประวัติเป็นสถานะ "ยกเลิก"
+  const onCancelled = (r) => {
+    setCancellingId(null)
+    toast.success("ยกเลิกใบลาแล้ว", {
+      description: r.status === "approved" ? "คืนวันลาเข้าสิทธิ์แล้ว" : "ใบลายังเก็บไว้ในประวัติ",
+    })
+    fetchHistory()
   }
 
   const handlePdfDownload = async (leaveId) => {
@@ -1044,14 +1042,11 @@ export default function LeaveRequest() {
                           </>
                         )}
                       </button>
-                      {(r.status === "pending" || isPendingStatus(r.status)) && (
-                        <button
-                          onClick={() => handleCancel(r.id)}
-                          disabled={cancellingId === r.id}
-                          className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition cursor-pointer"
-                        >
-                          {cancellingId === r.id ? "กำลังยกเลิก..." : "ยกเลิก"}
-                        </button>
+                      {canSelfCancel(r) && (
+                        <CancelLeaveButton
+                          onClick={() => setCancellingId(r.id)}
+                          className="!rounded-lg !py-1.5"
+                        />
                       )}
                     </div>
                   </div>
@@ -1074,6 +1069,7 @@ export default function LeaveRequest() {
                       </p>
                     </div>
                   </div>
+                  <CancelledNote leave={r} />
                   {r.address_during_leave && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
                       ที่อยู่ระหว่างลา: {r.address_during_leave}
@@ -1110,6 +1106,12 @@ export default function LeaveRequest() {
           </div>
         )}
       </div>
+      <CancelLeaveDialog
+        leave={cancellingId == null ? null : history.find((h) => h.id === cancellingId) ?? null}
+        onSubmit={(reason) => cancelOwnLeave(cancellingId, reason)}
+        onClose={() => setCancellingId(null)}
+        onDone={onCancelled}
+      />
     </>
   )
 }

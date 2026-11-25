@@ -96,6 +96,73 @@ export function uploadSignature(userId, file, { source = "upload" } = {}) {
 
 export const deleteSignature = (userId) => apiAuth(`/hr/signatures/${userId}`, { method: "DELETE" })
 
+// ─── คำขอเปลี่ยนลายเซ็น (handoff ส่วนที่ 7) ───────────────────────────────────
+
+export const REQUEST_STATUS = {
+  pending: { label: "รออนุมัติ", tone: "pending" },
+  approved: { label: "อนุมัติแล้ว", tone: "success" },
+  rejected: { label: "ไม่อนุมัติ", tone: "danger" },
+  cancelled: { label: "ยกเลิกแล้ว", tone: "neutral" },
+}
+
+export const thaiDateTime = (v) => {
+  if (!v) return ""
+  const d = new Date(v)
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })
+}
+
+/** ป้ายบอกว่าการเปลี่ยนนี้มาจากไหน */
+export function requestSourceLabel(r) {
+  if (r?.kind === "remove" || r?.source === "hr_remove") return "HR ลบลายเซ็น"
+  if (r?.source === "hr_upload") return "HR อัปโหลดให้"
+  if (r?.source === "hr_import") return "HR นำเข้าจากไฟล์"
+  return "ยื่นคำขอเปลี่ยนลายเซ็น"
+}
+
+/** อ่านรายการ → { ready, rows } · ready=false = backend ยังไม่มี endpoint */
+async function listAt(path) {
+  try {
+    const d = await apiAuth(path)
+    return { ready: true, rows: Array.isArray(d) ? d : d?.items ?? [] }
+  } catch (err) {
+    if (isNotReady(err)) return { ready: false, rows: [] }
+    throw err
+  }
+}
+
+// ของฉัน
+export async function loadMySignatureStatus() {
+  try {
+    return { ready: true, ...(await apiAuth("/personnel/me/signature")) }
+  } catch (err) {
+    if (isNotReady(err)) return { ready: false, has_signature: false }
+    throw err
+  }
+}
+export const listMySignatureRequests = () => listAt("/personnel/me/signature-requests")
+export const loadMyRequestImage = (id) => imageAt(`/personnel/me/signature-requests/${id}/image`)
+export function submitSignatureRequest(file, reason) {
+  const body = new FormData()
+  body.append("file", file, file.name || "signature.png")
+  body.append("reason", reason)
+  return apiAuth("/personnel/me/signature-requests", { method: "POST", body })
+}
+export const cancelSignatureRequest = (id) =>
+  apiAuth(`/personnel/me/signature-requests/${id}/cancel`, { method: "PATCH" })
+
+// HR
+export const listSignatureRequests = (status) =>
+  listAt(`/hr/signature-requests${status ? `?status=${encodeURIComponent(status)}` : ""}`)
+export const loadRequestImage = (id) => imageAt(`/hr/signature-requests/${id}/image`)
+export const loadSignatureVersionImage = (signatureId) => imageAt(`/hr/signatures/versions/${signatureId}/image`)
+export const listSignatureHistory = (userId) => listAt(`/hr/signatures/${userId}/history`)
+export const approveSignatureRequest = (id, note) =>
+  apiAuth(`/hr/signature-requests/${id}/approve`, { method: "PATCH", body: { note: note || null } })
+export const rejectSignatureRequest = (id, note) =>
+  apiAuth(`/hr/signature-requests/${id}/reject`, { method: "PATCH", body: { note } })
+
 /** ตรวจไฟล์ก่อนส่ง (server ตรวจซ้ำอีกชั้น) → ข้อความ error หรือ "" */
 export async function checkSignatureFile(file) {
   if (!file) return "ไม่พบไฟล์"

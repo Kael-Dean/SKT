@@ -174,7 +174,7 @@ export const HR_NAV = [
       { key: "issue-stats", perm: "hr.issues.stats", label: "สถิติคำร้อง", icon: ChartColumn,
         description: "จำนวนคำร้องแก้ไขข้อมูลรายเดือน แยกตามหัวข้อและสาขา",
         keywords: ["สถิติ", "คำร้อง", "แก้ไขข้อมูล", "stats"] },
-      { key: "signatures", perm: "hr.signatures.manage", label: "ลายเซ็นอิเล็กทรอนิกส์", icon: Signature,
+      { key: "signatures", anyOf: ["hr.signatures.manage", "hr.signatures.approve"], badgeKey: "pending_signature_requests", label: "ลายเซ็นอิเล็กทรอนิกส์", icon: Signature,
         description: "ลายเซ็นของเจ้าหน้าที่ที่ระบบใส่ให้อัตโนมัติในใบลาและหนังสือรับรอง",
         keywords: ["ลายเซ็น", "ลายมือชื่อ", "เซ็นอัตโนมัติ", "e-signature", "signature"] },
       { key: "audit", perm: "hr.audit.view", label: "ประวัติการใช้งาน", icon: ClipboardList,

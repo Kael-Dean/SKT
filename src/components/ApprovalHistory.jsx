@@ -11,6 +11,7 @@ import { JUSTIFICATION_LABEL, checkRoleLabel, REQUESTER_LEVEL_LABEL } from "../l
 function fallbackTime(action, req) {
   const a = String(action || "").toUpperCase()
   if (!req) return null
+  if (a.includes("CANCEL")) return req.cancelled_at || null
   if (a === "SUBMIT" || a.endsWith("_SUBMIT")) return req.created_at || null
   if (a.includes("CHECK") || a.includes("JUSTIF")) return req.justified_at || null
   if (a.includes("BRANCH_HEAD")) return req.branch_head_at || null
@@ -63,7 +64,7 @@ export default function ApprovalHistory({ kind, id, req, className = "" }) {
               return (
                 <li key={`${s.action}-${i}`} className="relative">
                   <span aria-hidden="true" className={`absolute -left-[21px] top-1.5 size-2.5 rounded-full ring-2 ring-white dark:ring-gray-800 ${dotTone(s.action)}`} />
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{s.label || s.action}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{s.label || (String(s.action || "").toUpperCase().includes("CANCEL") ? "ยกเลิกใบลา" : s.action)}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {s.actor_name || (s.actor_id != null ? `รหัส ${s.actor_id}` : "-")} · {at ? fmtDateTimeTh(at) : "-"}
                   </p>

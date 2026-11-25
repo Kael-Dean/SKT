@@ -13,6 +13,9 @@ import { cx, tabPanelCls } from "../../../lib/styles"
 import { stageOf } from "../../../lib/approval"
 import { fmtLeaveRowDuration } from "../../../lib/leaveDays"
 import { KIND, requestNotificationsRefresh, rejectionReason, requesterName } from "../../../lib/approvalActions"
+import { useCan } from "../../../lib/permissions"
+import { canHrCancel, cancelLeaveAsHr } from "../../../lib/leaveCancel"
+import { CancelLeaveButton, CancelLeaveDialog, CancelledNote } from "../../../components/LeaveCancel"
 
 
 function fmtDate(d) {
@@ -30,6 +33,18 @@ export default function HRLeaveTab() {
   const [banner, setBanner] = useState(null) // { tone: "success"|"error", text }
   const [historyId, setHistoryId] = useState(null) // แถวที่เปิดดูประวัติการอนุมัติ
   const [formTarget, setFormTarget] = useState(null) // ใบลาที่เปิดพรีวิว/พิมพ์
+  const [cancelTarget, setCancelTarget] = useState(null) // ใบลาที่กำลังยกเลิก
+  const { can } = useCan()
+
+  const onCancelDone = (r) => {
+    setCancelTarget(null)
+    setBanner({
+      tone: "success",
+      text: `ยกเลิกใบลาของ ${requesterName(r)} แล้ว${r.status === "approved" ? " — คืนวันลาเข้าสิทธิ์แล้ว" : ""}`,
+    })
+    requestNotificationsRefresh()
+    fetchRequests()
+  }
 
   const fetchRequests = useCallback(() => {
     setLoading(true)
@@ -159,6 +174,7 @@ export default function HRLeaveTab() {
                       <p className="font-medium text-gray-800 dark:text-gray-200">{fmtDate(r.created_at)}</p>
                     </div>
                   </div>
+                  <CancelledNote leave={r} />
                   {r.address_during_leave && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-1.5">
                       ที่อยู่ระหว่างลา: {r.address_during_leave}
@@ -216,6 +232,9 @@ export default function HRLeaveTab() {
                     {historyId === r.id ? "ซ่อนประวัติ" : "ประวัติการอนุมัติ"}
                   </button>
                   <LeaveStageActions req={r} kind={KIND.LEAVE} onDecide={openDecision} />
+                  {canHrCancel(r, can) && (
+                    <CancelLeaveButton onClick={() => { setBanner(null); setCancelTarget(r) }} />
+                  )}
                 </div>
               </div>
             </div>
@@ -237,6 +256,14 @@ export default function HRLeaveTab() {
         />
       )}
       <LeaveFormDialog target={formTarget} onClose={() => setFormTarget(null)} />
+      <CancelLeaveDialog
+        leave={cancelTarget}
+        byHr
+        who={cancelTarget ? requesterName(cancelTarget) : undefined}
+        onSubmit={(reason) => cancelLeaveAsHr(cancelTarget, reason)}
+        onClose={() => setCancelTarget(null)}
+        onDone={onCancelDone}
+      />
     </div>
   )
 }

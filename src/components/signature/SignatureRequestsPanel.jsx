@@ -16,7 +16,7 @@ import {
   rejectSignatureRequest,
   thaiDateTime,
 } from "../../lib/signatures"
-import { baseField, cx, errorTextCls, helpTextCls, labelCls, neutralBtnCls, segmentedCls, segmentedItemActiveCls, segmentedItemCls, submitBtnCls } from "../../lib/styles"
+import { baseField, cx, helpTextCls, labelCls, neutralBtnCls, segmentedCls, segmentedItemActiveCls, segmentedItemCls, submitBtnCls } from "../../lib/styles"
 import RequestStatusBadge from "./RequestStatusBadge"
 import SignaturePaper from "./SignaturePaper"
 
@@ -184,9 +184,9 @@ export default function SignatureRequestsPanel({ onChanged }) {
           onChange={(e) => setNote(e.target.value)}
           aria-required={action?.type === "reject" ? "true" : undefined}
           placeholder={action?.type === "reject" ? "เช่น ลายเซ็นไม่ตรงกับเอกสารที่เคยเซ็น, รูปไม่ชัด" : ""}
-          className={cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")}
+          aria-invalid={action?.type === "reject" && !note.trim() && actState.error ? "true" : undefined}
+          className={cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm", action?.type === "reject" && !note.trim() && actState.error && "!border-red-400")}
         />
-        {action?.type === "reject" && !note.trim() && actState.error && <p className={errorTextCls}>{actState.error}</p>}
       </ConfirmDialog>
     </div>
   )

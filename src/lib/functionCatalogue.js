@@ -275,6 +275,7 @@ const KEYWORDS = {
   "/hr/dashboard?tab=leave-types": ["โควตาลา", "leave types"],
   "/hr/dashboard?tab=leave-calendar": ["ใครลา", "leave calendar"],
   "/hr/dashboard?tab=leave-log": ["ลากี่ครั้ง", "ประวัติการลารายคน", "ลารายครั้ง", "leave log"],
+  "/my-signature": ["ลายเซ็นของฉัน", "เปลี่ยนลายเซ็น", "ขอเปลี่ยนลายเซ็น", "ลายมือชื่อ", "signature"],
   "/my-leave-log": ["ประวัติการลา", "ลากี่ครั้ง", "ลาวันไหน", "การลาของฉัน", "leave history"],
   "/hr/dashboard?tab=relocation-history": ["ประวัติการย้าย", "โอนย้าย"],
   "/hr/dashboard?tab=salary": ["ปรับเงินเดือน", "ขึ้นเงินเดือน", "ทะเบียนเงินเดือน"],

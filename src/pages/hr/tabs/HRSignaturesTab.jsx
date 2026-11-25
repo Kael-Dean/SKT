@@ -4,12 +4,16 @@
 //   GET/PUT/DELETE /hr/signatures… — spec: handoff/api-handoff-e-signature.md
 // backend ยังไม่มี endpoint → แสดงรายชื่อ + แจ้งว่ารอระบบหลังบ้าน ปุ่มอัปโหลดปิดไว้
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { CircleAlert, FolderOpen, ImageUp, Search, Trash2, Upload } from "lucide-react"
+import { CircleAlert, FolderOpen, History, ImageUp, Search, Trash2, Upload } from "lucide-react"
 import { getCachedPersonnel, loadPersonnel } from "../../../components/hr/personnelCache"
 import { employeeName } from "../../../components/hr/positionUtils"
 import ComboBox from "../../../components/ComboBox"
-import { ConfirmDialog, EmptyState, ErrorState, Sheet, SkeletonTableRows, toast } from "../../../components/ui"
+import SignatureRequestsPanel from "../../../components/signature/SignatureRequestsPanel"
+import SignatureHistorySheet from "../../../components/signature/SignatureHistorySheet"
+import { ConfirmDialog, EmptyState, ErrorState, Sheet, SkeletonTableRows, Tabs, panelId, tabId, toast, useSubTab } from "../../../components/ui"
 import { apiDetail } from "../../../lib/apiErrors"
+import { useCan } from "../../../lib/permissions"
+import { listSignatureRequests } from "../../../lib/signatures"
 import {
   checkSignatureFile,
   deleteSignature,
@@ -33,6 +37,7 @@ import {
   segmentedCls,
   segmentedItemActiveCls,
   segmentedItemCls,
+  tabPanelCls,
 } from "../../../lib/styles"
 
 const errMsg = (e, fallback) => apiDetail(e) || e?.message || fallback
@@ -291,7 +296,46 @@ function BulkImportSheet({ open, onClose, people, signed, onDone, canUpload }) {
 }
 
 // ─── หน้าหลัก ────────────────────────────────────────────────────────────────
+// ─── แท็บย่อย: ลายเซ็นทั้งหมด | คำขอเปลี่ยนลายเซ็น ───────────────────────────────
 export default function HRSignaturesTab() {
+  const { can } = useCan()
+  const canManage = can("hr.signatures.manage")
+  const canApprove = can("hr.signatures.approve")
+  const subs = [canManage && "list", canApprove && "requests"].filter(Boolean)
+  const [sub, setSub] = useSubTab(subs, subs[0] ?? "list")
+  const [pendingCount, setPendingCount] = useState(null)
+  const [tick, setTick] = useState(0)
+
+  useEffect(() => {
+    if (!canApprove) return
+    let alive = true
+    listSignatureRequests("pending").then((r) => alive && setPendingCount(r.ready ? r.rows.length : null)).catch(() => {})
+    return () => { alive = false }
+  }, [canApprove, tick])
+
+  if (subs.length < 2) return canApprove && !canManage ? <SignatureRequestsPanel /> : <SignatureListPanel />
+
+  return (
+    <div className="space-y-4">
+      <Tabs
+        items={[
+          { value: "list", label: "ลายเซ็นทั้งหมด" },
+          { value: "requests", label: "คำขอเปลี่ยนลายเซ็น", count: pendingCount || null },
+        ]}
+        value={sub}
+        onChange={setSub}
+        ariaLabel="ลายเซ็นอิเล็กทรอนิกส์"
+        idBase="hr-signatures"
+      />
+      <div role="tabpanel" id={panelId("hr-signatures", sub)} aria-labelledby={tabId("hr-signatures", sub)} tabIndex={0} className={tabPanelCls}>
+        {sub === "requests" ? <SignatureRequestsPanel onChanged={() => setTick((n) => n + 1)} /> : <SignatureListPanel key={tick} />}
+      </div>
+    </div>
+  )
+}
+
+function SignatureListPanel() {
+  const [historyOf, setHistoryOf] = useState(null)
   const [people, setPeople] = useState(() => getCachedPersonnel() ?? [])
   const [sigs, setSigs] = useState({ ready: true, rows: [] })
   const [state, setState] = useState({ loading: true, error: "" })
@@ -459,6 +503,16 @@ export default function HRSignaturesTab() {
                       <Upload className="size-4" aria-hidden="true" />
                       {busyId === p.id ? "กำลังส่ง…" : sig ? "เปลี่ยน" : "อัปโหลด"}
                     </button>
+                    <button
+                      type="button"
+                      className={iconBtnCls}
+                      aria-label={`ประวัติการเปลี่ยนลายเซ็นของ ${name}`}
+                      title="ประวัติการเปลี่ยนลายเซ็น"
+                      onClick={() => setHistoryOf({ id: p.id, name })}
+                      disabled={disabled}
+                    >
+                      <History className="size-4" aria-hidden="true" />
+                    </button>
                     {sig && (
                       <button
                         type="button"
@@ -478,6 +532,8 @@ export default function HRSignaturesTab() {
           </ul>
         )}
       </section>
+
+      <SignatureHistorySheet person={historyOf} onClose={() => setHistoryOf(null)} />
 
       <BulkImportSheet
         open={bulkOpen}

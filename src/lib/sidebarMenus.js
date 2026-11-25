@@ -20,6 +20,7 @@ import {
   Target,
   UserRound,
   ListOrdered,
+  Signature,
 } from "lucide-react"
 import { HR_HUB_PERMS } from "./permissions"
 
@@ -41,6 +42,7 @@ export const SELF_SERVICE_MENUS = [
   { group: "การเงินและสวัสดิการ", label: "ขอหนังสือรับรองเงินเดือน", icon: FileBadge,  tone: "teal",    path: "/my-salary-cert", perm: "self.salaryCert.request", gated: true },
   { group: "การเงินและสวัสดิการ", label: "สวัสดิการของฉัน",      icon: HeartHandshake, tone: "rose",    path: "/my-welfare",    perm: "self.welfare.view", gated: true },
   { group: "ข้อมูลของฉัน", label: "ผลการประเมินของฉัน",   icon: ClipboardCheck, tone: "indigo",  path: "/my-kpi",        perm: "self.kpi.result", gated: true },
+  { group: "ข้อมูลของฉัน", label: "ลายเซ็นของฉัน",        icon: Signature,      tone: "indigo",  path: "/my-signature",  perm: "self.signature.view" },
   { group: "ลาและการทำงาน", label: "แจ้งเรื่อง / ประวัติการตักเตือน", icon: ShieldAlert, tone: "amber", path: "/my-discipline", anyOf: ["self.discipline.report", "self.discipline.history"], gated: true },
   // KPI v1.4.0 — ผจก. อนุมัติ / ผช.ผจก. ตรวจสอบ (ผู้ที่เข้า Dashboard HR ได้ใช้แท็บ KPI ในนั้น)
   { group: "งานอนุมัติและดูแลระบบ", label: "ประเมิน KPI / เลื่อนขั้น", icon: Target,     tone: "indigo",  path: "/hr/kpi",       perm: "hr.kpi.evaluations.view", unlessAny: HR_HUB_PERMS },

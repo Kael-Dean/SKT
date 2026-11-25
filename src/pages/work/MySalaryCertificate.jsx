@@ -8,6 +8,7 @@
 //     GET /personnel/me/form-defaults            ชื่อพร้อมคำนำหน้า · ตำแหน่ง · สาขา
 //     GET /personnel/me                          personnel_info.hired (วันบรรจุ)
 //     GET /personnel/me/financial                financial.current_salary
+//     GET /personnel/me/salary-cert-requests/{id}/signatures  ลายเซ็นผู้อนุมัติ (handoff/api-handoff-e-signature.md)
 // พนักงานแก้ข้อความไม่ได้ — ช่องที่ทะเบียนยังไม่มีพิมพ์เป็นเส้นจุด + บอกให้ติดต่อฝ่ายบุคคล
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useState } from "react"
@@ -17,6 +18,7 @@ import { apiAuth } from "../../lib/api"
 import { apiDetail } from "../../lib/apiErrors"
 import { currentPositionLabel } from "../../components/hr/positionUtils"
 import { SALARY_CERT_STATUS as S, certPurposeText, todayIso } from "../../lib/salaryCert"
+import { loadDocSignatures, mySalaryCertSignaturesPath, pickSignature } from "../../lib/signatures"
 import { SalaryCertificateSheet, ScaledSheet, PrintPortal } from "../../components/hr/SalaryCertificateDocument"
 import PageTitle from "../../components/PageTitle"
 import { ErrorState, Skeleton } from "../../components/ui"
@@ -37,9 +39,18 @@ async function loadMine(requestId) {
   if (!req) throw new Error(`ไม่พบคำขอ #${requestId}`)
   const p = Array.isArray(pos) ? pos[0] : pos
   const salary = fin?.financial?.current_salary ?? fin?.current_salary
+  // ลายเซ็นผู้จัดการที่อนุมัติจริง (approved_by) — มีเฉพาะคำขอที่อนุมัติแล้ว; ไม่มี = เส้นจุดเหมือนเดิม
+  const approver = req.status === S.APPROVED
+    ? pickSignature(await loadDocSignatures(mySalaryCertSignaturesPath(req.id)), { role: "approver", userId: req.approved_by })
+    : null
   return {
     req,
     data: {
+      ...(approver && {
+        signature: { image: approver.image },
+        ...(s(approver.name) && { signerName: s(approver.name) }),
+        ...(s(approver.position) && { signerTitle: s(approver.position) }),
+      }),
       docNo: "",
       issueDate: s(req.approved_at).slice(0, 10) || todayIso(),
       name: s(fd?.full_name) || [s(me?.first_name), s(me?.last_name)].filter(Boolean).join(" "),
@@ -108,7 +119,11 @@ export default function MySalaryCertificate() {
                   <span>ทะเบียนยังไม่มี: {missing.join(" · ")} — ช่องนี้จะพิมพ์เป็นเส้นจุด ติดต่อฝ่ายบุคคลเพื่อเพิ่มข้อมูลหรือรับฉบับที่กรอกครบ</span>
                 </p>
               ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-300">ฉบับจริงที่มีลายมือชื่อผู้จัดการ รับได้ที่ฝ่ายบุคคล</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {data?.signature
+                    ? "มีลายมือชื่ออิเล็กทรอนิกส์ของผู้อนุมัติแล้ว พิมพ์ใช้ได้เลย"
+                    : "ฉบับจริงที่มีลายมือชื่อผู้จัดการ รับได้ที่ฝ่ายบุคคล"}
+                </p>
               )}
               <p className={helpTextCls}>ในหน้าต่างพิมพ์ เลือก "บันทึกเป็น PDF" เพื่อดาวน์โหลดไฟล์ · กระดาษ A4</p>
             </div>

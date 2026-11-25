@@ -9,11 +9,14 @@
 //   GET /hr/employees/{user_id}/leave-balance?year {quota, used, remaining} ต่อประเภท ในปีงบ (เม.ย.–มี.ค.)
 //   GET /hr/personnel/{actor_id}                   ตำแหน่งของผู้อนุมัติ/ผู้ตรวจ (โหลดไม่ได้ = ไม่แสดง)
 //
+//   GET /hr/leave-requests/{id}/signatures         ลายเซ็นของคนที่ทำ action แล้ว (handoff/api-handoff-e-signature.md)
+//
 // "ลามาแล้ว" = ยอด used ของปีงบ − ใบลาที่อนุมัติแล้วซึ่งเริ่มตั้งแต่ใบนี้เป็นต้นไป (รวมใบนี้ถ้าอนุมัติแล้ว)
 // ─────────────────────────────────────────────────────────────────────────────
 import { apiAuth } from "./api"
 import { currentFiscalYearBE, parseDays } from "./leaveDays"
 import { isAnnualLeave, parseLeaveBalance } from "./leaveTypes"
+import { leaveSignaturesPath, loadDocSignatures, pickSignature } from "./signatures"
 
 /** ช่องติ๊กประเภทการลาบนแบบฟอร์ม — ประเภทอื่นติ๊ก "อื่น ๆ" พร้อมชื่อ */
 export const FORM_LEAVE_KINDS = [
@@ -61,10 +64,11 @@ async function personnel(id) {
  *   leave = แถวจาก /hr/leave-requests ถ้ามีอยู่แล้ว (ไม่ต้องโหลดรายการซ้ำเพื่อหาแถว แต่ยังใช้รายการคำนวณ "ลามาแล้ว")
  */
 export async function loadLeaveForm({ employeeId, leaveId, leave: given }) {
-  const [list, history, person] = await Promise.all([
+  const [list, history, person, sigRows] = await Promise.all([
     apiAuth("/hr/leave-requests").catch(() => []),
     apiAuth(`/hr/leave-requests/${leaveId}/history`).catch(() => null),
     personnel(employeeId),
+    loadDocSignatures(leaveSignaturesPath(leaveId)),
   ])
   const rows = Array.isArray(list) ? list : []
   const leave = given ?? rows.find((r) => String(r.id) === String(leaveId))
@@ -138,7 +142,16 @@ export async function loadLeaveForm({ employeeId, leaveId, leave: given }) {
 
   const info = person?.personnel_info ?? {}
   const typeName = leave.leave_type_name ?? ""
+  // ช่อง "ผู้บันทึก" = step สุดท้ายที่อนุมัติ/ไม่อนุมัติ (กฎเดียวกับ LeaveFormSheet)
+  const finalStep = [...steps].reverse().find((s) => /APPROVE|REJECT/.test(s.action ?? "")) ?? steps[steps.length - 1]
+  const sig = (row) => (row ? { image: row.image, name: row.name || nameOf(row.user_id) } : null)
+  const signatures = {
+    requester: sig(pickSignature(sigRows, { role: "requester", userId: leave.user_id ?? employeeId })),
+    approver: finalStep?.actor_id != null ? sig(pickSignature(sigRows, { role: "approver", userId: finalStep.actor_id })) : null,
+    reviewer: justifiedBy != null ? sig(pickSignature(sigRows, { role: "reviewer", userId: justifiedBy })) : null,
+  }
   return {
+    signatures,
     docNo: leave.id,
     createdAt: leave.created_at,
     status: leave.status,

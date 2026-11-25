@@ -16,6 +16,7 @@ import PageTitle from "../../components/PageTitle"
 import ThaiDateField from "../../components/ThaiDateField"
 import { CancelLeaveButton, CancelLeaveDialog, CancelledNote } from "../../components/LeaveCancel"
 import { canSelfCancel, cancelOwnLeave } from "../../lib/leaveCancel"
+import { loadMySignatureImage } from "../../lib/signatures"
 
 // ─── shared style tokens ────────────────────────────────────────────────────
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -259,7 +260,7 @@ function SectionTitle({ children }) {
 }
 
 // ─── print document component ────────────────────────────────────────────────
-function PrintDocument({ form, totalDays }) {
+function PrintDocument({ form, totalDays, signatureSrc }) {
   return (
     <div id="leave-print-root" style={{ position: "absolute", left: "-99999px", top: 0, width: "210mm" }} aria-hidden="true">
       {/* Header */}
@@ -349,7 +350,19 @@ function PrintDocument({ form, totalDays }) {
       <div className="print-sig-area">
         <div>
           <span>ลงชื่อ&nbsp;</span>
-          <span className="print-sig-line">&nbsp;{form.signatureName}&nbsp;</span>
+          {signatureSrc ? (
+            // ลายเซ็นอิเล็กทรอนิกส์ของตัวเอง (HR อัปโหลดไว้) — วางทับเส้น ไม่ดันบรรทัด
+            <span className="print-sig-line" style={{ position: "relative" }}>
+              &nbsp;
+              <img
+                src={signatureSrc}
+                alt={`ลายมือชื่อ ${form.fullName || form.signatureName || ""}`.trim()}
+                style={{ position: "absolute", left: "50%", bottom: "-4pt", height: "34pt", width: "auto", maxWidth: "100%", transform: "translateX(-50%)" }}
+              />
+            </span>
+          ) : (
+            <span className="print-sig-line">&nbsp;{form.signatureName}&nbsp;</span>
+          )}
           <span>&nbsp;ผู้ขออนุญาตลา</span>
         </div>
         <div style={{ marginTop: "6pt", fontSize: "12pt" }}>
@@ -393,6 +406,14 @@ function PrintDocument({ form, totalDays }) {
 // ─── main component ──────────────────────────────────────────────────────────
 export default function LeaveRequest() {
   const user = getUser() || {}
+  const [mySignature, setMySignature] = useState(null)
+
+  // ลายเซ็นของตัวเองสำหรับแบบพิมพ์ — ยังไม่มี/backend ยังไม่รองรับ = ใช้ชื่อที่พิมพ์เหมือนเดิม
+  useEffect(() => {
+    let alive = true
+    loadMySignatureImage().then((src) => alive && setMySignature(src)).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     if (document.getElementById("leave-print-css")) return
@@ -622,7 +643,7 @@ export default function LeaveRequest() {
   if (submitted) {
     return (
       <>
-        <PrintDocument form={form} totalDays={totalDays} />
+        <PrintDocument form={form} totalDays={totalDays} signatureSrc={mySignature} />
         <div className="max-w-lg mx-auto mt-10 no-print">
           <div className={`${cardCls} text-center space-y-5`}>
             <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
@@ -675,7 +696,7 @@ export default function LeaveRequest() {
   return (
     <>
       {/* Hidden print document (always in DOM after first render) */}
-      <PrintDocument form={form} totalDays={totalDays} />
+      <PrintDocument form={form} totalDays={totalDays} signatureSrc={mySignature} />
 
       <div className="space-y-5 pb-12 no-print">
         {/* Page title */}

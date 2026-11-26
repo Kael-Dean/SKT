@@ -178,7 +178,7 @@ export default function EmployeePositionCard({ employeeId, employeeName, positio
                       {h.is_acting && <span className="ml-2 rounded-md bg-amber-100 px-1.5 py-0.5 align-middle text-[11px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">รักษาการ</span>}
                     </p>
                     {h.order_reference && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{h.order_reference}</p>}
-                    {h.reason && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{reasonLabel(h.reason)}</p>}
+                    {h.reason && <p className="text-xs text-gray-500 dark:text-gray-400 break-words">{reasonLabel(h.reason, h.reason_label)}</p>}
                   </div>
                 </li>
               )

@@ -87,7 +87,7 @@ export default function SalaryHistoryTable({ employeeId, refreshKey = 0, title =
                     <td className={`px-4 py-2.5 text-right tabular-nums hidden sm:table-cell ${diff > 0 ? "text-emerald-700 dark:text-emerald-400" : diff < 0 ? "text-amber-700 dark:text-amber-300" : "text-gray-500 dark:text-gray-400"}`}>
                       {diff == null ? "ไม่ระบุ" : `${diff > 0 ? "+" : ""}${diff.toFixed(1)}`}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 break-words">{reasonLabel(h.reason)}</td>
+                    <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 break-words">{reasonLabel(h.reason, h.reason_label)}</td>
                   </tr>
                 )
               })}

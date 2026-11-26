@@ -93,7 +93,7 @@ function OnFileCard() {
         ) : (
           <div className="grid gap-5 md:grid-cols-2 md:gap-8">
             <SavingsBlock fin={data} />
-            <LoansBlock fin={data} />
+            <LoansBlock fin={data} scheduleUrl={(id) => `/personnel/me/loans/${id}/schedule`} />
           </div>
         )}
       </div>
@@ -171,7 +171,7 @@ function StepHistory() {
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">มีผล {fmtDate(h.effective_date)}</p>
                   </div>
-                  {h.reason && <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400 break-words">{reasonLabel(h.reason)}</p>}
+                  {h.reason && <p className="mt-0.5 text-sm text-gray-600 dark:text-gray-400 break-words">{reasonLabel(h.reason, h.reason_label)}</p>}
                 </li>
               )
             })}

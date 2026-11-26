@@ -4,10 +4,11 @@
 //   ใช้ร่วม: MyFinancial (GET /personnel/me/financial) และ HRPersonnelDetail (GET /hr/personnel/{id})
 //   field ใหม่: savings_balance, savings_monthly, savings{…recent[]}, loan_outstanding, loan_monthly, loans[]
 // ─────────────────────────────────────────────────────────────────────────────
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
+import { apiAuth } from "../../lib/api"
 import { money } from "../../lib/payroll"
-import { thaiDate } from "../../lib/loans"
+import { asList, thaiDate } from "../../lib/loans"
 import { cx, focusRingCls } from "../../lib/styles"
 
 const KIND_LABEL = {
@@ -113,10 +114,70 @@ export function SavingsBlock({ fin }) {
   )
 }
 
+// ─── ตารางผ่อนทั้งสัญญา (ชำระแล้ว / คงเหลือ) — โหลดเมื่อเปิดดู ───────────────────
+// แถว: { due_date, principal, interest, installment_amount, remaining_balance, paid, paid_on }
+export function LoanScheduleTable({ url }) {
+  const [state, setState] = useState({ loading: true, rows: [], error: "" })
+  useEffect(() => {
+    let alive = true
+    apiAuth(url)
+      .then((d) => alive && setState({ loading: false, rows: asList(d), error: "" }))
+      .catch((e) => alive && setState({ loading: false, rows: [], error: e?.message || "โหลดตารางผ่อนไม่สำเร็จ" }))
+    return () => { alive = false }
+  }, [url])
+  const { loading, rows, error } = state
+  if (loading) return <p role="status" className="mt-1 text-sm text-gray-500 dark:text-gray-400">กำลังโหลดตารางผ่อน…</p>
+  if (error) return <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+  if (!rows.length) return <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">ยังไม่มีตารางผ่อน</p>
+  const paid = rows.filter((r) => r.paid).length
+  return (
+    <div className="mt-1">
+      <p className="text-xs text-gray-600 dark:text-gray-300">
+        ชำระแล้ว <span className="font-semibold tabular-nums">{paid}</span> งวด · คงเหลือ <span className="font-semibold tabular-nums">{rows.length - paid}</span> งวด จาก {rows.length} งวด
+      </p>
+      <div className="mt-1 overflow-x-auto">
+        <table className="w-full min-w-[34rem] text-sm">
+          <thead>
+            <tr className="border-b border-gray-200 text-left dark:border-line">
+              <th scope="col" className={TH}>งวด</th>
+              <th scope="col" className={TH}>ครบกำหนด</th>
+              <th scope="col" className={cx(TH, "text-right")}>ต้น</th>
+              <th scope="col" className={cx(TH, "text-right")}>ดอกเบี้ย</th>
+              <th scope="col" className={cx(TH, "text-right")}>รวม</th>
+              <th scope="col" className={cx(TH, "text-right")}>คงเหลือ</th>
+              <th scope="col" className={TH}>สถานะ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-line">
+            {rows.map((r, i) => (
+              <tr key={r.id ?? r.due_date ?? i} className={cx("text-gray-800 dark:text-gray-200", r.paid && "bg-emerald-50/50 dark:bg-emerald-500/[.06]")}>
+                <td className={TD}>{r.instalment_no ?? r.no ?? i + 1}</td>
+                <td className={cx(TD, "whitespace-nowrap")}>{thaiDate(r.due_date)}</td>
+                <td className={cx(TD, "text-right")}>{money(r.principal)}</td>
+                <td className={cx(TD, "text-right")}>{money(r.interest)}</td>
+                <td className={cx(TD, "text-right")}>{money(r.installment_amount ?? r.installment)}</td>
+                <td className={cx(TD, "text-right")}>{money(r.remaining_balance)}</td>
+                <td className="px-2 py-2 whitespace-nowrap">
+                  {r.paid
+                    ? <span className="text-emerald-700 dark:text-emerald-300">ชำระแล้ว{r.paid_on ? ` ${thaiDate(r.paid_on)}` : ""}</span>
+                    : <span className="text-gray-500 dark:text-gray-400">รอชำระ</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ─── เงินกู้ (หนึ่งสัญญา) ─────────────────────────────────────────────────────
-function LoanItem({ loan }) {
+function LoanItem({ loan, scheduleUrl }) {
   const [all, setAll] = useState(false)
   const [openHist, setOpenHist] = useState(false)
+  const [openSched, setOpenSched] = useState(false)
+  const loanId = loan.loan_id ?? loan.id
+  const schedUrl = scheduleUrl && loanId != null ? scheduleUrl(loanId) : null
   const next = loan.next_instalment
   const hist = Array.isArray(loan.paid_history) ? loan.paid_history : []
   const rows = all ? hist : hist.slice(0, 6)
@@ -144,6 +205,15 @@ function LoanItem({ loan }) {
         )}
         {loan.last_due_date && <Line label="งวดสุดท้าย" value={thaiDate(loan.last_due_date)} />}
       </dl>
+
+      {schedUrl && (
+        <div className="mt-2">
+          <ExpandBtn open={openSched} onClick={() => setOpenSched((v) => !v)}>
+            ตารางผ่อนทั้งสัญญา{loan.instalments_total ? ` (${loan.instalments_total} งวด)` : ""}
+          </ExpandBtn>
+          {openSched && <LoanScheduleTable url={schedUrl} />}
+        </div>
+      )}
 
       {hist.length > 0 ? (
         <div className="mt-2">
@@ -194,7 +264,8 @@ function LoanItem({ loan }) {
   )
 }
 
-export function LoansBlock({ fin }) {
+/** scheduleUrl: (loanId) => path ของตารางผ่อน — พนักงาน /personnel/me/loans/{id}/schedule · HR /hr/loans/{id}/schedule */
+export function LoansBlock({ fin, scheduleUrl }) {
   const loans = Array.isArray(fin?.loans) ? fin.loans : []
   return (
     <section aria-label="เงินกู้กองทุนสงเคราะห์">
@@ -203,7 +274,7 @@ export function LoansBlock({ fin }) {
         <p className="mt-1.5 py-2 text-sm text-gray-500 dark:text-gray-400">ไม่มีเงินกู้</p>
       ) : (
         <div className="mt-1 divide-y divide-gray-200 dark:divide-line">
-          {loans.map((l) => <LoanItem key={l.loan_id ?? l.contract_no} loan={l} />)}
+          {loans.map((l) => <LoanItem key={l.loan_id ?? l.contract_no} loan={l} scheduleUrl={scheduleUrl} />)}
         </div>
       )}
     </section>
@@ -211,11 +282,11 @@ export function LoansBlock({ fin }) {
 }
 
 /** ทั้งสองบล็อกต่อกัน — ใช้ใน HRPersonnelDetail */
-export default function FinanceSavingsLoans({ fin, className }) {
+export default function FinanceSavingsLoans({ fin, className, scheduleUrl }) {
   return (
     <div className={cx("space-y-5", className)}>
       <SavingsBlock fin={fin} />
-      <LoansBlock fin={fin} />
+      <LoansBlock fin={fin} scheduleUrl={scheduleUrl} />
     </div>
   )
 }

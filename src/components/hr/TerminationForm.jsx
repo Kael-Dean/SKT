@@ -33,11 +33,12 @@ const FORM_KEYS = [
 ]
 
 const MONEY_FIELDS = [
-  { key: "severance_pay",          label: "เงินชดเชย" },
-  { key: "accumulated_fund",       label: "กองทุนสะสม" },
+  // severance_pay = ยอดประมาณการบำเหน็จที่ backend คำนวณ (PDF พิมพ์เป็น "บำเหน็จเจ้าหน้าที่") — ไม่ใช่เงินชดเชยตามกฎหมายแรงงาน
+  { key: "severance_pay",          label: "บำเหน็จเจ้าหน้าที่ (ประมาณการ)", autoFill: true },
+  { key: "accumulated_fund",       label: "กองทุนสะสม", autoFill: true },
   { key: "work_guarantee_bond",    label: "เงินประกันการทำงาน" },
-  { key: "loan_outstanding",       label: "เงินกู้คงเหลือ" },
-  { key: "loan_interest_estimate", label: "ดอกเบี้ยเงินกู้ประมาณ" },
+  { key: "loan_outstanding",       label: "เงินกู้คงเหลือ", autoFill: true },
+  { key: "loan_interest_estimate", label: "ดอกเบี้ยเงินกู้ประมาณ", autoFill: true },
   { key: "bank_guarantee_ref",     label: "อ้างอิงหนังสือค้ำ", type: "text" },
   { key: "bank_guarantee_date",    label: "วันที่หนังสือค้ำ", type: "date" },
   { key: "bank_guarantee_amount",  label: "วงเงินค้ำประกัน" },
@@ -65,6 +66,13 @@ function toForm(record, prefill) {
   for (const k of FORM_KEYS) f[k] = record?.id != null ? record[k] ?? "" : ""
   // preview (ยังไม่มีบันทึก) — backend เติม exit_date = วันนี้มาให้
   if (record?.id == null) f.exit_date = record?.exit_date ?? todayIso()
+  // preview คำนวณบำเหน็จ (severance_pay) + กองทุนสะสมมาให้ — เติมลงช่องให้ HR เห็นยอดก่อนบันทึก
+  // (ช่องเงินกู้ไม่เติม: เว้นว่างแล้ว backend คิดยอด ณ วันที่ออกให้เอง — ดู LoanExposurePanel)
+  if (record?.id == null) {
+    for (const k of ["severance_pay", "accumulated_fund"]) {
+      if (record?.[k] != null && record[k] !== "") f[k] = String(record[k])
+    }
+  }
   // 3Q: เปิดจากการลงโทษขั้น 7/8 — เติมเฉพาะตอนยังไม่มีบันทึก
   if (record?.id == null && prefill) {
     const t = PREFILL_EXIT_TYPE[prefill.exit_type] ?? prefill.exit_type
@@ -315,7 +323,7 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
           <p className="font-semibold">เติมจากการลงโทษทางวินัย{prefill.reason ? ` — ${prefill.reason}` : ""}</p>
           <p className="tabular-nums">
             {prefill.reference ? `อ้างอิงหนังสือเลขที่ ${prefill.reference}` : "ไม่มีเลขที่หนังสืออ้างอิง"}
-            {prefill.severance_pay === 0 || prefill.severance_pay === "0" ? " · ไม่จ่ายเงินชดเชย (ค่าเริ่มต้นกรณีไล่ออก)" : ""}
+            {prefill.severance_pay === 0 || prefill.severance_pay === "0" ? " · ไม่จ่ายบำเหน็จ (ค่าเริ่มต้นกรณีไล่ออก)" : ""}
           </p>
           {prefill.note && <p className="mt-0.5 whitespace-pre-wrap break-words text-amber-900 dark:text-amber-200/90">{prefill.note}</p>}
         </div>
@@ -382,8 +390,8 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
       {/* การเงิน */}
       <p className="border-t border-gray-100 pt-3 text-xs font-semibold text-gray-500 dark:border-line dark:text-gray-400">ข้อมูลการเงิน (ไม่บังคับ)</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {MONEY_FIELDS.map(({ key, label, type = "number" }) => (
-          <div key={key}>
+        {MONEY_FIELDS.map(({ key, label, type = "number", autoFill }) => (
+          <div key={key} className="min-w-0">
             <label htmlFor={`term-${key}-${empId}`} className={labelCls}>{label}</label>
             {type === "date" ? (
               <ThaiDateField
@@ -400,8 +408,14 @@ export default function TerminationForm({ employee, onSaved, showHeader = true, 
               inputMode={type === "number" ? "decimal" : undefined}
               value={form[key] ?? ""}
               onChange={(e) => setField(key, e.target.value)}
+              aria-describedby={autoFill ? `term-${key}-${empId}-hint` : undefined}
               className={type === "number" ? cx(inputCls, "tabular-nums") : inputCls}
             />
+            )}
+            {autoFill && (
+              <p id={`term-${key}-${empId}-hint`} className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                เว้นว่างไว้ ระบบจะเติมยอดนี้ให้
+              </p>
             )}
           </div>
         ))}

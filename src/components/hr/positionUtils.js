@@ -98,8 +98,10 @@ const REASON_LABEL = {
   kpi_award: "เลื่อนขั้นประจำปี (KPI)",
   kpi_special_step: "ขั้นพิเศษ +0.5 (ผลประกอบการ)",
   manual: "ปรับโดยฝ่ายบุคคล",
+  client_import: "นำเข้าจากข้อมูลเดิมของ AMC",
 }
-export const reasonLabel = (r) => (r ? REASON_LABEL[r] ?? r : "—")
+/** label = ป้ายไทยจาก backend (B4: `reason_label`) — มีก่อนใช้ก่อน; ไม่งั้นแปลงจากรหัส */
+export const reasonLabel = (r, label) => (label ? label : r ? REASON_LABEL[r] ?? r : "—")
 
 /**
  * ใช้ทั้ง `include_inactive=true` เพื่อให้ได้ตำแหน่งที่ปิดแล้วด้วย (ค่า default ของ BE คือ active เท่านั้น)

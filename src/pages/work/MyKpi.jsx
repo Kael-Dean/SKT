@@ -52,6 +52,30 @@ export default function MyKpi() {
 
   useEffect(() => { load() }, [load])
 
+  // ปีที่มีผล/คะแนนแล้ว (GET /personnel/me/kpi = แถวคะแนนรายปี) — เปิดหน้าครั้งแรกให้ไปปีล่าสุดที่มีข้อมูล
+  // แทนปีรอบประเมินปัจจุบันที่ยังว่าง (UAT งวด 5 SS-11) · ผู้ใช้เลือกปีเองแล้วไม่สลับให้อีก
+  const [yearsWithData, setYearsWithData] = useState([])
+  const [userPicked, setUserPicked] = useState(false)
+  useEffect(() => {
+    let alive = true
+    apiAuth("/personnel/me/kpi")
+      .then((d) => {
+        const rows = Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : d && typeof d === "object" && d.fiscal_year ? [d] : []
+        const years = [...new Set(rows
+          .filter((r) => r?.fiscal_year != null && (r.composite_score != null || r.status || r.manager_score != null || r.branch_head_score != null))
+          .map((r) => Number(r.fiscal_year)))].filter(Number.isFinite).sort((a, b) => b - a)
+        if (alive) setYearsWithData(years)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+  useEffect(() => {
+    if (userPicked || loading || !yearsWithData.length) return
+    const empty = !data?.result && !data?.self_assessment
+    if (empty && !yearsWithData.includes(Number(fy))) setFy(yearsWithData[0])
+  }, [userPicked, loading, data, fy, yearsWithData])
+  const pickFy = (v) => { setUserPicked(true); setFy(Number(v)) }
+
   const phase = windowPhase(data)
   const result = data?.result ?? null
 
@@ -64,12 +88,17 @@ export default function MyKpi() {
           <span id={fySelectId} className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">ปีบัญชี</span>
           <SelectDropdown
             ariaLabelledby={fySelectId}
-            options={fyOptions(latestWindowFiscalYear())}
+            options={fyOptions(Math.max(latestWindowFiscalYear(), ...yearsWithData))}
             value={String(fy)}
-            onChange={(v) => setFy(Number(v))}
+            onChange={pickFy}
             showSwatch={false}
             showSublabelInTrigger
           />
+          <p className={cx(helpTextCls, "mt-1")}>
+            {yearsWithData.length
+              ? `มีผลการประเมินปี ${yearsWithData.slice(0, 3).join(", ")} — เลือกปีเพื่อดูย้อนหลัง`
+              : "เลือกปีบัญชีเพื่อดูผลย้อนหลัง"}
+          </p>
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs text-gray-500 dark:text-gray-400">ช่วงประเมิน</p>

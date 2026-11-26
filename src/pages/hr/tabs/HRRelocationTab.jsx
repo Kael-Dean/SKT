@@ -21,12 +21,15 @@ import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPr
 import { usePositionLookup } from "../../../lib/relocation"
 import ThaiDateField from "../../../components/ThaiDateField"
 
+// ขั้นหัวหน้าสาขาไม่ได้ใช้จริง (คำขอเข้าคิวผู้จัดการเลย — UAT งวด 5) → ซ่อนแท็บ
+// แต่ยังเปิดผ่าน ?sub=pending_branch_head ได้ เผื่อมีคำขอค้างจากก่อนหน้า
+const HEAD_TAB = { key: "pending_branch_head", label: "รอหัวหน้าสาขา" }
 const TABS = [
-  { key: "pending_branch_head", label: "รอหัวหน้าสาขา" },
   { key: "pending_manager",     label: "รอผู้จัดการ" },
   { key: "approved",            label: "อนุมัติแล้ว" },
   { key: "denied",              label: "ไม่อนุมัติ" },
 ]
+const TAB_KEYS = [HEAD_TAB.key, ...TABS.map((t) => t.key)]
 
 const STATUS_LABEL = {
   pending: "รออนุมัติ",
@@ -76,7 +79,8 @@ const ACTION_META = {
 
 export default function HRRelocationTab() {
   const canTransfer = can("hr.relocation.direct")
-  const [subTab, setSubTab] = useSubTab(TABS.map((t) => t.key), "pending_branch_head")
+  const [subTab, setSubTab] = useSubTab(TAB_KEYS, "pending_manager")
+  const visibleTabs = subTab === HEAD_TAB.key ? [HEAD_TAB, ...TABS] : TABS
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -170,7 +174,7 @@ export default function HRRelocationTab() {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <Tabs
-          items={TABS.map((t) => ({
+          items={visibleTabs.map((t) => ({
             value: t.key,
             label: t.label,
             count:
@@ -215,7 +219,7 @@ export default function HRRelocationTab() {
       ) : !error && requests.length === 0 ? (
         <div className={cardCls + " p-2"}>
           <EmptyState
-            title={`ไม่มีคำขอ${TABS.find((t) => t.key === subTab)?.label ?? ""}`}
+            title={`ไม่มีคำขอ${visibleTabs.find((t) => t.key === subTab)?.label ?? ""}`}
             description={subTab.startsWith("pending") ? "ไม่มีคำขอที่ค้างอยู่ในขั้นนี้" : "ยังไม่มีคำขอในสถานะนี้"}
           />
         </div>

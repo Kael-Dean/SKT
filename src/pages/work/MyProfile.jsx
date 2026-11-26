@@ -6,6 +6,7 @@ import { Link } from "react-router-dom"
 import { ChevronRight } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { getUser } from "../../lib/auth"
+import { accountStatusLabel } from "../../lib/accountStatus"
 import SelectDropdown from "../../components/SelectDropdown"
 import { PageLoader, ErrorState, Sheet, Skeleton, toast } from "../../components/ui"
 import FileUploader from "../../components/FileUploader"
@@ -344,7 +345,13 @@ export default function MyProfile() {
             <InfoRow label="ตำแหน่งงาน" value={positionName} />
             <InfoRow label="สาขา" value={branchName} />
             <InfoRow label="สิทธิ์ผู้ใช้" value={roleLabel} />
-            <InfoRow label="สถานะบัญชี" value={profile?.account_status} />
+            <InfoRow label="สถานะบัญชี" value={accountStatusLabel(profile?.account_status, profile?.account_status_label)} />
+            <Link
+              to="/change-password"
+              className={cx(neutralBtnCls, "mt-4 w-full justify-center")}
+            >
+              เปลี่ยนรหัสผ่าน
+            </Link>
           </div>
 
           {/* สาขาที่เข้าถึงได้ — แสดงเฉพาะผู้ใช้ที่มีสาขาเพิ่มเติม */}
@@ -579,7 +586,7 @@ export default function MyProfile() {
         busy={reportSubmitting}
         size="md"
         title="แจ้งแก้ไขข้อมูล"
-        subtitle="ผู้จัดการจะพิจารณาและแจ้งผลทางการแจ้งเตือน"
+        subtitle="ผู้มีอำนาจ (ฝ่ายบุคคล/ผู้จัดการ) จะพิจารณาและแจ้งผลทางการแจ้งเตือน"
         footer={
           <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
             <button type="button" onClick={closeReportModal} disabled={reportSubmitting} className={neutralBtnCls}>ยกเลิก</button>

@@ -97,7 +97,7 @@ export default function ReportIssueSheet({ open, onClose: closeProp, initialCate
       busy={busy}
       size="sm"
       title="แจ้งแก้ไขข้อมูล"
-      subtitle="ผู้จัดการจะพิจารณาและแจ้งผลทางการแจ้งเตือน"
+      subtitle="ผู้มีอำนาจ (ฝ่ายบุคคล/ผู้จัดการ) จะพิจารณาและแจ้งผลทางการแจ้งเตือน"
       footer={
         <div className="grid grid-cols-2 gap-3 md:flex md:justify-end md:gap-2">
           <button type="button" onClick={onClose} disabled={busy} className={neutralBtnCls}>ยกเลิก</button>

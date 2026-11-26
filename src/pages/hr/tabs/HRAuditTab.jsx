@@ -23,41 +23,73 @@ function fmtDateTime(d) {
   } catch { return d }
 }
 
+// comment มักเป็น JSON ของ request log ({status_code, duration_ms, query, client_ip}) — ย่อให้อ่านได้
+function detailText(log) {
+  const raw = log.detail ?? log.description ?? log.comment
+  if (raw == null || raw === "") return "—"
+  if (typeof raw !== "string") return JSON.stringify(raw)
+  try {
+    const j = JSON.parse(raw)
+    if (j && typeof j === "object") {
+      const parts = []
+      if (j.status_code != null) parts.push(`สถานะ ${j.status_code}`)
+      if (j.duration_ms != null) parts.push(`${j.duration_ms} ms`)
+      if (j.query && Object.keys(j.query).length) parts.push(new URLSearchParams(j.query).toString())
+      return parts.length ? parts.join(" · ") : raw
+    }
+  } catch { /* ไม่ใช่ JSON — แสดงตามเดิม */ }
+  return raw
+}
+
+const PAGE_SIZE = 50
+
 export default function HRAuditTab() {
   const [logs, setLogs] = useState([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   const [search, setSearch] = useState("")
 
+  // GET /hr/audit-log → { total, page, page_size, data: [...] } (รุ่นเก่าส่ง array ตรง ๆ — รองรับทั้งคู่)
   const fetchLogs = useCallback(() => {
     setLoading(true)
     setError("")
-    const params = new URLSearchParams()
-    if (search) params.set("q", search)
+    const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
+    if (search.trim()) params.set("action", search.trim())
     apiAuth(`/hr/audit-log?${params.toString()}`)
-      .then(setLogs)
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : res?.data ?? res?.items ?? []
+        setLogs(Array.isArray(rows) ? rows : [])
+        setTotal(Array.isArray(res) ? rows.length : Number(res?.total ?? rows.length) || 0)
+      })
       .catch((e) => setError(e.message || "โหลดข้อมูลไม่สำเร็จ"))
       .finally(() => setLoading(false))
-  }, [search])
+  }, [search, page])
 
   useEffect(() => {
     const t = setTimeout(fetchLogs, 400)
     return () => clearTimeout(t)
   }, [fetchLogs])
 
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const pagerBtn =
+    "inline-flex h-11 md:pointer-fine:h-9 min-w-11 md:pointer-fine:min-w-9 items-center justify-center rounded-lg px-3 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors duration-200 dark:bg-white/[.04] dark:text-gray-100 dark:ring-line-strong dark:hover:bg-white/[.08]"
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
         <input
           type="text"
-          placeholder="ค้นหาการกระทำ / ผู้ใช้..."
+          placeholder="ค้นหาการกระทำ เช่น ONBOARDING, /hr/payroll"
+          aria-label="ค้นหาการกระทำ"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           className="flex-1 min-w-[200px] rounded-xl border border-slate-300 bg-slate-100 px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/25 transition dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-indigo-400"
         />
         <p className="text-sm text-gray-500 dark:text-gray-400 shrink-0">
-          {loading ? "กำลังโหลด..." : `${logs.length} รายการ`}
+          {loading ? "กำลังโหลด..." : `${total.toLocaleString("th-TH")} รายการ`}
         </p>
       </div>
 
@@ -85,7 +117,7 @@ export default function HRAuditTab() {
                     action={search ? (
                       <button
                         type="button"
-                        onClick={() => setSearch("")}
+                        onClick={() => { setSearch(""); setPage(1) }}
                         className="inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm transition-colors duration-150 hover:bg-indigo-50 cursor-pointer dark:border-indigo-700 dark:bg-transparent dark:text-indigo-300 dark:hover:bg-indigo-900/20"
                       >
                         ล้างตัวกรอง
@@ -95,7 +127,7 @@ export default function HRAuditTab() {
                 </td></tr>
               ) : logs.map((log, i) => (
                 <tr key={log.id ?? i} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtDateTime(log.timestamp ?? log.created_at)}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap tabular-nums">{fmtDateTime(log.timestamp ?? log.date_time ?? log.created_at)}</td>
                   <td className="px-4 py-3 text-gray-700 dark:text-gray-300 tabular-nums">{log.user_id ?? log.username ?? "—"}</td>
                   <td className="px-4 py-3">
                     <span
@@ -105,8 +137,8 @@ export default function HRAuditTab() {
                       {actionLabel(log.action)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate">
-                    {log.detail ?? log.description ?? "—"}
+                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell max-w-xs truncate" title={log.comment ?? undefined}>
+                    {detailText(log)}
                   </td>
                 </tr>
               ))}
@@ -114,6 +146,18 @@ export default function HRAuditTab() {
           </table>
         </div>
       </div>
+
+      {total > PAGE_SIZE && (
+        <nav aria-label="เปลี่ยนหน้าประวัติระบบ" className="flex items-center justify-end gap-2">
+          <button type="button" className={pagerBtn} disabled={loading || page <= 1} onClick={() => setPage(1)} aria-label="หน้าแรก">«</button>
+          <button type="button" className={pagerBtn} disabled={loading || page <= 1} onClick={() => setPage((p) => p - 1)}>ก่อนหน้า</button>
+          <span className="px-2 text-sm tabular-nums text-gray-600 dark:text-gray-300">
+            หน้า {page.toLocaleString("th-TH")} / {pageCount.toLocaleString("th-TH")}
+          </span>
+          <button type="button" className={pagerBtn} disabled={loading || page >= pageCount} onClick={() => setPage((p) => p + 1)}>ถัดไป</button>
+          <button type="button" className={pagerBtn} disabled={loading || page >= pageCount} onClick={() => setPage(pageCount)} aria-label="หน้าสุดท้าย">»</button>
+        </nav>
+      )}
     </div>
   )
 }

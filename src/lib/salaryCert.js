@@ -145,7 +145,8 @@ export function certPurposeText(r) {
     amount && Number(r.loan_amount) > 0 && `วงเงิน ${amount} บาท`,
   ].filter(Boolean).join(" ")
   if (r.purpose_type === "document") {
-    return [`ใช้ประกอบหลักฐาน${t(r.purpose_detail)}`, t(r.recipient_name) && `กับ${t(r.recipient_name)}`].filter(Boolean).join(" ")
+    // เว้นวรรคหลัง "ประกอบหลักฐาน" — เดิมติดกับข้อความที่พนักงานพิมพ์ ("ประกอบหลักฐานUAT5…")
+    return [t(r.purpose_detail) ? `ใช้ประกอบหลักฐาน ${t(r.purpose_detail)}` : "ใช้ประกอบหลักฐาน", t(r.recipient_name) && `กับ${t(r.recipient_name)}`].filter(Boolean).join(" ")
   }
   if (r.purpose_type === "loan_self") return ["ใช้ประกอบหลักฐานการกู้เงิน", loanTail].filter(Boolean).join(" ")
   if (r.purpose_type === "loan_guarantee") {

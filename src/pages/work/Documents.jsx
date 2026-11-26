@@ -546,7 +546,7 @@ const HR_REPORTS = [
   { key: "hr-social-security", title: "รายงานเงินสมทบประกันสังคม", endpoint: "/hr/payroll/report/social-security", require: ["month", "yearBE"], perm: "hr.reports.socialSecurity", xlsx: true },
   { key: "hr-reserve-fund", title: "รายงานเงินสะสม / กองทุนสงเคราะห์เจ้าหน้าที่", endpoint: "/hr/payroll/report/reserve-fund", require: ["month", "yearBE"], perm: "hr.reports.reserveFund", xlsx: true },
   { key: "hr-leave-balance", title: "รายงานสรุปวันลาประจำปีงบประมาณ", endpoint: "/hr/leave/report/balance", require: ["fiscalYear"], perm: "hr.reports.leaveBalance", xlsx: true },
-  { key: "hr-leave-utilization", title: "รายงานการลาของพนักงาน", endpoint: "/hr/leave/report/utilization", require: ["startDate", "endDate"], perm: "hr.reports.leaveUtilization", xlsx: true },
+  { key: "hr-leave-utilization", title: "รายงานการลาของพนักงาน", endpoint: "/hr/leave/report/utilization", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.reports.leaveUtilization", xlsx: true, allBranchesOption: true },
   { key: "hr-leave-annual", title: "ทะเบียนคุมการลาประจำปีบัญชี", endpoint: "/hr/leave/annual-summary-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveAnnual", xlsx: true, allBranchesOption: true },
   { key: "hr-leave-register", title: "ทะเบียนการลาประจำปีบัญชี (เม.ย.–มี.ค.)", endpoint: "/hr/leave/register-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveRegister", xlsx: true, allBranchesOption: true },
   { key: "hr-roster", title: "ทะเบียนพนักงาน", endpoint: "/hr/reports/roster", require: [], perm: "hr.reports.roster", xlsx: true },

@@ -71,13 +71,14 @@ export async function withCurrentSignatures(rows, actors) {
  * ลายเซ็นทุกคนที่ทำ action ในเอกสาร → [{ user_id, role, action, at, name, position, image }]
  * error ใด ๆ → [] (เอกสารต้องพิมพ์ได้เสมอ แม้ไม่มีลายเซ็น)
  */
-export async function loadDocSignatures(path) {
+// keepUnsigned: คืนแถวที่ยังไม่มีรูปลายเซ็นด้วย (image = null) — ใช้เอาชื่อ/ตำแหน่งผู้ลงนามจริงมาพิมพ์
+export async function loadDocSignatures(path, { keepUnsigned = false } = {}) {
   try {
     const d = await apiAuth(path, { redirectOn401: false })
     const rows = Array.isArray(d) ? d : Array.isArray(d?.signatures) ? d.signatures : []
     return rows
       .map((r) => ({ ...r, image: toDataUrl(r?.image ?? r?.image_base64 ?? r?.data) }))
-      .filter((r) => r.image)
+      .filter((r) => keepUnsigned || r.image)
   } catch (err) {
     if (!isNotReady(err) && import.meta.env.DEV) console.warn("[signatures]", path, err)
     return []

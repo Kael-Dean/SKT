@@ -40,6 +40,7 @@ import PrefixedNameInput from "../../components/PrefixedNameInput"
 import SelectDropdown from "../../components/SelectDropdown"
 import { ALL_PREFIX_OPTIONS, genderOfPrefix, prefixOf } from "../../lib/namePrefix"
 import ThaiDateField from "../../components/ThaiDateField"
+import { accountStatusLabel } from "../../lib/accountStatus"
 
 const CHILD_PREFIX_GENDER = { ชาย: "male", หญิง: "female" }
 // value "" = ยังไม่เลือก — คงตัวเลือกนี้ไว้เพื่อล้างค่าที่เลือกไปแล้วได้
@@ -340,7 +341,7 @@ export default function HRPersonnelDetail() {
         <InfoRow label="Email" value={data.email} />
         <InfoRow label="สาขา" value={data.branch_location} />
         <InfoRow label="ตำแหน่ง" value={currentPositionLabel(data, data.position)} />
-        <InfoRow label="สถานะบัญชี" value={data.account_status} />
+        <InfoRow label="สถานะบัญชี" value={accountStatusLabel(data.account_status, data.account_status_label)} />
       </div>
 
       {/* ตำแหน่ง + ประวัติตำแหน่ง (3D) — เปลี่ยนตำแหน่งได้ที่นี่ */}
@@ -419,7 +420,7 @@ export default function HRPersonnelDetail() {
           {fin.reserve_rate_pct !== undefined && (
             <InfoRow label="อัตราเงินสะสม" value={reserveRateText(fin.reserve_rate_pct)} />
           )}
-          <FinanceSavingsLoans fin={fin} className="mt-5 border-t border-gray-100 pt-5 dark:border-line" />
+          <FinanceSavingsLoans fin={fin} scheduleUrl={(id) => `/hr/loans/${id}/schedule`} className="mt-5 border-t border-gray-100 pt-5 dark:border-line" />
         </div>
       )}
 

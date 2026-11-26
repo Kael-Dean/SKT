@@ -24,7 +24,7 @@ function fmtDate(d) {
 }
 
 export default function HRLeaveTab() {
-  const [subTab, setSubTab] = useSubTab(["pending", "all"], "pending")
+  const [subTab, setSubTab] = useSubTab(["pending", "approved", "rejected", "all"], "pending")
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -84,15 +84,30 @@ export default function HRLeaveTab() {
   // "ระหว่างดำเนินการ" = ยังรออนุมัติ หรืออนุมัติแล้วรอตรวจสอบ (ตาม stage จาก backend)
   const isPending = (r) => r.status === "pending" || !!stageOf(r)
 
-  const displayRequests = subTab === "pending" ? requests.filter(isPending) : requests
+  // "สำเร็จแล้ว" = อนุมัติครบทุกขั้นแล้ว (ไม่เหลือขั้นตรวจสอบ) · "ไม่อนุมัติ" = status rejected
+  const isApproved = (r) => r.status === "approved" && !stageOf(r)
+  const isRejected = (r) => r.status === "rejected"
+  const FILTERS = { pending: isPending, approved: isApproved, rejected: isRejected }
+
+  const displayRequests = FILTERS[subTab] ? requests.filter(FILTERS[subTab]) : requests
 
   const pendingCount = requests.filter(isPending).length
+
+  const EMPTY = {
+    pending: ["ไม่มีคำขอที่รออนุมัติ", "คำขอลาที่ต้องดำเนินการจะปรากฏที่นี่"],
+    approved: ["ยังไม่มีคำขอลาที่อนุมัติแล้ว", "คำขอลาที่อนุมัติครบทุกขั้นจะปรากฏที่นี่"],
+    rejected: ["ไม่มีคำขอลาที่ไม่อนุมัติ", "คำขอลาที่ไม่อนุมัติจะปรากฏที่นี่"],
+    all: ["ยังไม่มีคำขอลา", "เมื่อมีพนักงานยื่นคำขอลา รายการจะแสดงที่นี่"],
+  }
+  const [emptyTitle, emptyDesc] = EMPTY[subTab] || EMPTY.all
 
   return (
     <div className="space-y-4">
       <Tabs
         items={[
           { value: "pending", label: "ระหว่างดำเนินการ", count: pendingCount > 0 ? pendingCount : null },
+          { value: "approved", label: "สำเร็จแล้ว" },
+          { value: "rejected", label: "ไม่อนุมัติ" },
           { value: "all", label: "ทั้งหมด" },
         ]}
         value={subTab}
@@ -135,8 +150,8 @@ export default function HRLeaveTab() {
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
           }
-          title={subTab === "pending" ? "ไม่มีคำขอที่รออนุมัติ" : "ยังไม่มีคำขอลา"}
-          description={subTab === "pending" ? "คำขอลาที่ต้องดำเนินการจะปรากฏที่นี่" : "เมื่อมีพนักงานยื่นคำขอลา รายการจะแสดงที่นี่"}
+          title={emptyTitle}
+          description={emptyDesc}
         />
       ) : (
         <div className="space-y-3">

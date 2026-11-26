@@ -3,6 +3,7 @@
 // No React components are exported from here (react-refresh rule).
 import {
   ArrowRightLeft,
+  CalendarDays,
   ClipboardCheck,
   Compass,
   CreditCard,
@@ -36,6 +37,7 @@ export const SELF_SERVICE_MENUS = [
   { label: "กล่องงานรออนุมัติ",   icon: Inbox,          tone: "amber",   path: "/inbox", badgeKey: "inbox" },
   { group: "ลาและการทำงาน", label: "ยื่นใบลา",            icon: FileText,       tone: "emerald", path: "/leave-request", perm: "self.leave.request", gated: true },
   { group: "ลาและการทำงาน", label: "ประวัติการลาของฉัน",   icon: ListOrdered,    tone: "emerald", path: "/my-leave-log",  perm: "self.leave.view", gated: true },
+  { group: "ลาและการทำงาน", label: "ปฏิทินวันหยุด",        icon: CalendarDays,   tone: "sky",     path: "/holidays",      perm: "hr.holidays.view" },
   { group: "ลาและการทำงาน", label: "ขอออกนอกสถานที่",     icon: MapPin,         tone: "orange",  path: "/out-of-office", perm: "self.ooo.request", gated: true },
   { group: "ลาและการทำงาน", label: "คำขอย้ายสาขา",        icon: ArrowRightLeft, tone: "violet",  path: "/my-relocation", perm: "self.relocation.request", gated: true },
   { group: "การเงินและสวัสดิการ", label: "ขอสินเชื่อ",           icon: CreditCard,     tone: "rose",    path: "/loan-request",  perm: "self.loan.apply", gated: true },

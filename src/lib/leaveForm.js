@@ -16,7 +16,7 @@
 import { apiAuth } from "./api"
 import { currentFiscalYearBE, parseDays } from "./leaveDays"
 import { isAnnualLeave, parseLeaveBalance } from "./leaveTypes"
-import { leaveSignaturesPath, loadDocSignatures, pickSignature } from "./signatures"
+import { leaveSignaturesPath, loadDocSignatures, pickSignature, withCurrentSignatures } from "./signatures"
 
 /** ช่องติ๊กประเภทการลาบนแบบฟอร์ม — ประเภทอื่นติ๊ก "อื่น ๆ" พร้อมชื่อ */
 export const FORM_LEAVE_KINDS = [
@@ -64,7 +64,7 @@ async function personnel(id) {
  *   leave = แถวจาก /hr/leave-requests ถ้ามีอยู่แล้ว (ไม่ต้องโหลดรายการซ้ำเพื่อหาแถว แต่ยังใช้รายการคำนวณ "ลามาแล้ว")
  */
 export async function loadLeaveForm({ employeeId, leaveId, leave: given }) {
-  const [list, history, person, sigRows] = await Promise.all([
+  let [list, history, person, sigRows] = await Promise.all([
     apiAuth("/hr/leave-requests").catch(() => []),
     apiAuth(`/hr/leave-requests/${leaveId}/history`).catch(() => null),
     personnel(employeeId),
@@ -144,6 +144,13 @@ export async function loadLeaveForm({ employeeId, leaveId, leave: given }) {
   const typeName = leave.leave_type_name ?? ""
   // ช่อง "ผู้บันทึก" = step สุดท้ายที่อนุมัติ/ไม่อนุมัติ (กฎเดียวกับ LeaveFormSheet)
   const finalStep = [...steps].reverse().find((s) => /APPROVE|REJECT/.test(s.action ?? "")) ?? steps[steps.length - 1]
+  // ใบลาที่ทำก่อนมีระบบลายเซ็น → server ไม่มีแถวลายเซ็นของเอกสาร: ใช้ลายเซ็นปัจจุบันของคนที่ทำ action จริง
+  // (แบบเดียวกับ PDF จากระบบ) ไม่งั้นพรีวิว/พิมพ์จะไม่มีลายเซ็นทั้งที่ PDF มี
+  sigRows = await withCurrentSignatures(sigRows, [
+    { role: "requester", userId: leave.user_id ?? employeeId },
+    { role: "approver", userId: finalStep?.actor_id },
+    { role: "reviewer", userId: justifiedBy },
+  ])
   const sig = (row) => (row ? { image: row.image, name: row.name || nameOf(row.user_id) } : null)
   const signatures = {
     requester: sig(pickSignature(sigRows, { role: "requester", userId: leave.user_id ?? employeeId })),

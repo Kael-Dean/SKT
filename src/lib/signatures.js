@@ -38,6 +38,35 @@ async function imageAt(path) {
 
 // ─── ลายเซ็นของเอกสาร ─────────────────────────────────────────────────────────
 
+/** รูปจาก server → data URI · รับทั้ง data:image/* และ base64 PNG เปล่า ๆ — อย่างอื่น = null */
+function toDataUrl(v) {
+  if (typeof v !== "string" || !v) return null
+  if (/^data:image\/(png|jpe?g|webp);base64,/.test(v)) return v
+  if (/^iVBORw0KGgo[A-Za-z0-9+/=\s]+$/.test(v)) return `data:image/png;base64,${v.replace(/\s+/g, "")}`
+  return null
+}
+
+/**
+ * เติมลายเซ็นของคนที่ทำ action จริงแต่ไม่มีแถวในเอกสาร (เอกสารที่ทำก่อนมีระบบลายเซ็น)
+ * ด้วยลายเซ็น active ปัจจุบัน — ตรงกับที่ PDF จากระบบทำ · ไม่มีสิทธิ์/ไม่มีรูป = ข้าม
+ * @param {Array} rows ผลจาก loadDocSignatures
+ * @param {Array<{ role: string, userId: number|string|null|undefined }>} actors
+ */
+export async function withCurrentSignatures(rows, actors) {
+  const list = Array.isArray(rows) ? [...rows] : []
+  const has = (uid) => list.some((r) => String(r.user_id) === String(uid))
+  const missing = [...new Map(
+    actors.filter((a) => a.userId != null && !has(a.userId)).map((a) => [String(a.userId), a]),
+  ).values()]
+  const filled = await Promise.all(
+    missing.map(async (a) => {
+      const image = await imageAt(`/hr/signatures/${a.userId}/image`).catch(() => null)
+      return image ? { user_id: a.userId, role: a.role, image, fallback: true } : null
+    }),
+  )
+  return [...list, ...filled.filter(Boolean)]
+}
+
 /**
  * ลายเซ็นทุกคนที่ทำ action ในเอกสาร → [{ user_id, role, action, at, name, position, image }]
  * error ใด ๆ → [] (เอกสารต้องพิมพ์ได้เสมอ แม้ไม่มีลายเซ็น)
@@ -46,7 +75,9 @@ export async function loadDocSignatures(path) {
   try {
     const d = await apiAuth(path, { redirectOn401: false })
     const rows = Array.isArray(d) ? d : Array.isArray(d?.signatures) ? d.signatures : []
-    return rows.filter((r) => typeof r?.image === "string" && r.image.startsWith("data:image/png"))
+    return rows
+      .map((r) => ({ ...r, image: toDataUrl(r?.image ?? r?.image_base64 ?? r?.data) }))
+      .filter((r) => r.image)
   } catch (err) {
     if (!isNotReady(err) && import.meta.env.DEV) console.warn("[signatures]", path, err)
     return []

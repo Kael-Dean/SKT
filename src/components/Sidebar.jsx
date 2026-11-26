@@ -2,7 +2,7 @@
 // Sidebar แสดงฟังก์ชันส่วนตัว (โปรไฟล์, ยื่นใบลา, ฯลฯ)
 import { useNavigate, useLocation } from "react-router-dom"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Download, Lock, LogOut, Moon, Sun, X } from "lucide-react"
+import { Download, KeyRound, Lock, LogOut, Moon, Sun, X } from "lucide-react"
 import { logoutAndReload, getRoleId } from "../lib/auth"
 import { useCan } from "../lib/permissions"
 import { TRADING_GROUP, canAccessItem, lucideFor } from "../lib/homeFunctions"
@@ -281,6 +281,19 @@ const Sidebar = ({ isOpen, setIsOpen, darkMode = false, setDarkMode }) => {
                 </span>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false)
+                navigate("/change-password")
+              }}
+              className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-xl pl-2 pr-3 text-left text-sm font-medium text-gray-700 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100"
+            >
+              <span aria-hidden="true" className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONES.indigo.chip}`}>
+                <KeyRound strokeWidth={1.75} className="size-[18px]" />
+              </span>
+              <span className="min-w-0 flex-1 truncate">เปลี่ยนรหัสผ่าน</span>
+            </button>
             <button
               type="button"
               onClick={handleLogout}

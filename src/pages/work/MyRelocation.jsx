@@ -21,9 +21,20 @@ import FormApplicantHeader from "../../components/FormApplicantHeader"
 const BRANCH_SLOTS = Array.from({ length: MAX_BRANCH_PREFS }, (_, i) => i + 1)
 const POSITION_SLOTS = Array.from({ length: MAX_POSITION_PREFS }, (_, i) => i + 1)
 
-const STATUS_LABEL = { pending: "รออนุมัติ", approved: "อนุมัติแล้ว", denied: "ปฏิเสธ", cancelled: "ยกเลิกแล้ว" }
+const STATUS_LABEL = {
+  pending: "รอผู้จัดการพิจารณา",
+  pending_branch_head: "รอผู้จัดการพิจารณา",
+  pending_manager: "รอผู้จัดการพิจารณา",
+  approved: "อนุมัติแล้ว",
+  denied: "ไม่อนุมัติ",
+  rejected: "ไม่อนุมัติ",
+  cancelled: "ยกเลิกแล้ว",
+}
 const STATUS_COLOR = {
   pending:   "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  pending_branch_head: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  pending_manager: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  rejected:  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   approved:  "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   denied:    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
   cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
@@ -197,6 +208,14 @@ export default function MyRelocation() {
   }
 
   const branchOptions = branches.map((b) => ({ value: b.id, label: b.name ?? b.branch_name ?? `สาขา ${b.id}` }))
+  // ชื่อสาขาที่เลือกอันดับ n — ใช้ชื่อจาก API ถ้ามี ไม่งั้นแปลง id ด้วยรายชื่อสาขา
+  const prefBranchName = (r, n) => {
+    const id = r[`branch_pref_${n}`] ?? (n === 1 ? r.requested_branch_id ?? r.branch_id : null)
+    const named = r[`branch_pref_${n}_name`] ?? (n === 1 ? r.requested_branch_name : null)
+    if (named) return named
+    if (id == null) return "—"
+    return branchOptions.find((o) => String(o.value) === String(id))?.label ?? `สาขา #${id}`
+  }
   const positionOptions = positions.map((p) => ({ value: p.id, label: positionName(p.id) }))
 
   if (submitted) {
@@ -207,7 +226,7 @@ export default function MyRelocation() {
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-7"><path d="M20 6 9 17l-5-5" /></svg>
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">ยื่นคำขอย้ายสาขาสำเร็จ</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">คำขอของคุณถูกส่งแล้ว รอ HR อนุมัติ</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">คำขอของคุณถูกส่งแล้ว รอผู้จัดการพิจารณา</p>
           <div className="flex gap-3">
             <button onClick={() => { setSubmitted(false); setForm(EMPTY_FORM); setFieldErrors({}); setShowPosition(false) }}className="flex-1 h-11 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-500 active:scale-[0.98] transition duration-200 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2">
               ยื่นคำขอใหม่
@@ -480,8 +499,9 @@ export default function MyRelocation() {
             history.map((r) => (
               <div key={r.id} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-indigo-700 dark:text-indigo-300">
-                    {r.branch_pref_1_name ?? r.requested_branch_name ?? r.branch_name ?? `สาขาอันดับ 1`}
+                  <p className="min-w-0 font-semibold text-indigo-700 dark:text-indigo-300">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">สาขาอันดับ 1: </span>
+                    {prefBranchName(r, 1)}
                   </p>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLOR[r.status] ?? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"}`}>
                     {STATUS_LABEL[r.status] ?? r.status}
@@ -503,7 +523,7 @@ export default function MyRelocation() {
                 </div>
                 {(r.branch_pref_2_name || r.branch_pref_2 != null) && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    สาขาอันดับ 2: <span className="text-gray-700 dark:text-gray-300">{r.branch_pref_2_name ?? branchOptions.find((o) => String(o.value) === String(r.branch_pref_2))?.label ?? `สาขา #${r.branch_pref_2}`}</span>
+                    สาขาอันดับ 2: <span className="text-gray-700 dark:text-gray-300">{prefBranchName(r, 2)}</span>
                   </p>
                 )}
                 <RelocationPositionPrefs req={r} positionName={positionName} />

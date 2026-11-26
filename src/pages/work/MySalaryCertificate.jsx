@@ -39,18 +39,18 @@ async function loadMine(requestId) {
   if (!req) throw new Error(`ไม่พบคำขอ #${requestId}`)
   const p = Array.isArray(pos) ? pos[0] : pos
   const salary = fin?.financial?.current_salary ?? fin?.current_salary
-  // ลายเซ็นผู้จัดการที่อนุมัติจริง (approved_by) — มีเฉพาะคำขอที่อนุมัติแล้ว; ไม่มี = เส้นจุดเหมือนเดิม
+  // ผู้ลงนาม = ผู้จัดการที่อนุมัติจริง (approved_by) — ชื่อ/ตำแหน่งมาจากแถว approver แม้ยังไม่มีรูปลายเซ็น
+  // (ไม่มีรูป = เส้นจุดให้เซ็นมือ) · ไม่ใช้ชื่อผู้จัดการตายตัว เพราะคนอนุมัติอาจเป็นคนอื่น
   const approver = req.status === S.APPROVED
-    ? pickSignature(await loadDocSignatures(mySalaryCertSignaturesPath(req.id)), { role: "approver", userId: req.approved_by })
+    ? pickSignature(await loadDocSignatures(mySalaryCertSignaturesPath(req.id), { keepUnsigned: true }), { role: "approver", userId: req.approved_by })
     : null
+  const approverName = s(approver?.name) || s(req.approved_by_name)
   return {
     req,
     data: {
-      ...(approver && {
-        signature: { image: approver.image },
-        ...(s(approver.name) && { signerName: s(approver.name) }),
-        ...(s(approver.position) && { signerTitle: s(approver.position) }),
-      }),
+      ...(approver?.image && { signature: { image: approver.image } }),
+      ...(approverName && { signerName: approverName }),
+      ...(s(approver?.position) && { signerTitle: s(approver.position) }),
       docNo: "",
       issueDate: s(req.approved_at).slice(0, 10) || todayIso(),
       name: s(fd?.full_name) || [s(me?.first_name), s(me?.last_name)].filter(Boolean).join(" "),

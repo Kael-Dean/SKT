@@ -179,6 +179,21 @@ function normPerson(p, i) {
   }
 }
 
+// นับ "คน" ไม่ใช่ "ใบลา" — คนเดียวลาครึ่งวันเช้า + บ่ายในวันเดียวกันต้องนับ 1 (UAT งวด 5 DASH-04)
+const personId = (p) => (p.employeeId != null ? `e${p.employeeId}` : p.name ? `n${p.name}` : p.key)
+function distinctPeople(people) {
+  return new Set(people.map(personId)).size
+}
+/** คนที่ลาแค่ครึ่งวัน (ทุกใบของคนนั้นในวันนั้นเป็นครึ่งวัน และรวมแล้วไม่ถึงเต็มวัน = มีใบเดียว) */
+function distinctHalfDay(people) {
+  const byPerson = new Map()
+  for (const p of people) {
+    const k = personId(p)
+    byPerson.set(k, [...(byPerson.get(k) ?? []), p])
+  }
+  return [...byPerson.values()].filter((list) => list.length === 1 && list[0].halfDay).length
+}
+
 function normHoliday(h) {
   if (!h) return null
   if (typeof h === "string") return { name: h, type: null }
@@ -205,8 +220,9 @@ export function normalizeDaysResponse(data) {
         id,
         name: b.branch_name || b.name || `สาขา ${id}`,
         headcount: num(b.headcount) ?? headcountOf.get(id) ?? null,
-        onLeave: num(b.on_leave) ?? people.length,
-        halfDay: num(b.half_day) ?? people.filter((p) => p.halfDay).length,
+        // มีรายชื่อ → นับคนไม่ซ้ำเอง (on_leave ของ server นับใบลา คนเดียวสองใบจึงถูกนับสองครั้ง)
+        onLeave: people.length ? distinctPeople(people) : num(b.on_leave) ?? 0,
+        halfDay: people.length ? distinctHalfDay(people) : num(b.half_day) ?? 0,
         people,
       }
     })
@@ -216,7 +232,9 @@ export function normalizeDaysResponse(data) {
       isWeekend,
       holiday,
       isWorkingDay: d.is_working_day ?? (!isWeekend && !holiday),
-      onLeave: num(d.on_leave) ?? dayBranches.reduce((s, b) => s + b.onLeave, 0),
+      onLeave: dayBranches.some((b) => b.people.length)
+        ? distinctPeople(dayBranches.flatMap((b) => b.people))
+        : num(d.on_leave) ?? dayBranches.reduce((s, b) => s + b.onLeave, 0),
       branches: dayBranches,
     }
   })
@@ -301,11 +319,16 @@ export function buildDaysFromList(data, holidays, from, to) {
         // ครึ่งวันมีผลเฉพาะใบลาวันเดียว
         const person = { ...p, halfDay: p.halfDay && (p.fromDate || lFrom) === (p.toDate || lTo) }
         b.people.push(person)
-        b.onLeave += 1
-        if (person.halfDay) b.halfDay += 1
       }
     })
   })
+  // นับคนไม่ซ้ำหลังรวบรวมครบ (คนเดียวหลายใบในวันเดียวกัน = 1 คน)
+  for (const m of perDay.values()) {
+    for (const b of m.values()) {
+      b.onLeave = distinctPeople(b.people)
+      b.halfDay = distinctHalfDay(b.people)
+    }
+  }
 
   const days = dates.map((date) => {
     const d = parseISO(date)
@@ -319,7 +342,7 @@ export function buildDaysFromList(data, holidays, from, to) {
       isWeekend,
       holiday,
       isWorkingDay: !isWeekend && !holiday,
-      onLeave: branches.reduce((s, b) => s + b.onLeave, 0),
+      onLeave: distinctPeople(branches.flatMap((b) => b.people)),
       branches,
     }
   })

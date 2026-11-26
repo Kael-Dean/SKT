@@ -1,7 +1,10 @@
 // src/pages/work/ChangePassword.jsx
-// เปลี่ยนรหัสผ่านครั้งแรก — สำหรับ account ที่ account_status == "new"
+// เปลี่ยนรหัสผ่าน — ทุกคนที่ล็อกอินเข้ามาได้ (เมนู "เปลี่ยนรหัสผ่าน" ในเมนูส่วนตัว / โปรไฟล์)
+// account_status == "new" ถูกบังคับมาที่นี่ก่อนเข้าใช้งาน (ดู App.jsx) — ไม่มีปุ่มยกเลิก
+// backend POST /auth/change-password ตัด session อื่นของผู้ใช้ทิ้งให้เอง
 import { useState } from "react"
 import { useNavigate, Navigate } from "react-router-dom"
+import { toast } from "../../components/ui"
 import { apiAuth } from "../../lib/api"
 import { cx, baseField } from "../../lib/styles"
 import { getToken, getUser, isTokenExpired } from "../../lib/auth"
@@ -12,6 +15,7 @@ const asset = (p) => `${import.meta.env.BASE_URL.replace(/\/+$/, "")}${p}`
 export default function ChangePassword() {
   const navigate = useNavigate()
   const accountStatus = localStorage.getItem("account_status")
+  const forced = accountStatus === "new"
 
   // state ต้องอยู่ก่อน conditional return เสมอ (Rules of Hooks)
   const [currentPass, setCurrentPass] = useState("")
@@ -28,9 +32,10 @@ export default function ChangePassword() {
     return <Navigate to="/" replace />
   }
 
-  // ถ้าไม่ใช่ "new" ให้เด้งไปหน้าหลัก
-  if (accountStatus !== "new") {
-    return <Navigate to="/home" replace />
+  // กลับหน้าก่อน (เมนู/โปรไฟล์) — เปิดตรงจากลิงก์ไม่มี history → หน้าหลัก
+  const leave = () => {
+    if (window.history.state?.idx > 0) navigate(-1)
+    else navigate("/home", { replace: true })
   }
 
   const handleSubmit = async (e) => {
@@ -65,8 +70,13 @@ export default function ChangePassword() {
         method: "POST",
         body: { current_password: currentPass, new_password: newPass },
       })
-      localStorage.setItem("account_status", "register")
-      navigate("/home", { replace: true })
+      if (forced) {
+        localStorage.setItem("account_status", "register")
+        navigate("/home", { replace: true })
+      } else {
+        toast.success("เปลี่ยนรหัสผ่านแล้ว", { description: "อุปกรณ์อื่นที่เข้าสู่ระบบอยู่ถูกออกจากระบบแล้ว" })
+        leave()
+      }
     } catch (err) {
       setError(err?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ")
     } finally {
@@ -107,10 +117,12 @@ export default function ChangePassword() {
         <div className="rounded-2xl bg-white/90 dark:bg-gray-900/80 shadow-xl backdrop-blur-md ring-1 ring-white/20 dark:ring-white/10 p-8">
           <div className="mb-5">
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-              ตั้งรหัสผ่านใหม่
+              {forced ? "ตั้งรหัสผ่านใหม่" : "เปลี่ยนรหัสผ่าน"}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              บัญชีของคุณเป็นบัญชีใหม่ กรุณาตั้งรหัสผ่านก่อนเข้าใช้งาน
+              {forced
+                ? "บัญชีของคุณเป็นบัญชีใหม่ กรุณาตั้งรหัสผ่านก่อนเข้าใช้งาน"
+                : "เมื่อบันทึกแล้ว อุปกรณ์อื่นที่เข้าสู่ระบบด้วยบัญชีนี้จะถูกออกจากระบบ"}
             </p>
           </div>
 
@@ -136,7 +148,7 @@ export default function ChangePassword() {
                 className={inputCls}
                 value={currentPass}
                 onChange={(e) => setCurrentPass(e.target.value)}
-                placeholder="รหัสผ่านที่ใช้เข้าสู่ระบบครั้งนี้"
+                placeholder={forced ? "รหัสผ่านที่ใช้เข้าสู่ระบบครั้งนี้" : "รหัสผ่านที่ใช้อยู่ตอนนี้"}
                 required
                 autoComplete="current-password"
               />
@@ -235,10 +247,22 @@ export default function ChangePassword() {
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
                   กำลังบันทึก...
                 </span>
-              ) : (
+              ) : forced ? (
                 "ตั้งรหัสผ่านและเข้าสู่ระบบ"
+              ) : (
+                "บันทึกรหัสผ่านใหม่"
               )}
             </button>
+            {!forced && (
+              <button
+                type="button"
+                onClick={leave}
+                disabled={loading}
+                className="w-full rounded-2xl py-2.5 text-sm font-semibold text-gray-600 transition-colors duration-200 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-60 dark:text-gray-300 dark:hover:bg-white/[.06] dark:hover:text-gray-100 cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+            )}
           </form>
         </div>
       </div>

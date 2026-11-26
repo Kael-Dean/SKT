@@ -65,6 +65,8 @@ import { useMyPermissionsVersion } from "../../lib/myPermissions"
 import { ForbiddenState } from "../../components/RequirePermission"
 import PageTitle from "../../components/PageTitle"
 import { backState, keepBackState } from "../../lib/drill"
+import { DraftBadge } from "../../components/hr/PayrollDraftBadge"
+import { isDraftPeriod } from "../../lib/payrollStatus"
 
 // ─── Navigation (HR_NAV อยู่ที่ src/lib/hrNav.js — ช่องค้นหาฟังก์ชันใน Topbar ใช้ชุดเดียวกัน) ───
 
@@ -176,7 +178,7 @@ const STAT_TILES = [
     format: (v) => `${nf(v)} รายการ` },
   { field: "pending_issue_reports", label: "รายงานปัญหารอดำเนินการ", icon: Wrench, tab: "issues", pending: true,
     format: (v) => `${nf(v)} รายการ` },
-  { field: "total_salary_this_month", label: "เงินเดือนรวมเดือนนี้", icon: Banknote, tab: "payroll",
+  { field: "total_salary_this_month", label: "เงินเดือนรวมเดือนนี้", icon: Banknote, tab: "payroll", periodStatus: true,
     format: (v) => `${money(v)} บาท` },
 ]
 
@@ -230,7 +232,7 @@ function StatStrip({ stats, loading, error, onRetry, onGo }) {
             <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500 dark:bg-gray-700/60 dark:text-gray-300">
               <Icon aria-hidden="true" className="size-4" strokeWidth={1.75} />
             </span>
-            <span className="min-w-0">
+            <span className="flex min-w-0 flex-col items-start">
               <span className="line-clamp-2 text-xs leading-snug text-gray-500 dark:text-gray-400" title={t.label}>
                 {t.label}
               </span>
@@ -244,6 +246,9 @@ function StatStrip({ stats, loading, error, onRetry, onGo }) {
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">ไม่มีข้อมูล</span>
                 )}
               </span>
+              {t.periodStatus && has && isDraftPeriod(stats?._salaryPeriod?.period_status) && (
+                <DraftBadge className="mt-1" />
+              )}
             </span>
           </button>
         )
@@ -731,8 +736,14 @@ export default function HRDashboard() {
     setLoadingStats(true)
     setStatsError("")
     const q = branch === ALL_BRANCHES ? "" : `?branch_id=${encodeURIComponent(branch)}`
-    apiAuth(`/hr/dashboard${q}`)
-      .then((d) => { if (alive) setStats(d) })
+    // สถานะงวดเดือนนี้ (ร่าง/ปิดงวด) — /hr/dashboard ไม่บอก จึงถาม trend เดือนล่าสุด; พลาด = ไม่ติดป้าย
+    const tq = new URLSearchParams({ months: "1" })
+    if (branch !== ALL_BRANCHES) tq.set("branch_id", String(branch))
+    const periodReq = apiAuth(`/hr/dashboard/payroll-trend?${tq}`)
+      .then((t) => (Array.isArray(t?.months) ? t.months.at(-1) ?? null : null))
+      .catch(() => null)
+    Promise.all([apiAuth(`/hr/dashboard${q}`), periodReq])
+      .then(([d, period]) => { if (alive) setStats(d ? { ...d, _salaryPeriod: period } : d) })
       .catch((e) => { if (alive) { setStats(null); setStatsError(e?.message || "โหลดข้อมูลแดชบอร์ดไม่สำเร็จ") } })
       .finally(() => { if (alive) setLoadingStats(false) })
     return () => { alive = false }

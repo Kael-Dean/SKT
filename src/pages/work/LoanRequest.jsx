@@ -25,6 +25,7 @@ import {
 import PageTitle from "../../components/PageTitle"
 import FormApplicantHeader from "../../components/FormApplicantHeader"
 import SelectDropdown from "../../components/SelectDropdown"
+import { LoanScheduleTable } from "../../components/hr/FinanceSavingsLoans"
 
 const MAX_MONTHS = 180
 const PREVIEW_DELAY = 450
@@ -224,7 +225,8 @@ function PreviewPanel({ preview, loading, error, ready }) {
 
 function HistoryCard({ loan }) {
   const [open, setOpen] = useState(false)
-  const schedule = asList(loan.schedule ?? loan.schedule_rows ?? loan.instalments)
+  // ตารางผ่อนมีเมื่อสัญญาจ่ายเงินแล้ว (กำลังผ่อน / ปิดสัญญา)
+  const hasSchedule = !!loan.disbursed_on || ["active", "disbursed", "closed", "completed"].includes(loan.status)
   const reason = loan.rejected_reason || loan.reject_reason || loan.rejection_reason
   return (
     <article className={cx(cardCls, "space-y-3 p-4")}>
@@ -246,38 +248,14 @@ function HistoryCard({ loan }) {
       {loan.status === "rejected" && reason && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-500/10 dark:text-red-200">เหตุผล: {reason}</p>
       )}
-      {schedule.length > 0 && (
+      {hasSchedule && (
         <div>
           <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
-            className="cursor-pointer rounded text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300">
-            {open ? "ซ่อนตารางผ่อน" : `ตารางผ่อน ${schedule.length} งวด`}
+            className="min-h-touch md:pointer-fine:min-h-0 cursor-pointer rounded text-sm font-medium text-indigo-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-indigo-300">
+            {open ? "ซ่อนตารางผ่อน" : `ตารางผ่อน${loan.repayment_months ? ` ${loan.repayment_months} งวด` : ""} (ชำระแล้ว / คงเหลือ)`}
           </button>
-          {open && (
-            <div className="mt-2 max-h-80 overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-white dark:bg-surface">
-                  <tr className="text-xs text-gray-500 dark:text-gray-400">
-                    <th scope="col" className="py-1.5 pr-3 text-left font-medium">วันชำระ</th>
-                    <th scope="col" className="py-1.5 px-3 text-right font-medium">ค่างวด</th>
-                    <th scope="col" className="py-1.5 px-3 text-right font-medium">คงเหลือ</th>
-                    <th scope="col" className="py-1.5 pl-3 text-right font-medium">สถานะ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-line">
-                  {schedule.map((r, i) => (
-                    <tr key={r.id ?? i}>
-                      <td className="py-1.5 pr-3 text-gray-700 dark:text-gray-300">{r.due_date ? thaiDate(r.due_date) : `${r.month}/${r.year}`}</td>
-                      <td className="py-1.5 px-3 text-right tabular-nums text-gray-900 dark:text-gray-100">{money(r.installment_amount)}</td>
-                      <td className="py-1.5 px-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{money(r.remaining_balance)}</td>
-                      <td className="py-1.5 pl-3 text-right text-xs">
-                        {r.paid ? <span className="text-emerald-700 dark:text-emerald-300">ชำระแล้ว</span> : <span className="text-gray-500 dark:text-gray-400">รอชำระ</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* GET /personnel/me/loans/{id}/schedule — ตารางเดียวกับหน้า "การเงินของฉัน" */}
+          {open && <LoanScheduleTable url={`/personnel/me/loans/${loan.id}/schedule`} />}
         </div>
       )}
     </article>

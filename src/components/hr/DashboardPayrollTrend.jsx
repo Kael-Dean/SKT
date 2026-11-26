@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { ArrowDownRight, ArrowUpRight, ChartColumn, Minus, Table2 } from "lucide-react"
 import { apiAuth } from "../../lib/api"
+import { DraftBadge } from "./PayrollDraftBadge"
+import { isDraftPeriod } from "../../lib/payrollStatus"
 import { cx, cardCls, focusRingCls } from "../../lib/styles"
 import { useIsPhone } from "../../hooks/useMediaQuery"
 import { DataList, EmptyState, ErrorState, Skeleton } from "../ui"
@@ -264,6 +266,7 @@ export default function DashboardPayrollTrend({ branchId = null, months = 12, cl
             <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <span className="text-xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{fmtDecimal(latest.total_gross_income)}</span>
               <span className="text-xs text-gray-500 dark:text-gray-400">บาท · {monthLong(latest)}</span>
+              {isDraftPeriod(latest.period_status) && <DraftBadge />}
               <ChangeBadge change={latest.change_gross} pct={latest.change_gross_pct} />
             </div>
           ) : null}

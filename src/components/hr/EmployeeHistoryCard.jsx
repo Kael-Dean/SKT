@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { ArrowRight, ChevronDown } from "lucide-react"
 import { apiAuth } from "../../lib/api"
 import { apiDetail } from "../../lib/apiErrors"
+import { reasonLabel } from "./positionUtils"
 import { cx } from "../../lib/styles"
 import { Badge, ErrorState, Skeleton, Tabs, panelId, tabId } from "../ui"
 
@@ -141,7 +142,7 @@ function RelocationSection({ base }) {
                 {!r.from_branch_name && !r.from_branch_id ? <span className="ml-2 align-middle"><Badge tone="info">บรรจุครั้งแรก</Badge></span> : null}
               </p>
               {(r.order_reference || r.reason) && (
-                <p className={cx("break-words text-xs", MUTED)}>{[r.order_reference, r.reason].filter(Boolean).join(" · ")}</p>
+                <p className={cx("break-words text-xs", MUTED)}>{[r.order_reference, r.reason && reasonLabel(r.reason, r.reason_label)].filter(Boolean).join(" · ")}</p>
               )}
             </div>
           </li>

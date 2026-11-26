@@ -30,8 +30,9 @@ import {
 } from "../../lib/salaryCert"
 import { fmtDateTimeTh } from "../../lib/approvalActions"
 
-// ออกหนังสือให้ครั้งละ 1 ฉบับเท่านั้น
-const COPIES_PER_REQUEST = 1
+// จำนวนฉบับ — พนักงานระบุเอง (TOR) ขั้นต่ำ 1 (backend ปฏิเสธ 0) · เพดานกันพิมพ์ผิด
+const MIN_COPIES = 1
+const MAX_COPIES = 10
 
 // formLabel = ถ้อยคำตามแบบฟอร์มกระดาษ · label = ป้ายสั้นในประวัติ
 const PURPOSE_OPTIONS = Object.freeze([
@@ -45,6 +46,7 @@ const fieldCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 const errBorder = "!border-red-500 dark:!border-red-400"
 
 const EMPTY_FORM = {
+  copies_count: "1",
   purpose_type: "",
   purpose_detail: "",
   recipient_name: "",
@@ -61,7 +63,7 @@ const FIELDS_BY_PURPOSE = {
   loan_self:      ["loan_bank", "loan_branch_name", "loan_purpose", "loan_amount"],
   loan_guarantee: ["guarantor_for_name", "loan_bank", "loan_branch_name", "loan_purpose", "loan_amount"],
 }
-const FIELD_ORDER = ["purpose_type", "purpose_detail", "guarantor_for_name", "loan_bank", "loan_amount"]
+const FIELD_ORDER = ["copies_count", "purpose_type", "purpose_detail", "guarantor_for_name", "loan_bank", "loan_amount"]
 
 const num = (v) => {
   const s = String(v ?? "").replace(/,/g, "").trim()
@@ -250,6 +252,9 @@ export default function MySalaryCert() {
 
   const validate = () => {
     const e = {}
+    const copies = Number(form.copies_count)
+    if (!Number.isInteger(copies) || copies < MIN_COPIES) e.copies_count = `ระบุจำนวนอย่างน้อย ${MIN_COPIES} ฉบับ`
+    else if (copies > MAX_COPIES) e.copies_count = `ขอได้ครั้งละไม่เกิน ${MAX_COPIES} ฉบับ`
     if (!FIELDS_BY_PURPOSE[purpose]) e.purpose_type = "เลือกวัตถุประสงค์"
     if (purpose === "document" && !form.purpose_detail.trim()) e.purpose_detail = "ระบุว่าจะนำไปใช้ทำอะไร"
     if (purpose === "loan_guarantee" && !form.guarantor_for_name.trim()) e.guarantor_for_name = "ระบุชื่อผู้กู้ที่คุณค้ำประกันให้"
@@ -265,7 +270,7 @@ export default function MySalaryCert() {
   }
 
   const buildBody = () => {
-    const body = { copies_count: COPIES_PER_REQUEST, purpose_type: purpose }
+    const body = { copies_count: Number(form.copies_count), purpose_type: purpose }
     for (const k of FIELDS_BY_PURPOSE[purpose]) {
       if (k === "loan_amount") {
         if (loanAmount > 0) body.loan_amount = loanAmount.toFixed(2)
@@ -384,9 +389,24 @@ export default function MySalaryCert() {
                   <ReadItem label="ตำแหน่ง" value={defaults.position} />
                   <ReadItem label="สังกัด (แผนก/ฝ่าย/สาขา)" value={unitText} />
                   <ReadItem label="อัตราเงินเดือน" value={mySalary ? `${moneyText(mySalary)} บาท` : "ฝ่ายบุคคลกรอกตามทะเบียน"} muted={!mySalary} />
-                  <ReadItem label="จำนวน" value={`${COPIES_PER_REQUEST} ฉบับ`} />
                 </dl>
               )}
+              <div className="mt-4 max-w-[12rem] min-w-0">
+                <label htmlFor={`${uid}-copies_count`} className={labelCls}>จำนวนที่ขอ (ฉบับ){req}</label>
+                <input
+                  {...fieldProps("copies_count")}
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_COPIES}
+                  max={MAX_COPIES}
+                  step={1}
+                  value={form.copies_count}
+                  onChange={(e) => setField("copies_count", e.target.value.replace(/[^\d]/g, ""))}
+                  aria-required="true"
+                  className={cx(fieldCls, "tabular-nums", errors.copies_count && errBorder)}
+                />
+                {errMsg("copies_count")}
+              </div>
             </FormStep>
 
             {/* 2 — กรณีที่ใช้ */}
@@ -460,7 +480,7 @@ export default function MySalaryCert() {
               <div className="rounded-xl bg-[#fbfaf6] px-4 py-4 text-[15px] leading-8 text-gray-800 ring-1 ring-[#e8e3d3] dark:bg-white/[.03] dark:text-gray-200 dark:ring-line">
                 <p className="indent-10">
                   ด้วยข้าพเจ้า <Blank>{applicantName}</Blank> ตำแหน่ง <Blank>{defaults.position}</Blank>{" "}
-                  สังกัด <Blank>{unitText}</Blank> มีความประสงค์ขอรับหนังสือรับรองเงินเดือน จำนวน {COPIES_PER_REQUEST} ฉบับ{" "}
+                  สังกัด <Blank>{unitText}</Blank> มีความประสงค์ขอรับหนังสือรับรองเงินเดือน จำนวน <Blank>{Number(form.copies_count) >= MIN_COPIES ? form.copies_count : ""}</Blank> ฉบับ{" "}
                   เพื่อนำไปใช้ในกรณี{purposeSentence}
                 </p>
                 <p className="mt-1 indent-10">จึงเรียนมาเพื่อโปรดพิจารณา</p>

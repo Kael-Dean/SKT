@@ -21,6 +21,8 @@ import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import FinanceSavingsLoans from "../../components/hr/FinanceSavingsLoans"
 import { EmployeeGratuityPanel } from "../../components/hr/GratuityBlocks"
 import GuaranteeBankEditSheet from "../../components/hr/GuaranteeBankEditSheet"
+import BusinessEditSheet from "../../components/hr/BusinessEditSheet"
+import { useHrBusinesses } from "../../lib/hrBusinesses"
 import Can from "../../components/Can"
 import { can } from "../../lib/permissions"
 import CustomLeaveQuotaCard from "../../components/hr/CustomLeaveQuotaCard"
@@ -137,6 +139,12 @@ export default function HRPersonnelDetail() {
   const [editModal, setEditModal] = useState(false)
   // เลขบัญชีค้ำประกัน (GuaranteeBankEditSheet)
   const [gbnOpen, setGbnOpen] = useState(false)
+
+  // ธุรกิจ (hr_business, PR #117) — แก้ได้เมื่อมีสิทธิ์แก้ข้อมูลส่วนตัว และโหลดรายการธุรกิจได้
+  //   403/404 (prod ยังไม่มี endpoint) → ซ่อนปุ่มแก้ไข ไม่บล็อกหน้า
+  const canEditPersonal = can("hr.employees.editPersonal")
+  const businesses = useHrBusinesses({ enabled: canEditPersonal })
+  const [bizOpen, setBizOpen] = useState(false)
 
   // ออกจากงาน — popup ฟอร์มบันทึกการพ้นสภาพ (TerminationSheet)
   const [termOpen, setTermOpen] = useState(false)
@@ -292,6 +300,11 @@ export default function HRPersonnelDetail() {
   const spouse = data.spouse ?? null
   const childrenList = data.children ?? []
   const parentsList = data.parents ?? []
+  // backend ใส่ทั้ง top level และใน personnel_info · ไม่มี key เลย = backend ยังไม่มี PR #117 → ไม่แสดงแถว
+  const hasBusinessField = "hr_business_id" in data || "hr_business_id" in pi
+  const bizId = data.hr_business_id ?? pi.hr_business_id ?? null
+  const bizName = data.hr_business_name ?? pi.hr_business_name ?? null
+  const canEditBusiness = canEditPersonal && hasBusinessField && !businesses.loading && !businesses.error
 
   return (
     <div className="space-y-5 pb-10">
@@ -400,6 +413,22 @@ export default function HRPersonnelDetail() {
               </span>
             </div>
           </Can>
+          {hasBusinessField && (canEditBusiness ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 py-2 border-b border-gray-100 dark:border-gray-700/50 last:border-0">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 sm:w-44 shrink-0">ธุรกิจ</span>
+              <span className="flex min-w-0 items-center justify-between gap-3 sm:flex-1">
+                <span className={cx("min-w-0 truncate text-sm", bizName ? "text-gray-900 dark:text-gray-100" : "text-gray-400 dark:text-gray-500")}>
+                  {bizName || "—"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setBizOpen(true)}
+                  aria-label="แก้ไขธุรกิจ" className={editBtnCls}>แก้ไข</button>
+              </span>
+            </div>
+          ) : (
+            <InfoRow label="ธุรกิจ" value={bizName || "—"} />
+          ))}
           <InfoRow label="วันที่เริ่มงาน" value={fmtDate(pi.hired)} />
           <InfoRow label="อายุงาน" value={getTenure(data) ? tenureText(data) : null} />
           <InfoRow label="โรคประจำตัว" value={pi.underlying_disease} />
@@ -913,6 +942,18 @@ export default function HRPersonnelDetail() {
         onClose={() => setGbnOpen(false)}
         onSaved={fetchDetail}
       />
+      {canEditBusiness && (
+        <BusinessEditSheet
+          open={bizOpen}
+          employeeId={id}
+          employeeName={`${data.first_name ?? ""} ${data.last_name ?? ""}`.trim()}
+          currentId={bizId}
+          currentName={bizName}
+          options={businesses.options}
+          onClose={() => setBizOpen(false)}
+          onSaved={refreshDetail}
+        />
+      )}
     </div>
   )
 }

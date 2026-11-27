@@ -27,6 +27,8 @@ import {
 import { LoanDecisionSheet, LoanDetailSheet, LoanPdfButton, LoanSettingsSheet } from "./HRLoanSheets"
 import { keepBackState } from "../../../lib/drill"
 import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const ID_BASE = "hr-loans"
 const fieldCls = cx(baseField, "!rounded-xl !px-3 !py-2 md:!text-sm")
@@ -40,6 +42,8 @@ const errText = (err, fallback) => apiDetail(err) || fallback
 
 function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, empty }) {
   const isPhone = useIsPhone()
+  const nf = useNameFilter(loans, { get: borrowerName, label: "ผู้กู้" })
+  const noMatch = nf.rows.length === 0 && nf.total > 0
   if (error) return <ErrorState message={error} onRetry={onRetry} />
 
   const actionsFor = (l) => {
@@ -59,8 +63,10 @@ function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, e
 
   if (isPhone) {
     return (
+      <div className="space-y-3">
+      {nf.total > 0 && <NameSearchField nf={nf} />}
       <DataList
-        items={loans}
+        items={nf.rows}
         loading={loading}
         title={(l) => borrowerName(l)}
         subtitle={(l) => `#${l.id} · ${LOAN_PURPOSE_LABEL[l.purpose_code] ?? l.purpose_code ?? "เงินกู้กองทุนฯ"} · ยื่น ${thaiDate(l.created_at)}`}
@@ -71,8 +77,9 @@ function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, e
         ]}
         onClick={onOpen}
         actions={actionsFor}
-        emptyState={empty}
+        emptyState={noMatch ? <NameNoMatch nf={nf} /> : empty}
       />
+      </div>
     )
   }
 
@@ -82,7 +89,7 @@ function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, e
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 dark:border-line dark:bg-white/[.03]">
-            <th scope="col" className={cx(th, "text-left")}>ผู้กู้ / วัตถุประสงค์</th>
+            <NameHeaderCell nf={nf} label="ผู้กู้ / วัตถุประสงค์" />
             <th scope="col" className={cx(th, "text-right")}>วงเงิน</th>
             <th scope="col" className={cx(th, "text-right")}>งวด</th>
             <th scope="col" className={cx(th, "text-right")}>ต้นเงิน/งวด</th>
@@ -94,9 +101,9 @@ function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, e
         <tbody className="divide-y divide-gray-100 dark:divide-line">
           {loading ? (
             <SkeletonTableRows rows={4} cols={7} />
-          ) : loans.length === 0 ? (
-            <tr><td colSpan={7} className="p-0">{empty}</td></tr>
-          ) : loans.map((l) => (
+          ) : nf.rows.length === 0 ? (
+            <tr><td colSpan={7} className="p-0">{noMatch ? <NameNoMatch nf={nf} /> : empty}</td></tr>
+          ) : nf.rows.map((l) => (
             <tr key={l.id} className="transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.03]">
               <td className="px-4 py-2.5">
                 <button type="button" onClick={() => onOpen(l)}
@@ -149,6 +156,8 @@ function OverduePanel({ onOpenLoan }) {
 
   const totalPenalty = rows.reduce((s, r) => s + (Number(r.penalty) || 0), 0)
   const totalDue = rows.reduce((s, r) => s + (Number(r.installment_amount ?? r.amount) || 0), 0)
+  const nf = useNameFilter(rows, { get: borrowerName, label: "ผู้กู้" })
+  const noMatch = nf.rows.length === 0 && nf.total > 0
   const empty = <EmptyState title="ไม่มีงวดค้างชำระ" description={`ทุกงวดที่ถึงกำหนดก่อน ${thaiDate(asOf, { long: true })} ชำระแล้ว`} />
   // แถวค้างชำระคือ "งวด" ไม่ใช่สัญญา — เปิดสัญญาด้วย loan_id (ตารางผ่อนโหลดเพิ่มใน sheet)
   const openLoan = (r) => r.loan_id != null && onOpenLoan({
@@ -174,8 +183,10 @@ function OverduePanel({ onOpenLoan }) {
         )}
       </div>
       {error ? <ErrorState message={error} onRetry={() => load(asOf)} /> : isPhone ? (
+        <div className="space-y-3">
+        {nf.total > 0 && <NameSearchField nf={nf} />}
         <DataList
-          items={rows}
+          items={nf.rows}
           loading={loading}
           keyOf={(r, i) => r.id ?? `${r.loan_id}-${r.due_date}-${i}`}
           title={(r) => borrowerName(r)}
@@ -186,14 +197,15 @@ function OverduePanel({ onOpenLoan }) {
             { label: "เกินกำหนด", value: (r) => (r.days_overdue != null ? `${r.days_overdue} วัน` : "—"), align: "right" },
           ]}
           onClick={openLoan}
-          emptyState={empty}
+          emptyState={noMatch ? <NameNoMatch nf={nf} /> : empty}
         />
+        </div>
       ) : (
         <div className={cx(cardCls, "overflow-x-auto")}>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 dark:border-line dark:bg-white/[.03] dark:text-gray-400">
-                <th scope="col" className="px-4 py-3 text-left">ผู้กู้</th>
+                <NameHeaderCell nf={nf} label="ผู้กู้" />
                 <th scope="col" className="px-4 py-3 text-left">สัญญา</th>
                 <th scope="col" className="px-4 py-3 text-left">ครบกำหนด</th>
                 <th scope="col" className="px-4 py-3 text-right">เกินกำหนด (วัน)</th>
@@ -202,9 +214,9 @@ function OverduePanel({ onOpenLoan }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-line">
-              {loading ? <SkeletonTableRows rows={4} cols={6} /> : rows.length === 0 ? (
-                <tr><td colSpan={6} className="p-0">{empty}</td></tr>
-              ) : rows.map((r, i) => (
+              {loading ? <SkeletonTableRows rows={4} cols={6} /> : nf.rows.length === 0 ? (
+                <tr><td colSpan={6} className="p-0">{noMatch ? <NameNoMatch nf={nf} /> : empty}</td></tr>
+              ) : nf.rows.map((r, i) => (
                 <tr key={r.id ?? `${r.loan_id}-${r.due_date}-${i}`} className="hover:bg-gray-50 dark:hover:bg-white/[.03]">
                   <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100">{borrowerName(r)}</td>
                   <td className="px-4 py-2.5">

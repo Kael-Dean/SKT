@@ -28,6 +28,8 @@ import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
 import { Skeleton, ErrorState, EmptyState, Tabs, tabId, panelId, useSubTab } from "../../../components/ui"
 import { cx, baseField, tabPanelCls } from "../../../lib/styles"
 import ThaiDateField from "../../../components/ThaiDateField"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 const THAI_MONTHS = [
@@ -95,6 +97,8 @@ function RequestsPanel({ branchOptions, branchName }) {
   const [banner, setBanner] = useState(null) // { tone: "error" | "success", text }
   const [decision, setDecision] = useState(null) // { req, mode }
   const [historyId, setHistoryId] = useState(null)
+  const nf = useNameFilter(rows, { get: requesterName, label: "ผู้ขอ" })
+  const noMatch = nf.rows.length === 0 && nf.total > 0
 
   const fetchRows = useCallback(() => {
     setLoading(true)
@@ -261,11 +265,17 @@ function RequestsPanel({ branchOptions, branchName }) {
         </div>
       ) : (
         <>
-          <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">{rows.length} รายการ</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">
+            {nf.filtering ? `${nf.rows.length} จาก ${nf.total}` : rows.length} รายการ
+          </p>
 
           {/* Mobile: cards */}
+          <div className="md:hidden">
+            <NameSearchField nf={nf} />
+          </div>
+          {noMatch && <div className={cx(cardCls, "md:hidden")}><NameNoMatch nf={nf} /></div>}
           <ul className="space-y-3 md:hidden">
-            {rows.map((r) => (
+            {nf.rows.map((r) => (
               <li key={r.id} className={`${cardCls} p-4 space-y-2`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -303,7 +313,7 @@ function RequestsPanel({ branchOptions, branchName }) {
             <table className="w-full min-w-[860px]">
               <thead className="border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800">
                 <tr>
-                  <th scope="col" className={thCls}>ผู้ขอ</th>
+                  <NameHeaderCell nf={nf} label="ผู้ขอ" />
                   <th scope="col" className={thCls}>วันเวลา</th>
                   <th scope="col" className={thCls}>ประเภท</th>
                   <th scope="col" className={thCls}>สถานที่ / เหตุผล</th>
@@ -312,7 +322,10 @@ function RequestsPanel({ branchOptions, branchName }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/70">
-                {rows.map((r) => (
+                {noMatch && (
+                  <tr><td colSpan={6} className="p-0"><NameNoMatch nf={nf} /></td></tr>
+                )}
+                {nf.rows.map((r) => (
                   <Fragment key={r.id}>
                   <tr className="even:bg-gray-50 dark:even:bg-gray-700/30">
                     <td className={`${tdCls} max-w-[200px]`}>

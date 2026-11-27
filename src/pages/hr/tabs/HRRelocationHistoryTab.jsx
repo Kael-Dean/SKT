@@ -15,6 +15,8 @@ import useModalDismiss from "../../../lib/useModalDismiss"
 import RelocationPositionPrefs from "../../../components/hr/RelocationPositionPrefs"
 import { usePositionLookup } from "../../../lib/relocation"
 import ThaiDateField from "../../../components/ThaiDateField"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 function fmtBE(d) {
   // วันที่จาก BE มาเป็น "DD/MM/BBBB" แล้ว — แสดงตรงๆ
@@ -84,6 +86,9 @@ export default function HRRelocationHistoryTab() {
   const [detailLoading,  setDetailLoading]  = useState(false)
   const [detailPdfLoad,  setDetailPdfLoad]  = useState(false)
   const [detailPdfErr,   setDetailPdfErr]   = useState("")
+
+  const histNf = useNameFilter(history, { get: (r) => r.full_name, label: "ชื่อ-สกุล" })
+  const reloNf = useNameFilter(reloRequests, { get: (r) => `${r.user_first_name ?? ""} ${r.user_last_name ?? ""}`, label: "ชื่อผู้ขอย้าย" })
   const { backdropProps: detailBackdrop } = useModalDismiss(() => setDetailModal(null), { open: !!detailModal })
 
   const fetchReloRequests = useCallback(() => {
@@ -216,7 +221,8 @@ export default function HRRelocationHistoryTab() {
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    {["ชื่อ-สกุล", "รหัสประจำตัว", "วันที่บรรจุ", "วันที่ย้าย", "ตำแหน่ง", "สาขา", "คำสั่ง", "เหตุผล"].map((h) => (
+                    <NameHeaderCell nf={histNf} label="ชื่อ-สกุล" />
+                    {["รหัสประจำตัว", "วันที่บรรจุ", "วันที่ย้าย", "ตำแหน่ง", "สาขา", "คำสั่ง", "เหตุผล"].map((h) => (
                       <th key={h} className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -224,7 +230,9 @@ export default function HRRelocationHistoryTab() {
                 <tbody>
                   {histLoading ? (
                     <SkeletonTableRows rows={8} cols={8} />
-                  ) : history.map((row, i) => (
+                  ) : histNf.rows.length === 0 ? (
+                    <tr><td colSpan={8} className="p-0"><NameNoMatch nf={histNf} /></td></tr>
+                  ) : histNf.rows.map((row, i) => (
                     <tr key={row.id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
                       <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.full_name}</td>
                       <td className="px-3 py-2 text-gray-600 dark:text-gray-400 font-mono text-xs tabular-nums">{row.cid_masked}</td>
@@ -258,12 +266,14 @@ export default function HRRelocationHistoryTab() {
             </div>
           ) : (
             <div className="space-y-2">
+              <NameSearchField nf={reloNf} />
+              {reloNf.rows.length === 0 && <div className={cardCls + " p-2"}><NameNoMatch nf={reloNf} /></div>}
               {detailLoading && (
                 <div className="flex justify-center py-4">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500 dark:border-gray-700 dark:border-t-indigo-400" />
                 </div>
               )}
-              {reloRequests.map((r) => (
+              {reloNf.rows.map((r) => (
                 <div key={r.id} className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-4 flex items-center justify-between gap-3">
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{r.user_first_name} {r.user_last_name}</p>

@@ -14,6 +14,8 @@ import { apiErrorText } from "../../lib/apiErrors"
 import { cx, neutralBtnCls, primaryBtnCls } from "../../lib/styles"
 import { Badge, ConfirmDialog, ErrorState, Sheet, SkeletonText, toast } from "../ui"
 import { useIsPhone } from "../../hooks/useMediaQuery"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "./nameFilter"
+import { useNameFilter } from "./useNameFilter"
 
 const btnCls = "h-12 md:pointer-fine:h-10 md:!px-5 md:!py-0 md:!text-sm"
 const TH = "px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 whitespace-nowrap"
@@ -86,6 +88,11 @@ export default function GratuityCalcSheet({ open, fiscalYear, onClose, onDone })
     hire: rows.filter((r) => r.basis === "hire").length,
     notCounted: rows.filter((r) => r.year_counts === false).length,
   }), [rows])
+  const nf = useNameFilter(rows, { get: (r) => r.name, label: "เจ้าหน้าที่" })
+  const noMatch = nf.rows.length === 0 && nf.total > 0
+  // ปิด sheet แล้วล้างตัวกรองชื่อด้วย — เปิดใหม่เห็นครบทุกคน
+  const clearName = nf.clear
+  useEffect(() => { if (!open) clearName() }, [open, clearName])
 
   const save = async () => {
     setSaving(true)
@@ -165,8 +172,11 @@ export default function GratuityCalcSheet({ open, fiscalYear, onClose, onDone })
                 </ul>
 
                 {isPhone ? (
+                  <>
+                  <NameSearchField nf={nf} />
+                  {noMatch ? <NameNoMatch nf={nf} /> : (
                   <ul className="divide-y divide-gray-100 border-t border-gray-100 dark:divide-line dark:border-line">
-                    {rows.map((r) => (
+                    {nf.rows.map((r) => (
                       <li key={r.user_id} className="py-3">
                         <div className="flex items-baseline justify-between gap-3">
                           <p className="min-w-0 break-words font-medium text-gray-900 dark:text-gray-100">{r.name}</p>
@@ -180,12 +190,14 @@ export default function GratuityCalcSheet({ open, fiscalYear, onClose, onDone })
                       </li>
                     ))}
                   </ul>
+                  )}
+                  </>
                 ) : (
                   <div className="overflow-x-auto rounded-xl ring-1 ring-gray-200/70 dark:ring-line">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-100 bg-gray-50 text-left dark:border-line dark:bg-white/[.03]">
-                          <th scope="col" className={TH}>เจ้าหน้าที่</th>
+                          <NameHeaderCell nf={nf} label="เจ้าหน้าที่" />
                           <th scope="col" className={TH}>เริ่มงาน</th>
                           <th scope="col" className={cx(TH, "text-right")}>เงินเดือน</th>
                           <th scope="col" className={cx(TH, "text-right")}>วันทำงานสุทธิ</th>
@@ -196,7 +208,9 @@ export default function GratuityCalcSheet({ open, fiscalYear, onClose, onDone })
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-line">
-                        {rows.map((r) => (
+                        {noMatch ? (
+                          <tr><td colSpan={8} className="p-0"><NameNoMatch nf={nf} /></td></tr>
+                        ) : nf.rows.map((r) => (
                           <tr key={r.user_id} className="text-gray-800 dark:text-gray-200">
                             <td className="whitespace-nowrap px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{r.name}</td>
                             <td className={cx(TD, "whitespace-nowrap")}>{thaiDate(r.hired_on)}</td>

@@ -13,6 +13,8 @@ import { cx, cardCls } from "../../../lib/styles"
 import { claimStatusLabel, claimStatusTone, claimTypeLabel, claimWhen, isCapped, money } from "../../../lib/welfare"
 import { Badge, DataList, SkeletonTableRows } from "../../ui"
 import { useIsPhone } from "../../../hooks/useMediaQuery"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 function EligibleCell({ c }) {
   const capped = isCapped(c)
@@ -29,11 +31,17 @@ export default function ClaimsTable({
   claims, loading, nameOf, patientOf, onOpen, action, empty, showPerson = true, skeletonRows = 5,
 }) {
   const isPhone = useIsPhone()
+  // กรอง/เรียงชื่อเจ้าหน้าที่ — มีผลเฉพาะเมื่อแสดงคอลัมน์คน (showPerson)
+  const nf = useNameFilter(showPerson ? claims : null, { get: (c) => (nameOf ? nameOf(c) : ""), label: "เจ้าหน้าที่" })
+  const list = showPerson ? nf.rows : (claims ?? [])
+  const noMatch = showPerson && nf.rows.length === 0 && nf.total > 0
 
   if (isPhone) {
     return (
+      <div className="space-y-3">
+      {showPerson && nf.total > 0 && <NameSearchField nf={nf} />}
       <DataList
-        items={claims}
+        items={list}
         loading={loading}
         skeletonRows={Math.min(skeletonRows, 4)}
         keyOf={(c) => c.id}
@@ -47,8 +55,9 @@ export default function ClaimsTable({
         ]}
         onClick={onOpen}
         actions={action ? (c) => action(c) : undefined}
-        emptyState={empty}
+        emptyState={noMatch ? <NameNoMatch nf={nf} /> : empty}
       />
+      </div>
     )
   }
 
@@ -59,7 +68,9 @@ export default function ClaimsTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 dark:border-line dark:bg-white/[.03]">
-            <th scope="col" className={cx(th, "pl-4 text-left")}>{showPerson ? "เจ้าหน้าที่ / ผู้รับบริการ" : "ประเภท / ผู้รับบริการ"}</th>
+            {showPerson
+              ? <NameHeaderCell nf={nf} label="เจ้าหน้าที่ / ผู้รับบริการ" />
+              : <th scope="col" className={cx(th, "pl-4 text-left")}>ประเภท / ผู้รับบริการ</th>}
             {showPerson && <th scope="col" className={cx(th, "text-left")}>ประเภท</th>}
             <th scope="col" className={cx(th, "text-left")}>วันที่รับบริการ</th>
             <th scope="col" className={cx(th, "text-right")}>ขอเบิก</th>
@@ -72,9 +83,9 @@ export default function ClaimsTable({
         <tbody className="divide-y divide-gray-100 dark:divide-line">
           {loading ? (
             <SkeletonTableRows rows={skeletonRows} cols={cols} />
-          ) : claims.length === 0 ? (
-            <tr><td colSpan={cols} className="p-0">{empty}</td></tr>
-          ) : claims.map((c) => (
+          ) : list.length === 0 ? (
+            <tr><td colSpan={cols} className="p-0">{noMatch ? <NameNoMatch nf={nf} /> : empty}</td></tr>
+          ) : list.map((c) => (
             <tr key={c.id} className="transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-white/[.03]">
               <td className="py-2.5 pl-4 pr-3">
                 <button type="button" onClick={() => onOpen(c)}

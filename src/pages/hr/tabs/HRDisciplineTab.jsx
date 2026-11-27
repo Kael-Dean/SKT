@@ -49,6 +49,8 @@ import AckSheet, { WitnessFields } from "../../../components/hr/discipline/AckSh
 import { ackText, canAckAction } from "../../../components/hr/discipline/disciplineData"
 import RecordForm from "../../../components/hr/discipline/RecordForm"
 import RecordCard, { RecordPatchSheet } from "../../../components/hr/discipline/RecordCard"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const ID_BASE = "hr-disc"
 const RECORD_FORM_ID = `${ID_BASE}-record-form`
@@ -861,8 +863,10 @@ export default function HRDisciplineTab() {
     else list.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || ""))) // ค้างนานสุดก่อน
     return list
   }, [rows, sub])
+  const nf = useNameFilter(sorted, { get: accusedName, label: "ผู้ถูกแจ้ง" })
+  const noMatch = nf.rows.length === 0 && nf.total > 0
 
-  const openCase = (r, mode = "view") => setOpenState({ id: String(r.id), mode })
+  const openCase =(r, mode = "view") => setOpenState({ id: String(r.id), mode })
   const closeCase = () => {
     setOpenState(null)
     if (params.get("id")) {
@@ -906,8 +910,10 @@ export default function HRDisciplineTab() {
         {error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : isPhone ? (
+          <>
+          {nf.total > 0 && <NameSearchField nf={nf} />}
           <DataList
-            items={sorted}
+            items={nf.rows}
             keyOf={(r) => r.id}
             loading={loading}
             skeletonRows={3}
@@ -919,15 +925,16 @@ export default function HRDisciplineTab() {
               { label: sub === "closed" ? "แจ้งเมื่อ" : "ขั้นพิจารณา", value: (r) => (sub === "closed" ? fmtDate(r.created_at) : stageLabel(r.stage, r.stage_label)), align: "right" },
             ]}
             onClick={(r) => openCase(r, rowAction(r).mode)}
-            emptyState={<EmptyState title={emptyTitle} description={emptyDesc} />}
+            emptyState={noMatch ? <NameNoMatch nf={nf} /> : <EmptyState title={emptyTitle} description={emptyDesc} />}
           />
+          </>
         ) : (
           <div className={cx(cardCls, "overflow-x-auto")}>
             <table className="w-full min-w-[52rem] text-sm">
               <caption className="sr-only">รายการเรื่องร้องเรียน/ตักเตือน</caption>
               <thead className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500 dark:border-line dark:text-gray-400">
                 <tr>
-                  <th scope="col" className="px-4 py-2.5">ผู้ถูกแจ้ง</th>
+                  <NameHeaderCell nf={nf} label="ผู้ถูกแจ้ง" />
                   <th scope="col" className="px-4 py-2.5">หัวข้อ</th>
                   <th scope="col" className="px-4 py-2.5">เกิดเหตุ</th>
                   <th scope="col" className="px-4 py-2.5">{sub === "closed" ? "ผล" : "ขั้นพิจารณา"}</th>
@@ -938,9 +945,9 @@ export default function HRDisciplineTab() {
               <tbody className="divide-y divide-gray-100 dark:divide-line">
                 {loading ? (
                   <SkeletonTableRows rows={4} cols={6} />
-                ) : sorted.length === 0 ? (
-                  <tr><td colSpan={6}><EmptyState title={emptyTitle} description={emptyDesc} /></td></tr>
-                ) : sorted.map((r) => {
+                ) : nf.rows.length === 0 ? (
+                  <tr><td colSpan={6}>{noMatch ? <NameNoMatch nf={nf} /> : <EmptyState title={emptyTitle} description={emptyDesc} />}</td></tr>
+                ) : nf.rows.map((r) => {
                   const s = caseStatus(r)
                   const act = rowAction(r)
                   return (

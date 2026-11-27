@@ -15,6 +15,8 @@ import RevokeDialog from "./RevokeDialog"
 import { ComponentBreakdown, GradeBadge, PendingBadge, SchemeLabel, StatusBadge, StepCell } from "./KpiBits"
 import { STATUS, STATUS_ORDER, canEditScores, fmtDay, fmtScore, num, partialTotal } from "./kpiUtils"
 import { useEvaluations } from "./useKpi"
+import { NameHeaderCell, NameNoMatch } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 const STATUS_FILTER = [
   { value: "", label: "ทุกสถานะ" },
@@ -25,21 +27,19 @@ const COLS = 6
 
 export default function ScoresPanel({ fy, info, phase, perms, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy)
-  const [q, setQ] = useState("")
   const [status, setStatus] = useState("")
   const [dialog, setDialog] = useState(null) // { kind: "score", ev } | { kind: "revoke", ev }
 
   const canScore = perms.scoreBranchHead || perms.scoreAsst || perms.scoreManager || perms.boardScore
   const { nameOf } = people
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return rows.filter((ev) => {
-      if (status && ev.status !== status) return false
-      if (!needle) return true
-      return String(ev.user_id).includes(needle) || nameOf(ev.user_id).toLowerCase().includes(needle)
-    })
-  }, [rows, q, status, nameOf])
+  const byStatus = useMemo(
+    () => (status ? rows.filter((ev) => ev.status === status) : rows),
+    [rows, status],
+  )
+  // ช่องค้นหาด้านบน + เมนูหัวคอลัมน์ "เจ้าหน้าที่" ใช้ตัวกรองชื่อชุดเดียวกัน (ค้นได้ทั้งชื่อและรหัส)
+  const nameF = useNameFilter(byStatus, { get: (ev) => `${nameOf(ev.user_id)} ${ev.user_id}`, label: "เจ้าหน้าที่" })
+  const filtered = nameF.rows
 
   const returnedCount = rows.filter((r) => r.status === "returned").length
 
@@ -68,8 +68,8 @@ export default function ScoresPanel({ fy, info, phase, perms, people, catalogue,
           <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" strokeWidth={1.75} />
           <input
             type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
+            value={nameF.filter ?? ""}
+            onChange={(e) => nameF.setFilter(e.target.value)}
             placeholder="ค้นหาชื่อหรือรหัส"
             aria-label="ค้นหาเจ้าหน้าที่"
             className={cx(inputCls, "pl-9")}
@@ -102,7 +102,7 @@ export default function ScoresPanel({ fy, info, phase, perms, people, catalogue,
               <caption className="sr-only">รายการประเมิน KPI ปีบัญชี {fy}</caption>
               <thead className="border-b border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
                 <tr>
-                  <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
+                  <NameHeaderCell nf={nameF} label="เจ้าหน้าที่" />
                   <th scope="col" className={cx(thCls, "whitespace-nowrap text-left hidden md:table-cell")}>คะแนนแต่ละส่วน</th>
                   <th scope="col" className={cx(thCls, "whitespace-nowrap text-right")}>รวม</th>
                   <th scope="col" className={cx(thCls, "whitespace-nowrap text-left hidden sm:table-cell")}>ระดับผล</th>
@@ -113,6 +113,8 @@ export default function ScoresPanel({ fy, info, phase, perms, people, catalogue,
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {loading ? (
                   <SkeletonTableRows rows={6} cols={COLS} />
+                ) : filtered.length === 0 && nameF.filtering && nameF.total > 0 ? (
+                  <tr><td colSpan={COLS} className="p-0"><NameNoMatch nf={nameF} /></td></tr>
                 ) : filtered.length === 0 ? (
                   <tr>
                     <td colSpan={COLS} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">ไม่พบรายการที่ตรงกับการค้นหา</td>

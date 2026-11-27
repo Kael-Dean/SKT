@@ -15,6 +15,8 @@ import { fmtPayMonth, fmtWorkDays, money, validWorkDays } from "../../lib/payrol
 import { cx, baseField, neutralBtnCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SaveButton, Sheet, SkeletonTableRows, revealFirstInvalid, toast, useSaveStatus } from "../ui"
 import StatusMsg from "./StatusMsg"
+import { NameHeaderCell, NameNoMatch } from "./nameFilter"
+import { useNameFilter } from "./useNameFilter"
 
 const btnCls = "h-12 md:pointer-fine:h-10"
 const dayInputCls = cx(baseField, "!w-24 !rounded-lg !px-2.5 !py-1.5 md:!text-sm text-right tabular-nums")
@@ -42,6 +44,7 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
   const [msg, setMsg] = useState(null)
   const [fillValue, setFillValue] = useState("")
   const inputs = useRef([])
+  const nf = useNameFilter(rows, { get: (r) => `${r.employee_name || ""} ${r.employee_id ?? ""}`, label: "ลูกจ้าง" })
 
   const label = fmtPayMonth(ym.year, ym.month, { long: true })
   const editable = canEdit && isDraft
@@ -119,7 +122,9 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
     setErrors(errs)
     if (Object.keys(errs).length) {
       setMsg({ tone: "warning", text: "ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก" })
-      revealFirstInvalid(formRef)
+      // ช่องที่ผิดอาจถูกตัวกรองชื่อซ่อนอยู่ → ล้างตัวกรองก่อนเลื่อนไปหา
+      if (nf.filtering) { nf.setFilter(null); requestAnimationFrame(() => revealFirstInvalid(formRef)) }
+      else revealFirstInvalid(formRef)
       return
     }
     if (entries.length === 0) return
@@ -224,7 +229,7 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
             <caption className="sr-only">จำนวนวันทำงานของลูกจ้างรายวัน งวด {label}</caption>
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 dark:border-line dark:bg-white/[.03]">
-                <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">ลูกจ้าง / สาขา</th>
+                <NameHeaderCell nf={nf} label="ลูกจ้าง / สาขา" />
                 <th scope="col" className="w-28 px-3 py-2.5 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">จำนวนวัน</th>
                 <th scope="col" className="hidden w-32 px-3 py-2.5 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 sm:table-cell">
                   ค่าจ้างโดยประมาณ
@@ -234,7 +239,9 @@ export default function DaysWorkedSheet({ open, ym, canEdit, isDraft, dailyWage 
             <tbody className="divide-y divide-gray-100 dark:divide-line">
               {loading ? (
                 <SkeletonTableRows rows={4} cols={COLS} />
-              ) : rows.map((r, i) => {
+              ) : nf.rows.length === 0 ? (
+                <tr><td colSpan={COLS} className="p-0"><NameNoMatch nf={nf} /></td></tr>
+              ) : nf.rows.map((r, i) => {
                 const id = `${uid}-d${r.employee_id}`
                 const v = form[r.employee_id] ?? ""
                 const err = errors[r.employee_id]

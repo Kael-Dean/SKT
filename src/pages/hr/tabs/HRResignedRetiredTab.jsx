@@ -12,6 +12,8 @@ import AllTimeToggle from "../../../components/AllTimeToggle"
 import { firstOfMonthIso, todayIso } from "../../../lib/allTime"
 import { exitTypeLabel, normalizeExitType } from "../../../lib/exitTypes"
 import ThaiDateField from "../../../components/ThaiDateField"
+import { NameHeaderCell, NameNoMatch } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const TABLE_HEADERS = ["ชื่อ-สกุล", "รหัสเดิม", "รหัสประจำตัว", "วันเกิด", "การศึกษา", "ตำแหน่ง", "สาขา", "วันบรรจุ", "วันที่ออก", "ประเภท"]
 
@@ -46,6 +48,7 @@ export default function HRResignedRetiredTab() {
   const [error,      setError]      = useState("")
   const [pdfLoading, setPdfLoading] = useState(false)
   const [pdfErr,     setPdfErr]     = useState("")
+  const nf = useNameFilter(rows, { get: (r) => `${r.full_name ?? ""} ${r.legacy_user_id ?? ""}`, label: "ชื่อ-สกุล" })
 
   // ตัวกรองสาขา (ไม่บังคับ) — scope "own_branch" ล็อกที่สาขาที่ใช้งานอยู่
   const branchLock = useBranchLock()
@@ -212,7 +215,8 @@ export default function HRResignedRetiredTab() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                {TABLE_HEADERS.map((h) => (
+                <NameHeaderCell nf={nf} label={TABLE_HEADERS[0]} />
+                {TABLE_HEADERS.slice(1).map((h) => (
                   <th key={h} className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -220,8 +224,10 @@ export default function HRResignedRetiredTab() {
             <tbody aria-busy={loading}>
               {loading ? (
                 <SkeletonTableRows rows={8} cols={TABLE_HEADERS.length} />
+              ) : nf.rows.length === 0 ? (
+                <tr><td colSpan={TABLE_HEADERS.length} className="p-0"><NameNoMatch nf={nf} /></td></tr>
               ) : (
-                rows.map((row, i) => (
+                nf.rows.map((row, i) => (
                   <tr key={row.user_id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
                     <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{row.full_name}</td>
                     <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs tabular-nums">{row.legacy_user_id ?? "—"}</td>

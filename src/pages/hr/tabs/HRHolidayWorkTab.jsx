@@ -12,6 +12,8 @@ import { SkeletonTableRows, ErrorState, EmptyState } from "../../../components/u
 import { currentFiscalYearBE } from "../../../lib/leaveDays"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import ThaiDateField from "../../../components/ThaiDateField"
+import { NameHeaderCell, NameNoMatch } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
 
@@ -39,6 +41,7 @@ export default function HRHolidayWorkTab() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const nf = useNameFilter(rows, { get: (r) => `${r.full_name || r.employee_name || ""} ${r.user_id ?? ""}`, label: "เจ้าหน้าที่" })
 
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(emptyForm())
@@ -168,7 +171,7 @@ export default function HRHolidayWorkTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">เจ้าหน้าที่</th>
+                <NameHeaderCell nf={nf} label="เจ้าหน้าที่" />
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">วันที่ทำงาน</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400">ตัวคูณค่าจ้าง</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 hidden md:table-cell">เลขที่คำสั่ง</th>
@@ -188,7 +191,9 @@ export default function HRHolidayWorkTab() {
                     />
                   </td>
                 </tr>
-              ) : rows.map((r) => (
+              ) : nf.rows.length === 0 ? (
+                <tr><td colSpan={WORK_COLS} className="p-0"><NameNoMatch nf={nf} /></td></tr>
+              ) : nf.rows.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900 dark:text-gray-100">{r.full_name || r.employee_name || "—"}</p>

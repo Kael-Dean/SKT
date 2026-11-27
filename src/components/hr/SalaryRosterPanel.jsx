@@ -11,6 +11,8 @@ import SelectDropdown from "../SelectDropdown"
 import { EmptyState, ErrorState, Skeleton, SkeletonTableRows } from "../ui"
 import usePositions from "./usePositions"
 import { useSalaryRoster } from "./salaryData"
+import { NameHeaderCell, NameNoMatch } from "./nameFilter"
+import { useNameFilter } from "./useNameFilter"
 import { POSITION_TIERS, cardCls, fmtLevel, linkBtn, thCls, thb, tierName } from "./positionUtils"
 
 const branchLabel = (r) => (r.branchId == null ? "ไม่ระบุสาขา" : r.branchName ?? `สาขา ${r.branchId}`)
@@ -87,18 +89,29 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
     return sortRoster(list, sort)
   }, [roster.rows, deferredQuery, branch, tier, sort])
 
+  // ตัวกรองชื่อจากหัวคอลัมน์ (เมนูเดียวกับตารางเจ้าหน้าที่) — การเรียงใช้ state `sort` ของแผงนี้ตัวเดียว
+  // (hook ไม่เรียงเอง) เพื่อไม่ให้มีการเรียงสองชุดชนกัน
+  const nameNfBase = useNameFilter(filtered, { get: (r) => `${r.name ?? ""} ${r.id ?? ""}`, label: "ชื่อ-นามสกุล" })
+  const nameNf = {
+    ...nameNfBase,
+    sort: sort.key === "name" ? sort : null,
+    onSort: (_k, dir) => setSort({ key: "name", dir: dir || "asc" }),
+  }
+  const visible = nameNf.rows
+  const nameNoMatch = visible.length === 0 && nameNf.total > 0
+
   // summary over the filtered rows that already have a salary
   const summary = useMemo(() => {
     let sum = 0
     let paid = 0
-    for (const r of filtered) {
+    for (const r of visible) {
       if (r.salaryStatus === "ok") { sum += r.salary; paid++ }
     }
-    return { count: filtered.length, sum, paid, missing: filtered.length - paid, avg: paid ? sum / paid : null }
-  }, [filtered])
+    return { count: visible.length, sum, paid, missing: visible.length - paid, avg: paid ? sum / paid : null }
+  }, [visible])
 
-  const hasFilters = !!query || !!branch || !!tier
-  const clearFilters = () => { setQuery(""); setBranch(""); setTier("") }
+  const hasFilters = !!query || !!branch || !!tier || nameNf.filtering
+  const clearFilters = () => { setQuery(""); setBranch(""); setTier(""); nameNf.setFilter(null) }
 
   const toggleSort = (key) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" || key === "tier" ? "asc" : "desc" }))
@@ -180,7 +193,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
             {!firstLoad && (
               <span className="ml-2 text-xs font-normal tabular-nums text-gray-500 dark:text-gray-400">
                 {hasFilters
-                  ? `แสดง ${filtered.length.toLocaleString("th-TH")} จาก ${roster.total.toLocaleString("th-TH")} คน`
+                  ? `แสดง ${visible.length.toLocaleString("th-TH")} จาก ${roster.total.toLocaleString("th-TH")} คน`
                   : `${roster.total.toLocaleString("th-TH")} คน`}
               </span>
             )}
@@ -201,7 +214,9 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
           </p>
         </div>
 
-        {!firstLoad && filtered.length === 0 ? (
+        {!firstLoad && nameNoMatch ? (
+          <NameNoMatch nf={nameNf} />
+        ) : !firstLoad && visible.length === 0 ? (
           <EmptyState
             icon={<Users aria-hidden="true" className="size-10" strokeWidth={1.5} />}
             title={hasFilters ? "ไม่พบเจ้าหน้าที่ที่ตรงกับตัวกรอง" : "ยังไม่มีเจ้าหน้าที่ที่ใช้งานอยู่"}
@@ -218,7 +233,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
                 <caption className="sr-only">รายชื่อเจ้าหน้าที่พร้อมขั้นและเงินเดือนปัจจุบัน</caption>
                 <thead className="sticky top-0 z-[1] bg-gray-50 shadow-[0_1px_0_0] shadow-gray-100 dark:bg-gray-900 dark:shadow-gray-700">
                   <tr>
-                    <SortTh label="ชื่อ-นามสกุล" col="name" sort={sort} onSort={toggleSort} />
+                    <NameHeaderCell nf={nameNf} label="ชื่อ-นามสกุล" />
                     <th scope="col" className={cx(thCls, "hidden text-left lg:table-cell")}>สาขา</th>
                     <th scope="col" className={cx(thCls, "text-left")}>ตำแหน่ง</th>
                     <SortTh label="กระบอก" col="tier" sort={sort} onSort={toggleSort} />
@@ -230,7 +245,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                   {firstLoad ? (
                     <SkeletonTableRows rows={8} cols={COLS} />
-                  ) : filtered.map((r) => (
+                  ) : visible.map((r) => (
                     <tr key={r.id} className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30">
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2.5">
@@ -274,7 +289,7 @@ export default function SalaryRosterPanel({ onOpenEmployee }) {
                       <Skeleton rounded="rounded-md" className="h-3 w-1/2" />
                     </li>
                   ))
-                : filtered.map((r) => (
+                : visible.map((r) => (
                     <li key={r.id} className="px-4 py-3">
                       <div className="flex items-start gap-3">
                         <Avatar name={r.name} />

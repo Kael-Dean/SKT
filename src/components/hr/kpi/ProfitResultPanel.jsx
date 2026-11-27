@@ -12,6 +12,8 @@ import { Badge, ConfirmDialog, toast } from "../../ui"
 import { cardCls, errText, fmtDate, fmtLevel, inputCls, labelCls, nf, primaryBtn, secondaryBtn, thb, thCls } from "../positionUtils"
 import { NoteField, PendingBadge, SkippedTable } from "./KpiBits"
 import { PROFIT_LABEL, fmtMonthTH, fyRange, minSettlementMonth, num } from "./kpiUtils"
+import { NameHeaderCell, NameNoMatch } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 /** profit_result may be "profit" | "loss" | boolean */
 const normResult = (v) => (v === true ? "profit" : v === false ? "loss" : v || null)
@@ -26,6 +28,8 @@ export default function ProfitResultPanel({ fy, info, people, onChanged }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState("")
   const [result, setResult] = useState(null)
+  // nf = ตัวจัดรูปตัวเลขจาก positionUtils → ตั้งชื่อ nameF
+  const nameF = useNameFilter(result?.settled, { get: (r) => people.nameOf(r.user_id), label: "เจ้าหน้าที่" })
 
   const minMonth = minSettlementMonth(fy)
   const pendingCount = num(info?.counts?.pending_half_steps) ?? 0
@@ -157,7 +161,7 @@ export default function ProfitResultPanel({ fy, info, people, onChanged }) {
                 <caption className="sr-only">รายการที่ปรับแล้ว</caption>
                 <thead className="bg-gray-50 dark:bg-gray-900/30">
                   <tr>
-                    <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
+                    <NameHeaderCell nf={nameF} label="เจ้าหน้าที่" />
                     <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>สถานะ +0.5</th>
                     <th scope="col" className={cx(thCls, "whitespace-nowrap text-right")}>ขั้นหลังปรับ</th>
                     <th scope="col" className={cx(thCls, "whitespace-nowrap text-right")}>เงินตกเบิก (บาท)</th>
@@ -165,7 +169,10 @@ export default function ProfitResultPanel({ fy, info, people, onChanged }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {result.settled.map((r) => (
+                  {nameF.rows.length === 0 && (
+                    <tr><td colSpan={5} className="p-0"><NameNoMatch nf={nameF} /></td></tr>
+                  )}
+                  {nameF.rows.map((r) => (
                     <tr key={r.user_id}>
                       <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{people.nameOf(r.user_id)}</td>
                       <td className="px-4 py-2.5 whitespace-nowrap"><PendingBadge status={r.pending_status} /></td>

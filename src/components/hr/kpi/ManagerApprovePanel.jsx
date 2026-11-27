@@ -15,6 +15,8 @@ import { EligibilityDialog, ReopenDialog } from "./ReviewDialogs"
 import { NoteField, SkippedTable } from "./KpiBits"
 import { fmtStep, needsBoardRef, num } from "./kpiUtils"
 import { useEvaluations } from "./useKpi"
+import { NameHeaderCell, NameNoMatch } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 export default function ManagerApprovePanel({ fy, perms, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy, "asst_reviewed")
@@ -194,6 +196,8 @@ export default function ManagerApprovePanel({ fy, perms, people, catalogue, onCh
 
 function ApproveResult({ result, people, boardSkipped, onBoardApprove, onDismiss }) {
   const { approved, skipped } = result
+  // nf = ตัวจัดรูปตัวเลขจาก positionUtils → ตั้งชื่อ nameF
+  const nameF = useNameFilter(approved, { get: (a) => people.nameOf(a.user_id), label: "เจ้าหน้าที่" })
   return (
     <section aria-label="ผลการอนุมัติ" aria-live="polite" className={cx(cardCls, "p-4 sm:p-5 space-y-4")}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -214,13 +218,16 @@ function ApproveResult({ result, people, boardSkipped, onBoardApprove, onDismiss
             <caption className="sr-only">รายการที่อนุมัติแล้ว</caption>
             <thead className="bg-gray-50 dark:bg-gray-900/30">
               <tr>
-                <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
+                <NameHeaderCell nf={nameF} label="เจ้าหน้าที่" />
                 <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>ขั้นเงินเดือน</th>
                 <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>รอผลประกอบการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-              {approved.map((a) => {
+              {nameF.rows.length === 0 && (
+                <tr><td colSpan={3} className="p-0"><NameNoMatch nf={nameF} /></td></tr>
+              )}
+              {nameF.rows.map((a) => {
                 const before = num(a.level_before)
                 const after = num(a.level_after)
                 const same = before != null && after != null && before === after

@@ -24,6 +24,8 @@ import AttachmentList from "../AttachmentList"
 import {
   ageText, fmtShortDate, fullName, hasNewValue, issueStatus, previousValueOf,
 } from "../../lib/issueReports"
+import { NameHeaderCell, NameNoMatch, NameSearchField } from "./nameFilter"
+import { useNameFilter } from "./useNameFilter"
 
 const STATUS_TABS = ["pending", "resolved", "rejected", "all"]
 const inputCls = cx(baseField, "!rounded-lg !px-3 !py-2 md:!text-sm")
@@ -285,6 +287,8 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
     else list.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
     return list
   }, [rows, status])
+  const nf = useNameFilter(sorted, { get: fullName, label: "พนักงาน" })
+  const noMatch = nf.rows.length === 0 && nf.total > 0
 
   const overdueCount = status === "pending" && !overdueOnly ? rows.filter((r) => r.overdue).length : null
 
@@ -375,8 +379,10 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
         {error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : isPhone ? (
+          <>
+          {nf.total > 0 && <NameSearchField nf={nf} />}
           <DataList
-            items={sorted}
+            items={nf.rows}
             keyOf={(r) => r.id}
             loading={loading}
             skeletonRows={3}
@@ -389,15 +395,16 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
               { label: "ไฟล์แนบ", value: (r) => (r.attachments?.length ? `${r.attachments.length} ไฟล์` : "—"), align: "right" },
             ]}
             onClick={openReport}
-            emptyState={<EmptyState title={emptyTitle} description={emptyDesc} />}
+            emptyState={noMatch ? <NameNoMatch nf={nf} /> : <EmptyState title={emptyTitle} description={emptyDesc} />}
           />
+          </>
         ) : (
           <div className={cx(cardCls, "overflow-x-auto")}>
             <table className="w-full min-w-[56rem] text-sm">
               <caption className="sr-only">รายการคำร้องแจ้งแก้ไขข้อมูล</caption>
               <thead className="border-b border-gray-200 text-left text-xs font-semibold text-gray-500 dark:border-line dark:text-gray-400">
                 <tr>
-                  <th scope="col" className="px-4 py-2.5">พนักงาน</th>
+                  <NameHeaderCell nf={nf} label="พนักงาน" />
                   <th scope="col" className="px-4 py-2.5">ข้อมูลที่แจ้ง</th>
                   <th scope="col" className="px-4 py-2.5">ค่าเดิม → ค่าใหม่</th>
                   <th scope="col" className="px-4 py-2.5">ไฟล์แนบ</th>
@@ -409,9 +416,9 @@ export default function IssueReportsPanel({ idBase = "hr-issues" }) {
               <tbody className="divide-y divide-gray-100 dark:divide-line">
                 {loading ? (
                   <SkeletonTableRows rows={4} cols={7} />
-                ) : sorted.length === 0 ? (
-                  <tr><td colSpan={7}><EmptyState title={emptyTitle} description={emptyDesc} /></td></tr>
-                ) : sorted.map((r) => {
+                ) : nf.rows.length === 0 ? (
+                  <tr><td colSpan={7}>{noMatch ? <NameNoMatch nf={nf} /> : <EmptyState title={emptyTitle} description={emptyDesc} />}</td></tr>
+                ) : nf.rows.map((r) => {
                   const st = issueStatus(r.status)
                   return (
                     <tr

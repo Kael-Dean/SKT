@@ -9,6 +9,8 @@ import { Badge, SkeletonTableRows } from "../../ui"
 import { cardCls, linkBtn, thCls } from "../positionUtils"
 import { ComponentBreakdown, EligibilityBadge, GradeBadge, SchemeLabel, StepCell } from "./KpiBits"
 import { fmtScore } from "./kpiUtils"
+import { NameHeaderCell, NameNoMatch } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 const checkCls =
   "size-4 rounded border-gray-300 text-indigo-600 accent-indigo-600 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -29,7 +31,9 @@ export default function ReviewTable({
   showSenior = false,
   catalogue = null,
 }) {
-  const selectable = rows.filter(isSelectable)
+  const nf = useNameFilter(rows, { get: (r) => people.nameOf(r.user_id), label: "เจ้าหน้าที่" })
+  // เลือกทั้งหมด = เฉพาะแถวที่เห็นอยู่ (หลังกรองชื่อ) — กันเลือกคนที่ถูกซ่อนไว้โดยไม่ตั้งใจ
+  const selectable = nf.rows.filter(isSelectable)
   const allOn = selectable.length > 0 && selectable.every((r) => selected.has(r.user_id))
   const someOn = selectable.some((r) => selected.has(r.user_id))
   const headRef = useRef(null)
@@ -57,7 +61,7 @@ export default function ReviewTable({
                   aria-label="เลือกทั้งหมด"
                 />
               </th>
-              <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
+              <NameHeaderCell nf={nf} label="เจ้าหน้าที่" />
               <th scope="col" className={cx(thCls, "whitespace-nowrap text-left hidden lg:table-cell")}>คะแนนแต่ละส่วน</th>
               <th scope="col" className={cx(thCls, "whitespace-nowrap text-right")}>คะแนนรวม</th>
               <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>ขั้นที่ได้</th>
@@ -68,8 +72,10 @@ export default function ReviewTable({
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {loading ? (
               <SkeletonTableRows rows={5} cols={cols} />
+            ) : nf.rows.length === 0 && nf.total > 0 ? (
+              <tr><td colSpan={cols} className="p-0"><NameNoMatch nf={nf} /></td></tr>
             ) : (
-              rows.map((ev) => {
+              nf.rows.map((ev) => {
                 const on = selected.has(ev.user_id)
                 const canSel = isSelectable(ev)
                 const name = people.nameOf(ev.user_id)

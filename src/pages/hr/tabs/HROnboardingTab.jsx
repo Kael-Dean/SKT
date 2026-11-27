@@ -38,6 +38,8 @@ import {
   SkeletonTableRows,
   toast,
 } from "../../../components/ui"
+import { NameHeaderCell, NameNoMatch } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const TOTAL_SECTIONS = 8 // account … criminal + license
 
@@ -234,6 +236,9 @@ export default function HROnboardingTab() {
       (!q || String(r.name ?? "").toLowerCase().includes(q) || String(r.branch_name ?? "").toLowerCase().includes(q)),
     )
   }, [rows, status, query])
+  // ตัวกรอง/เรียงชื่อจากหัวคอลัมน์ (desktop) — ต่อจากตัวกรองสถานะ + ช่องค้นหาด้านบน
+  const nameNf = useNameFilter(visible, { get: (r) => r.name, label: "ชื่อ" })
+  const nameNoMatch = nameNf.rows.length === 0 && nameNf.total > 0
 
   const patchRow = (userId, patch) =>
     setRows((prev) => prev.map((r) => (r.user_id === userId ? { ...r, ...patch } : r)))
@@ -406,7 +411,7 @@ export default function HROnboardingTab() {
       {/* ── รายชื่อ ─────────────────────────────────────────────── */}
       {!error && (isPhone ? (
         <DataList
-          items={visible}
+          items={nameNf.rows}
           keyOf={(r) => r.user_id}
           loading={loading}
           title={(r) => r.name || "—"}
@@ -420,7 +425,7 @@ export default function HROnboardingTab() {
             ...(r.exempt_reason ? [{ key: "reason", label: "เหตุผลยกเว้น", span: 2, value: () => r.exempt_reason }] : []),
           ]}
           actions={canManage ? (r) => <RowActions row={r} {...actionProps} /> : undefined}
-          emptyState={empty}
+          emptyState={nameNoMatch ? <NameNoMatch nf={nameNf} /> : empty}
         />
       ) : (
         <div className="overflow-hidden rounded-xl ring-1 ring-gray-200/70 dark:ring-line">
@@ -428,7 +433,7 @@ export default function HROnboardingTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr>
-                  <th scope="col" className={TH}>ชื่อ</th>
+                  <NameHeaderCell nf={nameNf} label="ชื่อ" />
                   <th scope="col" className={TH}>สาขา</th>
                   <th scope="col" className={TH}>สถานะ</th>
                   <th scope="col" className={TH}>ยืนยันแล้ว</th>
@@ -441,9 +446,9 @@ export default function HROnboardingTab() {
               <tbody className="divide-y divide-gray-100 dark:divide-line">
                 {loading ? (
                   <SkeletonTableRows rows={6} cols={canManage ? 8 : 7} />
-                ) : visible.length === 0 ? (
-                  <tr><td colSpan={canManage ? 8 : 7}>{empty}</td></tr>
-                ) : visible.map((r) => {
+                ) : nameNf.rows.length === 0 ? (
+                  <tr><td colSpan={canManage ? 8 : 7}>{nameNoMatch ? <NameNoMatch nf={nameNf} /> : empty}</td></tr>
+                ) : nameNf.rows.map((r) => {
                   const st = statusOf(r)
                   return (
                     <tr
@@ -489,7 +494,7 @@ export default function HROnboardingTab() {
 
       {!loading && !error && rows.length > 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          แสดง {nf(visible.length)} จาก {nf(rows.length)} คน · ยืนยันครบ 8 หัวข้อแล้วจึงใช้บริการตนเองได้ แม้ยังไม่จบทัวร์
+          แสดง {nf(nameNf.rows.length)} จาก {nf(rows.length)} คน · ยืนยันครบ 8 หัวข้อแล้วจึงใช้บริการตนเองได้ แม้ยังไม่จบทัวร์
         </p>
       )}
 

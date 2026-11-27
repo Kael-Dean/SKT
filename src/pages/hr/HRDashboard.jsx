@@ -51,6 +51,7 @@ import HRDependantsVerifyTab from "./tabs/HRDependantsVerifyTab"
 import HRLeaveCalendarTab from "./tabs/HRLeaveCalendarTab"
 import HRLeaveLogTab from "./tabs/HRLeaveLogTab"
 import HRSignaturesTab from "./tabs/HRSignaturesTab"
+import HRDeductionRequestsTab from "./tabs/HRDeductionRequestsTab"
 import HRWelfareTab from "./tabs/HRWelfareTab"
 import HRWelfareSettingsTab from "./tabs/HRWelfareSettingsTab"
 import HRDisciplineTab from "./tabs/HRDisciplineTab"
@@ -158,6 +159,7 @@ function renderSection(key, { onGoToPositions, onDependantsCount, overview }) {
     case "leave-calendar":     return <HRLeaveCalendarTab />
     case "leave-log":          return <HRLeaveLogTab />
     case "signatures":         return <HRSignaturesTab />
+    case "deduction-requests": return <HRDeductionRequestsTab />
     case "welfare":            return <HRWelfareTab />
     case "welfare-settings":   return <HRWelfareSettingsTab />
     case "discipline":         return <HRDisciplineTab />

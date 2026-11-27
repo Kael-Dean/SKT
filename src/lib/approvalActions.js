@@ -21,6 +21,7 @@ import {
   checkRoleLabel,
   STAGE,
 } from "./approval"
+import { MY_DEDUCTIONS_PATH } from "./deductions"
 
 export const KIND = {
   LEAVE: "leave",
@@ -44,7 +45,11 @@ export const NOTIFICATION_REF_LABEL = {
   kpi_fiscal_year: "ประเมิน KPI",
   kpi_evaluation: "ผลประเมิน KPI",
   salary_cert: "หนังสือรับรองเงินเดือน",
+  deduction_request: "คำขอเปลี่ยนภาษี/เงินสะสม",
 }
+
+/** kind ของการแจ้งเตือนที่ต้องดำเนินการ (แถบสีส้มในกระดิ่ง) — นอกจาก "action" ทั่วไป */
+export const isActionNotification = (n) => n?.kind === "action" || n?.kind === "deduction_request_pending"
 
 /** Deep link used by notifications → Inbox detail. */
 export function inboxLink(refType, refId) {
@@ -65,6 +70,8 @@ const hrTab = (tab, refId) =>
  *   kpi_evaluation     action (reopen) → HR แท็บ kpi       · info (ผลอนุมัติ) → /my-kpi
  *   salary_cert        info (ผลอนุมัติ) → /my-salary-cert · can(hr.salaryCert.decide) → HR แท็บ salary-cert
  *                      · action อื่น (หัวหน้าให้ความเห็น) → /inbox
+ *   deduction_request  kind deduction_request_pending → HR แท็บ deduction-requests
+ *                      · deduction_request_decided → /my-financial?section=deductions (การ์ดภาษี / เงินสะสม)
  */
 export function notificationLink(n) {
   const refType = n?.ref_type
@@ -93,6 +100,10 @@ export function notificationLink(n) {
       if (n?.kind === "info") return "/my-salary-cert"
       if (can("hr.salaryCert.decide")) return hrTab("salary-cert", refId)
       return "/inbox"
+    case "deduction_request":
+      // kind เฉพาะของ PR 116: deduction_request_pending (ถึงผู้พิจารณา) · deduction_request_decided (ถึงผู้ยื่น)
+      if (n?.kind === "deduction_request_pending" && can("hr.deductionRequests.decide")) return hrTab("deduction-requests", refId)
+      return MY_DEDUCTIONS_PATH
     default:
       return "/inbox"
   }

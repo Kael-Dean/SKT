@@ -264,6 +264,7 @@ const KEYWORDS = {
   "/hr/dashboard?tab=issues": ["คำร้องแก้ไขข้อมูล", "แจ้งแก้ไขข้อมูล", "แจ้ง"],
   "/hr/dashboard?tab=issue-stats": ["สถิติแจ้งแก้ไข"],
   "/hr/dashboard?tab=signatures": ["ลายเซ็น", "ลายมือชื่อ", "เซ็นอัตโนมัติ", "e-signature"],
+  "/hr/dashboard?tab=deduction-requests": ["ขอเปลี่ยนภาษี", "ขอเปลี่ยนเงินสะสม", "ยอดหักภาษี", "อนุมัติเงินสะสม"],
   "/hr/dashboard?tab=audit": ["บันทึกการใช้งาน", "audit log"],
   "/hr/dashboard?tab=holiday-calendar": ["วันหยุดประจำปี", "จัดการวันหยุด", "calendar"],
   "/hr/dashboard?tab=payroll-settings": ["เงินเดือน", "สปส", "เงินสะสมขั้นต่ำ", "กองทุนสงเคราะห์"],

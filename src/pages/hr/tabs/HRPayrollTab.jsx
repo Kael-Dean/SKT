@@ -8,6 +8,8 @@
 //   ปีเป็น ค.ศ. ทุก route · สร้าง/แก้ได้เฉพาะงวดร่าง (นอกนั้น backend ตอบ 409 — ปุ่มปิดไว้ก่อน)
 //   ใครกดอะไรได้ตัดสินที่ periodActionOf (lib/payroll.js) จุดเดียว — หัวหน้าฝ่ายบัญชี (view.accounting) ไม่มีปุ่มเลย
 //   ผู้ตรวจ/ผู้อนุมัติมีแท็บย่อย "รอตรวจสอบ/อนุมัติ" (HRPayrollReviewPanel) · รายการหักภายนอกอยู่ใน HRPayrollExternalPanel
+//   ภาษี / เงินสะสม + ยอดเฉพาะเดือน (PR 116) อยู่ใน HRPayrollTaxReservePanel (?sub=taxReserve, hr.payroll.monthOverride.view)
+//     หัวหน้าฝ่ายบัญชีเปิดงวดร่างได้เฉพาะแท็บนั้น — แท็บงวดประจำเดือน/หักภายนอกยังได้ 403 จาก backend เหมือนเดิม
 //   ส่งตรวจสอบได้เมื่อ period.external_missing = 0 (ไม่มี field = backend รุ่นเก่า ไม่บล็อก)
 //   403 = ผช.ผจก./หัวหน้าฝ่ายบัญชีเปิดเดือนที่ยังไม่ผ่านการตรวจขั้นแรก → แจ้งข้อความ backend ไม่ใช่ error และไม่ถือเป็นร่าง
 //   ลูกจ้างรายวัน (3C daily-paid): GET/PUT /hr/payroll/days-worked/{y}/{m} ผ่าน DaysWorkedSheet — ต้องบันทึกวันก่อนสร้าง
@@ -40,6 +42,7 @@ import PayrollShortfallSheet, { ShortfallPaidChip } from "../../../components/hr
 import { downloadShortfallPdf } from "../../../lib/shortfall"
 import HRPayrollReviewPanel from "./HRPayrollReviewPanel"
 import HRPayrollExternalPanel from "./HRPayrollExternalPanel"
+import HRPayrollTaxReservePanel from "./HRPayrollTaxReservePanel"
 import { keepBackState, useDrill } from "../../../lib/drill"
 import { ActiveFilterChips, FilterSheet, HeaderCell, MobileControls } from "../../../components/hr/EmployeeTable"
 import { enumOptions, isFilterActive, matchFilter } from "../../../components/hr/columnFilters"
@@ -390,7 +393,7 @@ function GenerateOneSheet({ open, ym, onClose, onDone }) {
 
 // ─── Month view ──────────────────────────────────────────────────────────────
 
-function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeriodChanged }) {
+function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onOpenTaxReserve, onPeriodChanged }) {
   const { can } = useCan()
   const isPhone = useIsPhone()
   const perms = {
@@ -616,7 +619,13 @@ function PayrollMonthPanel({ filterMonth, setFilterMonth, onOpenExternal, onPeri
     return (
       <div className="space-y-4">
         {monthPicker}
-        <EmptyState title={`ยังดูงวด ${monthLabel} ไม่ได้`} description={notVisible} />
+        <EmptyState
+          title={`ยังดูงวด ${monthLabel} ไม่ได้`}
+          description={notVisible}
+          action={onOpenTaxReserve && can("hr.payroll.monthOverride.edit")
+            ? <button type="button" onClick={onOpenTaxReserve} className={neutralBtnCls}>ไปกำหนดภาษี / เงินสะสม</button>
+            : undefined}
+        />
       </div>
     )
   }
@@ -841,6 +850,7 @@ export default function HRPayrollTab() {
   const actor = periodPerms(can)
   const canAct = actor.checkAdmin || actor.checkAsst || actor.approve
   const canView = can("hr.payroll.month.view")
+  const canTaxReserve = can("hr.payroll.monthOverride.view")
   const [params, setParams] = useSearchParams()
   const [filterMonth, setFilterMonth] = useState(MONTH_OPTIONS[0].value)
   const [reviewCount, setReviewCount] = useState(null)
@@ -858,6 +868,7 @@ export default function HRPayrollTab() {
   const subs = [
     ...(canView ? [{ value: "month", label: "งวดประจำเดือน" }] : []),
     ...(canView ? [{ value: "external", label: "รายการหักภายนอก" }] : []),
+    ...(canTaxReserve ? [{ value: "taxReserve", label: "ภาษี / เงินสะสม" }] : []),
     ...(canAct ? [{ value: "review", label: "รอตรวจสอบ/อนุมัติ", count: reviewCount || undefined }] : []),
   ]
   const fallback = canAct && !can("hr.payroll.generate") ? "review" : subs[0]?.value
@@ -875,6 +886,7 @@ export default function HRPayrollTab() {
     drillParams((p) => { p.set("sub", "month"); return p }, "รอตรวจสอบ/อนุมัติ")
   }
   const openExternal = () => drillParams((p) => { p.set("sub", "external"); return p }, "งวดประจำเดือน")
+  const openTaxReserve = () => drillParams((p) => { p.set("sub", "taxReserve"); return p }, "งวดประจำเดือน")
 
   const onCountChange = useCallback((n) => setReviewCount(n), [])
   const onPeriodChanged = useCallback(() => setCountTick((t) => t + 1), [])
@@ -892,6 +904,17 @@ export default function HRPayrollTab() {
 
   const panel = sub === "review"
     ? <HRPayrollReviewPanel onOpenMonth={openMonth} onCountChange={onCountChange} />
+    : sub === "taxReserve"
+      ? (
+        <HRPayrollTaxReservePanel
+          filterMonth={filterMonth}
+          ym={splitMonth(filterMonth)}
+          monthOptions={MONTH_OPTIONS}
+          onMonthChange={(v) => guarded(() => setFilterMonth(v))}
+          onOpenMonth={() => setSubParam("month")}
+          onChanged={onPeriodChanged}
+        />
+      )
     : sub === "external"
       ? (
         <HRPayrollExternalPanel
@@ -903,7 +926,7 @@ export default function HRPayrollTab() {
           onOpenMonth={() => setSubParam("month")}
         />
       )
-      : <PayrollMonthPanel filterMonth={filterMonth} setFilterMonth={setFilterMonth} onOpenExternal={openExternal} onPeriodChanged={onPeriodChanged} />
+      : <PayrollMonthPanel filterMonth={filterMonth} setFilterMonth={setFilterMonth} onOpenExternal={openExternal} onOpenTaxReserve={canTaxReserve ? openTaxReserve : null} onPeriodChanged={onPeriodChanged} />
 
   return (
     <div className="space-y-5">

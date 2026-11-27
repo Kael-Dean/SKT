@@ -5,6 +5,7 @@
 //   b) GET /personnel/me/payroll[/{id}]   สลิปรายเดือน (เฉพาะงวดที่อนุมัติ/ปิดแล้ว) → MyPayslipsPanel
 //   c) GET /personnel/me/salary-history   ประวัติการเลื่อนขั้น (เป็น "ขั้น" ไม่ใช่บาท)
 //   d) GET /personnel/me/gratuity         บำเหน็จของฉัน → MyGratuitySection (403/404 = ไม่แสดง)
+//   e) GET /personnel/me/deductions + /deduction-requests   ภาษี / เงินสะสม ต่อเดือน + คำขอเปลี่ยน → MyDeductionsCard (PR 116)
 // ยอดจริงของแต่ละเดือนมาจากสลิป (b) — การ์ดบน (a) เป็นค่าตั้งต้นในทะเบียน ไม่คำนวณยอดสุทธิจากการ์ดนี้
 // ─────────────────────────────────────────────────────────────────────────────
 import { useCallback, useEffect, useState } from "react"
@@ -18,6 +19,7 @@ import { fmtDate, fmtLevel, reasonLabel } from "../../components/hr/positionUtil
 import { cardCls, cx, focusRingCls } from "../../lib/styles"
 import { EmptyState, ErrorState, SkeletonText } from "../../components/ui"
 import MyPayslipsPanel from "../../components/hr/MyPayslipsPanel"
+import MyDeductionsCard from "../../components/hr/MyDeductionsCard"
 import PageTitle from "../../components/PageTitle"
 import { backState } from "../../lib/drill"
 import { getTenure, tenureText } from "../../lib/tenure"
@@ -195,6 +197,8 @@ export default function MyFinancial() {
         </div>
         <MyPayslipsPanel detailHeadingAs="h3" />
       </section>
+
+      {can("self.deductions.request") && <MyDeductionsCard />}
 
       <OnFileCard />
 

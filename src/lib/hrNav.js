@@ -35,6 +35,7 @@ import {
   Wrench,
   ListOrdered,
   Signature,
+  ReceiptText,
 } from "lucide-react"
 import { HR_KPI_PERMS } from "./permissions"
 
@@ -120,6 +121,9 @@ export const HR_NAV = [
       { key: "payroll", anyOf: ["hr.payroll.month.view", "hr.payroll.period.approve"], label: "จ่ายเงินเดือน", icon: Banknote,
         description: "สร้าง ตรวจสอบ อนุมัติ และปิดงวดเงินเดือนประจำเดือน",
         keywords: ["สลิป", "จ่าย", "payroll", "เงินเดือน", "งวด", "อนุมัติ", "ปิดงวด", "ตรวจสอบ", "หักภายนอก", "กยศ", "สหกรณ์ออมทรัพย์"] },
+      { key: "deduction-requests", perm: "hr.deductionRequests.decide", label: "คำขอเปลี่ยนภาษี/เงินสะสม", icon: ReceiptText,
+        description: "คำขอของพนักงานที่ขอเปลี่ยนยอดหักภาษีหรือเงินสะสมต่อเดือน รออนุมัติหรือไม่อนุมัติ",
+        keywords: ["ภาษี", "เงินสะสม", "หัก ณ ที่จ่าย", "คำขอ", "เปลี่ยนยอด", "อนุมัติ", "deduction", "tax", "reserve"] },
       { key: "loans", anyOf: ["hr.loans.queue", "hr.loans.list", "hr.loans.approve.finance", "hr.loans.overdue", "hr.loans.fundLedger"], label: "สินเชื่อ", icon: HandCoins, badgeKey: "loans",
         description: "คำขอกู้เงินกองทุนสงเคราะห์ที่รอพิจารณา สัญญา ตารางผ่อน และยอดค้างชำระ",
         keywords: ["กู้", "เงินกู้", "loan", "ผ่อน", "กองทุน", "อนุมัติ", "คณะทำงาน", "ค้างชำระ"] },

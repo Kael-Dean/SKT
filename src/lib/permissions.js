@@ -86,6 +86,7 @@ export const PERMISSIONS = Object.freeze({
   "self.profile.view": { no: 6, module: "Employee self-service", label: "ดูข้อมูลส่วนตัว / ตำแหน่ง / สาขาของตนเอง", en: "View own profile, position, branches", roles: "any" },
   "self.history.view": { no: 7, module: "Employee self-service", label: "ดูประวัติตำแหน่ง ขั้นเงินเดือน และการย้ายสาขาของตนเอง", en: "View own position / salary / relocation history", roles: "any" },
   "self.payroll.view": { no: 8, module: "Employee self-service", label: "ดูข้อมูลการเงินและสลิปเงินเดือนของตนเอง", en: "View own financial info & payslips", roles: "any" },
+  "self.deductions.request": { code: "login", no: null, module: "Employee self-service", label: "ดูยอดภาษี / เงินสะสมต่อเดือน และยื่นคำขอเปลี่ยน", en: "View own tax / reserve and request a change", roles: "any", note: "PR 116 — /personnel/me/deductions, /personnel/me/deduction-requests" },
   "self.leave.request": { no: 9, module: "Employee self-service", label: "ยื่นใบลา", en: "Submit own leave request", roles: "any" },
   "self.leave.view": { no: 10, module: "Employee self-service", label: "ดูโควตา / ประวัติการลา และพิมพ์ใบลาของตนเอง", en: "View own leave balance / history / print form", roles: "any" },
   "self.leave.cancel": { no: 11, module: "Employee self-service", label: "ยกเลิกใบลาของตนเอง (รออนุมัติ / อนุมัติแล้วแต่ยังไม่ถึงวันลา)", en: "Cancel own leave (pending, or approved before it starts)", roles: "any" },
@@ -189,6 +190,10 @@ export const PERMISSIONS = Object.freeze({
   "hr.payroll.check.asst": { code: "payroll.check.asst", no: null, module: "HR: Payroll", label: "ตรวจสอบงวดเงินเดือน — ผู้ช่วยผู้จัดการ", en: "Check pay period (assistant manager)", roles: [1, 7], note: "POST …/asst-check, …/return ที่ขั้น admin_checked" },
   "hr.payroll.view.accounting": { code: "payroll.view.accounting", no: null, module: "HR: Payroll", label: "ดูและดาวน์โหลดงวดเงินเดือนที่ผ่านการตรวจขั้นแรก — หัวหน้าฝ่ายบัญชี (ดูอย่างเดียว)", en: "View checked pay periods (accounting, read-only)", roles: [1, 4] },
   "hr.payroll.period.approve": { code: "payroll.period.approve", no: null, module: "HR: Payroll", label: "อนุมัติ / ส่งกลับแก้ไขงวดเงินเดือน — ผู้จัดการ", en: "Approve / return pay period (manager)", roles: [1, 2] },
+  // PR 116 — ภาษี/เงินสะสม ตั้งครั้งเดียว: คิวคำขอเปลี่ยนยอด + กำหนดเฉพาะเดือน (ตำแหน่ง 117 / 104 + Super Admin)
+  "hr.deductionRequests.decide": { code: "deduction_request.decide", no: null, module: "HR: Payroll", label: "พิจารณาคำขอเปลี่ยนยอดภาษี / เงินสะสม", en: "Decide tax / reserve change requests", roles: [1, 3, 4], note: "GET /hr/deduction-requests, POST …/{id}/approve|reject" },
+  "hr.payroll.monthOverride.view": { code: ["payroll.month_override", "payroll.view", "payroll.period.approve", "payroll.check.admin", "payroll.check.asst", "payroll.view.accounting"], no: null, module: "HR: Payroll", label: "ดูภาษี / เงินสะสมของงวดเงินเดือน", en: "View pay-month tax / reserve", roles: [1, 2, 3, 4, 7], variant: true, note: "GET /hr/payroll/month-override/{y}/{m}" },
+  "hr.payroll.monthOverride.edit": { code: "payroll.month_override", no: null, module: "HR: Payroll", label: "กำหนดภาษี / เงินสะสมเฉพาะเดือน (งวดร่าง)", en: "Set one-month tax / reserve override (draft month)", roles: [1, 3, 4], note: "PUT /hr/payroll/month-override/{y}/{m}" },
 
   // ── HR: Positions, salary & promotions ──
   "hr.positions.view": { code: ["position.view", "position.edit", "position.change", "hr.employee.create"], no: 68, module: "HR: Positions, salary & promotions", label: "ดูรายการตำแหน่ง", en: "View positions", roles: "any" },

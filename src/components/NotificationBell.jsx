@@ -5,7 +5,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import useNotifications from "../hooks/useNotifications"
-import { notificationLink, relativeTimeTh, fmtDateTimeTh, NOTIFICATION_REF_LABEL } from "../lib/approvalActions"
+import { notificationLink, relativeTimeTh, fmtDateTimeTh, NOTIFICATION_REF_LABEL, isActionNotification } from "../lib/approvalActions"
 import { useDrill } from "../lib/drill"
 
 const PANEL_Z = 10050
@@ -49,7 +49,7 @@ function InfoIcon({ className }) {
 }
 
 function NotificationRow({ n, onOpen }) {
-  const isAction = n.kind === "action"
+  const isAction = isActionNotification(n)
   const unread = !n.read_at
   return (
     <li>

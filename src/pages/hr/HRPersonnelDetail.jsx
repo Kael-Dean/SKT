@@ -435,6 +435,10 @@ export default function HRPersonnelDetail() {
           {fin.reserve_rate_pct !== undefined && (
             <InfoRow label="อัตราเงินสะสม" value={reserveRateText(fin.reserve_rate_pct)} />
           )}
+          {/* PR 116: ยอดเงินสะสมที่ตั้งไว้ (อ่านอย่างเดียว) · null = ยังไม่มียอดตั้ง ใช้ตามสลิปล่าสุด */}
+          {fin.reserve_amount !== undefined && (
+            <InfoRow label="เงินสะสม ต่อเดือน" value={fin.reserve_amount == null ? "ตามสลิปล่าสุด" : fmt(fin.reserve_amount)} />
+          )}
           <FinanceSavingsLoans fin={fin} scheduleUrl={(id) => `/hr/loans/${id}/schedule`} className="mt-5 border-t border-gray-100 pt-5 dark:border-line" />
         </div>
       )}

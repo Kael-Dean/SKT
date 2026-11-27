@@ -548,9 +548,10 @@ const HR_REPORTS = [
   { key: "hr-leave-balance", title: "รายงานสรุปวันลาประจำปีงบประมาณ", endpoint: "/hr/leave/report/balance", require: ["fiscalYear"], perm: "hr.reports.leaveBalance", xlsx: true },
   { key: "hr-leave-utilization", title: "รายงานการลาของพนักงาน", endpoint: "/hr/leave/report/utilization", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.reports.leaveUtilization", xlsx: true, allBranchesOption: true },
   { key: "hr-leave-annual", title: "ทะเบียนคุมการลาประจำปีบัญชี", endpoint: "/hr/leave/annual-summary-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveAnnual", xlsx: true, allBranchesOption: true },
-  { key: "hr-leave-register", title: "ทะเบียนการลาประจำปีบัญชี (เม.ย.–มี.ค.)", endpoint: "/hr/leave/register-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveRegister", xlsx: true, allBranchesOption: true },
+  // DOC-12: ทุกสาขาใช้เวลาสร้างนาน (backend ≤ 300 วิ) — แจ้งผู้ใช้ + กันกดซ้ำ
+  { key: "hr-leave-register", title: "ทะเบียนการลาประจำปีบัญชี (เม.ย.–มี.ค.)", endpoint: "/hr/leave/register-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveRegister", xlsx: true, allBranchesOption: true, slowAllBranchesHint: "กำลังสร้างทะเบียนการลาทุกสาขา อาจใช้เวลาถึง 3 นาที" },
   { key: "hr-roster", title: "ทะเบียนพนักงาน", endpoint: "/hr/reports/roster", require: [], perm: "hr.reports.roster", xlsx: true },
-  { key: "hr-new-employees", title: "รายงานพนักงานใหม่", endpoint: "/hr/reports/new-employees", require: ["month", "yearBE"], perm: "hr.reports.newEmployees", xlsx: true },
+  { key: "hr-new-employees", title: "รายงานพนักงานใหม่", endpoint: "/hr/reports/new-employees", require: ["month", "yearBE"], wholeYearOption: true, perm: "hr.reports.newEmployees", xlsx: true },
   { key: "hr-position-changes", title: "รายงานการเปลี่ยนตำแหน่ง", endpoint: "/hr/reports/position-changes", require: ["startDate", "endDate"], perm: "hr.reports.positionChanges", xlsx: true },
   { key: "hr-relocations", title: "รายงานการโอนย้าย", endpoint: "/hr/reports/relocations", require: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true },
   { key: "hr-relocation-history", title: "ประวัติการโยกย้ายเจ้าหน้าที่ (ทั้งองค์กร)", endpoint: "/hr/reports/relocation-history-pdf", require: [], optional: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true },
@@ -585,6 +586,8 @@ const currentFiscalYearBE = () => {
 }
 const THAI_MONTH_OPTIONS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
   .map((label, i) => ({ id: String(i + 1), label }))
+// RPT-09: รายงานที่เลือก "ทั้งปี" ได้ (TOR: เดือนหรือปี) — "all" = ไม่ส่ง month
+const WHOLE_YEAR_MONTH_OPTIONS = [{ id: "all", label: "ทั้งปี (ทุกเดือน)" }, ...THAI_MONTH_OPTIONS]
 
 /** ปีแผนงาน (พ.ศ.) — plan_id จริง = BusinessPlan.id จาก GET /unit-prices/{year}/plan (ไม่ใช่ลำดับปี) */
 const YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => {
@@ -649,6 +652,8 @@ function Documents() {
   const [loadingOptions, setLoadingOptions] = useState(false)
   const [loadingSpecs, setLoadingSpecs] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [excelBusy, setExcelBusy] = useState(false)
+  const downloadingRef = useRef(false) // กันกดซ้ำก่อน re-render (DOC-12)
   const [errors, setErrors] = useState({})
   const [activeReport, setActiveReport] = useState(null)
 
@@ -949,7 +954,7 @@ function Documents() {
     }
 
     // ปี พ.ศ. / เดือน (HR)
-    if (report.require.includes("month") && !(Number(filters.month) >= 1 && Number(filters.month) <= 12)) e.month = "เลือกเดือน"
+    if (report.require.includes("month") && !(Number(filters.month) >= 1 && Number(filters.month) <= 12) && !(report.wholeYearOption && filters.month === "all")) e.month = report.wholeYearOption ? "เลือกเดือน หรือ ทั้งปี" : "เลือกเดือน"
     for (const f of ["yearBE", "fiscalYear"]) {
       const wanted = report.require.includes(f) || (report.optional || []).includes(f)
       if (wanted && String(filters[f] || "").trim() && !/^25\d{2}$/.test(String(filters[f]).trim())) e[f] = "ปี พ.ศ. 4 หลัก เช่น 2569"
@@ -984,7 +989,7 @@ function Documents() {
 
     if (wants("planId") && effectivePlanId) p.set("plan_id", effectivePlanId)
 
-    if (wants("month") && filters.month) p.set("month", String(Number(filters.month)))
+    if (wants("month") && Number(filters.month) >= 1 && Number(filters.month) <= 12) p.set("month", String(Number(filters.month)))
     if (wants("yearBE") && String(filters.yearBE).trim()) {
       const be = String(filters.yearBE).trim()
       // report.yearCE = backend ต้องการ ค.ศ. (R12 งดจ่าย) — แปลงจาก พ.ศ. ที่ผู้ใช้กรอก
@@ -1045,8 +1050,10 @@ function Documents() {
 
   /** ---------- Download / Preview / Print ---------- */
   const doDownload = async (report) => {
+    if (downloadingRef.current || excelBusy) return
     const errs = validate(report)
     if (Object.keys(errs).length) return
+    downloadingRef.current = true
 
     const isPdf = isPdfType(report.type)
     // เปิดแท็บไว้ก่อนภายในคลิก (Safari บน iPhone/iPad/Mac บล็อก window.open หลัง await)
@@ -1089,6 +1096,7 @@ function Documents() {
       closeDocWindow(preOpenWin)
       toast.error("เปิดรายงานไม่สำเร็จ", { description: reportErrorMessage(err) })
     } finally {
+      downloadingRef.current = false
       setDownloading(false)
     }
   }
@@ -1555,7 +1563,7 @@ function Documents() {
             {has("month") && (
               <div>
                 <label className={labelCls}>เดือน{star("month")}</label>
-                <ComboBox options={THAI_MONTH_OPTIONS} value={filters.month} onChange={(v) => setFilter("month", v)} title="เดือน" error={!!errors.month} />
+                <ComboBox options={report.wholeYearOption ? WHOLE_YEAR_MONTH_OPTIONS : THAI_MONTH_OPTIONS} value={filters.month} onChange={(v) => setFilter("month", v)} title="เดือน" error={!!errors.month} />
                 <FieldError name="month" />
               </div>
             )}
@@ -1854,11 +1862,12 @@ function Documents() {
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <button
                 type="submit"
-                disabled={downloading}
+                disabled={downloading || excelBusy}
+                aria-busy={downloading || undefined}
                 className={cx(
                   "inline-flex items-center justify-center rounded-2xl bg-emerald-700 px-6 py-3 text-base font-semibold text-white " +
                     "shadow-sm transition-colors duration-200 hover:bg-emerald-800 active:bg-emerald-900 cursor-pointer",
-                  downloading && "opacity-70 cursor-wait"
+                  (downloading || excelBusy) && "opacity-70 cursor-wait"
                 )}
               >
                 {reportObj.type === "excel" ? (
@@ -1882,6 +1891,8 @@ function Documents() {
                   key={reportObj.key}
                   label="ดาวน์โหลด Excel"
                   getPdfPath={() => excelPdfPath(reportObj)}
+                  disabled={downloading}
+                  onBusyChange={setExcelBusy}
                   fallbackName={`${reportObj.key}${reportObj.require.includes("startDate") ? (filters.allTime ? "_all-time" : `_${filters.startDate}_${filters.endDate}`) : ""}.xlsx`}
                   className={cx(secondaryBtnCls, "disabled:opacity-60 disabled:cursor-not-allowed disabled:")}
                 />
@@ -1900,6 +1911,16 @@ function Documents() {
                 รีเซ็ต
               </button>
             </div>
+
+            {reportObj.slowAllBranchesHint && (downloading || excelBusy) && !scopedBranchId(filters.branchId) && (
+              <p role="status" className="mt-3 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                <span
+                  aria-hidden="true"
+                  className="size-4 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-emerald-700 dark:border-white/20 dark:border-t-emerald-400"
+                />
+                {reportObj.slowAllBranchesHint}
+              </p>
+            )}
           </form>
         )}
 

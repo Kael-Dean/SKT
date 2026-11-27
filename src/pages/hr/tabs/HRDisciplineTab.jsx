@@ -27,6 +27,7 @@ import { apiAuth } from "../../../lib/api"
 import { apiDetail } from "../../../lib/apiErrors"
 import { useCan } from "../../../lib/permissions"
 import { keepBackState } from "../../../lib/drill"
+import { bangkokDay } from "../../../lib/serverTime"
 import {
   cx, baseField, cardCls, dangerBtnCls, errorTextCls, focusRingCls, neutralBtnCls, primaryBtnCls, tabPanelCls,
 } from "../../../lib/styles"
@@ -195,7 +196,7 @@ function PunishForm({ c, state, setState }) {
   const step = Number(state.step) || null
   const set = (k) => (e) => setState((s) => ({ ...s, [k]: e?.target ? e.target.value : e, err: "", fieldErr: { ...s.fieldErr, [k]: "" } }))
   const fe = state.fieldErr || {}
-  const incidentDay = c.incident_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date(c.incident_at)) : undefined
+  const incidentDay = c.incident_at ? bangkokDay(c.incident_at) : undefined
 
   return (
     <div className="space-y-4">
@@ -481,7 +482,7 @@ function CaseSheet({ caseId, initialMode = "view", onClose, onChanged, onOpenTer
   const submitPunish = async () => {
     const step = Number(punish.step)
     if (!step) { setFormErr("เลือกหนังสือก่อน"); return }
-    const incidentDay = c.incident_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date(c.incident_at)) : ""
+    const incidentDay = bangkokDay(c.incident_at)
     if (punish.incident_end && incidentDay && punish.incident_end < incidentDay) {
       setPunish((s) => ({ ...s, fieldErr: { incident_end: "วันสิ้นสุดเหตุต้องไม่ก่อนวันที่เกิดเหตุ" } })); return
     }

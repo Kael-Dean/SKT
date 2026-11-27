@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { apiDownload } from "./api"
 import { saveBlob } from "./files"
+import { parseServerTime } from "./serverTime"
 
 /**
  * ขั้นโทษ (AMC 2026-11-16 · ระเบียบฯ 2561 ข้อ 54)
@@ -88,8 +89,8 @@ const TZ = "Asia/Bangkok"
 /** "1 ต.ค. 69 · 08:45" */
 export function fmtDateTime(d) {
   if (!d) return "—"
-  const dt = new Date(d)
-  if (Number.isNaN(dt.getTime())) return String(d)
+  const dt = parseServerTime(d)
+  if (!dt) return String(d)
   const date = dt.toLocaleDateString("th-TH", { timeZone: TZ, day: "numeric", month: "short", year: "2-digit" })
   const time = dt.toLocaleTimeString("th-TH", { timeZone: TZ, hour: "2-digit", minute: "2-digit" })
   return `${date} · ${time} น.`
@@ -99,8 +100,8 @@ export function fmtDateTime(d) {
 export function fmtDate(d, { long = false } = {}) {
   if (!d) return "—"
   const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  const dt = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(d)
-  if (Number.isNaN(dt.getTime())) return String(d)
+  const dt = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : parseServerTime(d)
+  if (!dt) return String(d)
   const opts = long ? { day: "numeric", month: "long", year: "numeric" } : { day: "numeric", month: "short", year: "2-digit" }
   return dt.toLocaleDateString("th-TH", m ? opts : { ...opts, timeZone: TZ })
 }

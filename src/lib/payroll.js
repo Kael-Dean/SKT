@@ -10,6 +10,7 @@
 //                  + หักภายนอก: กยศ. + สหกรณ์ออมทรัพย์ + เงินกู้ชมรม + อื่นๆ
 //                  + งดจ่ายเงิน (ลาเกินสิทธิ์) + งดจ่าย (พักงาน) 3Q)
 // ─────────────────────────────────────────────────────────────────────────────
+import { fmtServerDateTime } from "./serverTime"
 
 export const TH_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 export const TH_MONTHS_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."]
@@ -40,12 +41,7 @@ export const money = (n) =>
 export const toNum = (v) => (v == null || v === "" || Number.isNaN(Number(v)) ? 0 : Number(v))
 
 /** วันเวลาไทยสั้น ๆ สำหรับ "แก้ไขล่าสุด" / "ส่งเมื่อ" */
-export function fmtDateTime(iso) {
-  if (!iso) return "—"
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return "—"
-  return d.toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-}
+export const fmtDateTime = (iso) => fmtServerDateTime(iso, undefined, "—")
 
 // ─── งวดเงินเดือน ─────────────────────────────────────────────────────────────
 

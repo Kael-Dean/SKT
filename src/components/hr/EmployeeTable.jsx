@@ -77,6 +77,8 @@ const COLUMNS = [
   },
   { key: "branch", label: "สาขา", type: "enum", get: (r) => r.branch_name },
   { key: "sub_unit", label: "แผนก", type: "enum", get: (r) => r.sub_unit, optional: true },
+  // ธุรกิจ (PR #117) — optional: ไม่มีใครถูกตั้งค่า / backend ยังไม่ส่ง field = ซ่อนคอลัมน์เอง
+  { key: "hr_business", label: "ธุรกิจ", type: "enum", get: (r) => r.hr_business_name, optional: true },
   {
     key: "role", label: "Role", type: "enum", get: (r) => r.role_label,
     render: (r) => (r.role_label ? <span className={cx(badgeCls, roleBadgeTone(r.role_id))}>{r.role_label}</span> : <Muted />),

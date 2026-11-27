@@ -20,6 +20,7 @@ import SelectDropdown from "../../components/SelectDropdown"
 import { STATUS, STATUS_LABEL } from "../../lib/approval"
 import { SPEC_API, SPECIES_LABEL_KEY, mapIdLabel, speciesUrl } from "../../lib/riceSpec"
 import PurchaseTotalPanel from "../../components/reports/PurchaseTotalPanel"
+import { useHrBusinesses } from "../../lib/hrBusinesses"
 
 /** ---------- Utils ---------- */
 
@@ -540,44 +541,50 @@ const OOO_STATUS_OPTIONS = [
   ...[STATUS.PENDING_BRANCH_HEAD, STATUS.PENDING_ASSISTANT_MANAGER, STATUS.PENDING_MANAGER, STATUS.REJECTED, STATUS.CANCELLED]
     .map((s) => ({ value: s, label: STATUS_LABEL[s] })),
 ]
+// code = รหัสรายงาน HR01–HR30 (handoff PR 117) — ขึ้นหน้าชื่อแบบ "P02 — …" ของ Phase 1 (title ประกอบให้ใน .map ด้านล่าง)
+//        ฟอร์มรายคน/หนังสือ/ใบรับรองไม่มีรหัส · ชื่อใน lib/functionCatalogue.js ต้องตรงกับชื่อที่ประกอบแล้ว
+// businessFilter = ส่ง business_id / split=business ได้ (PDF + Excel twin) — ซ่อนเองถ้าโหลด /hr/businesses ไม่ได้
 const HR_REPORTS = [
-  { key: "hr-payroll-monthly", title: "รายงานสรุปเงินเดือน", endpoint: "/hr/payroll/report/monthly", require: ["month", "yearBE"], perm: "hr.reports.payrollMonthly", xlsx: true },
-  { key: "hr-payroll-annual", title: "รายงานเงินเดือนประจำปีงบประมาณ", endpoint: "/hr/payroll/report/annual", require: ["fiscalYear"], perm: "hr.reports.payrollAnnual", xlsx: true },
-  { key: "hr-social-security", title: "รายงานเงินสมทบประกันสังคม", endpoint: "/hr/payroll/report/social-security", require: ["month", "yearBE"], perm: "hr.reports.socialSecurity", xlsx: true },
-  { key: "hr-reserve-fund", title: "รายงานเงินสะสม / กองทุนสงเคราะห์เจ้าหน้าที่", endpoint: "/hr/payroll/report/reserve-fund", require: ["month", "yearBE"], perm: "hr.reports.reserveFund", xlsx: true },
-  { key: "hr-leave-balance", title: "รายงานสรุปวันลาประจำปีงบประมาณ", endpoint: "/hr/leave/report/balance", require: ["fiscalYear"], perm: "hr.reports.leaveBalance", xlsx: true },
-  { key: "hr-leave-utilization", title: "รายงานการลาของพนักงาน", endpoint: "/hr/leave/report/utilization", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.reports.leaveUtilization", xlsx: true, allBranchesOption: true },
-  { key: "hr-leave-annual", title: "ทะเบียนคุมการลาประจำปีบัญชี", endpoint: "/hr/leave/annual-summary-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveAnnual", xlsx: true, allBranchesOption: true },
+  { key: "hr-payroll-monthly", code: "HR02", title: "รายงานสรุปเงินเดือน", endpoint: "/hr/payroll/report/monthly", require: ["month", "yearBE"], perm: "hr.reports.payrollMonthly", xlsx: true, businessFilter: true },
+  { key: "hr-payroll-annual", code: "HR03", title: "รายงานเงินเดือนประจำปีงบประมาณ", endpoint: "/hr/payroll/report/annual", require: ["fiscalYear"], perm: "hr.reports.payrollAnnual", xlsx: true, businessFilter: true },
+  { key: "hr-social-security", code: "HR04", title: "รายงานเงินสมทบประกันสังคม", endpoint: "/hr/payroll/report/social-security", require: ["month", "yearBE"], perm: "hr.reports.socialSecurity", xlsx: true, businessFilter: true },
+  { key: "hr-reserve-fund", code: "HR05", title: "รายงานเงินสะสม / กองทุนสงเคราะห์เจ้าหน้าที่", endpoint: "/hr/payroll/report/reserve-fund", require: ["month", "yearBE"], perm: "hr.reports.reserveFund", xlsx: true, businessFilter: true },
+  { key: "hr-leave-balance", code: "HR06", title: "รายงานสรุปวันลาประจำปีงบประมาณ", endpoint: "/hr/leave/report/balance", require: ["fiscalYear"], perm: "hr.reports.leaveBalance", xlsx: true, businessFilter: true },
+  { key: "hr-leave-utilization", code: "HR07", title: "รายงานการลาของพนักงาน", endpoint: "/hr/leave/report/utilization", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.reports.leaveUtilization", xlsx: true, allBranchesOption: true, businessFilter: true },
+  { key: "hr-leave-annual", code: "HR15", title: "ทะเบียนคุมการลาประจำปีบัญชี", endpoint: "/hr/leave/annual-summary-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveAnnual", xlsx: true, allBranchesOption: true, businessFilter: true },
   // DOC-12: ทุกสาขาใช้เวลาสร้างนาน (backend ≤ 300 วิ) — แจ้งผู้ใช้ + กันกดซ้ำ
-  { key: "hr-leave-register", title: "ทะเบียนการลาประจำปีบัญชี (เม.ย.–มี.ค.)", endpoint: "/hr/leave/register-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveRegister", xlsx: true, allBranchesOption: true, slowAllBranchesHint: "กำลังสร้างทะเบียนการลาทุกสาขา อาจใช้เวลาถึง 3 นาที" },
-  { key: "hr-roster", title: "ทะเบียนพนักงาน", endpoint: "/hr/reports/roster", require: [], perm: "hr.reports.roster", xlsx: true },
-  { key: "hr-new-employees", title: "รายงานพนักงานใหม่", endpoint: "/hr/reports/new-employees", require: ["month", "yearBE"], wholeYearOption: true, perm: "hr.reports.newEmployees", xlsx: true },
-  { key: "hr-position-changes", title: "รายงานการเปลี่ยนตำแหน่ง", endpoint: "/hr/reports/position-changes", require: ["startDate", "endDate"], perm: "hr.reports.positionChanges", xlsx: true },
-  { key: "hr-relocations", title: "รายงานการโอนย้าย", endpoint: "/hr/reports/relocations", require: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true },
-  { key: "hr-relocation-history", title: "ประวัติการโยกย้ายเจ้าหน้าที่ (ทั้งองค์กร)", endpoint: "/hr/reports/relocation-history-pdf", require: [], optional: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true },
-  { key: "hr-salary-levels", title: "รายงานระดับเงินเดือนพนักงาน", endpoint: "/hr/reports/salary-levels", require: [], perm: "hr.reports.salaryLevels", xlsx: true },
-  { key: "hr-salary-adjustments", title: "รายงานการปรับขั้นเงินเดือน", endpoint: "/hr/reports/salary-adjustments", require: ["fiscalYear"], perm: "hr.reports.salaryAdjustments", xlsx: true },
-  { key: "hr-loans-active", title: "รายงานเงินกู้ที่ยังค้างชำระ", endpoint: "/hr/reports/loans/active", require: [], perm: "hr.reports.activeLoans", xlsx: true },
-  { key: "hr-kpi-branch", title: "รายงาน KPI สาขา", endpoint: "/hr/kpi/report/branch", require: ["fiscalYear"], optional: ["branchId"], perm: "hr.reports.kpiBranch", xlsx: true, allBranchesOption: true },
-  { key: "hr-kpi-org", title: "รายงาน KPI รวมองค์กร", endpoint: "/hr/kpi/report/organisation", require: ["fiscalYear"], perm: "hr.reports.kpiOrganisation", xlsx: true },
-  { key: "hr-resigned", title: "รายชื่อผู้พ้นสภาพ", endpoint: "/hr/reports/resigned-retired-pdf", require: [], optional: ["exitType", "branchId", "startDate", "endDate"], perm: "hr.reports.resignedRetired", xlsx: true, allBranchesOption: true },
+  { key: "hr-leave-register", code: "HR16", title: "ทะเบียนการลาประจำปีบัญชี (เม.ย.–มี.ค.)", endpoint: "/hr/leave/register-pdf", require: [], optional: ["fiscalYear", "branchId"], perm: "hr.reports.leaveRegister", xlsx: true, allBranchesOption: true, slowAllBranchesHint: "กำลังสร้างทะเบียนการลาทุกสาขา อาจใช้เวลาถึง 3 นาที" },
+  { key: "hr-roster", code: "HR08", title: "ทะเบียนพนักงาน", endpoint: "/hr/reports/roster", require: [], perm: "hr.reports.roster", xlsx: true, businessFilter: true },
+  { key: "hr-new-employees", code: "HR09", title: "รายงานพนักงานใหม่", endpoint: "/hr/reports/new-employees", require: ["month", "yearBE"], wholeYearOption: true, perm: "hr.reports.newEmployees", xlsx: true, businessFilter: true },
+  { key: "hr-position-changes", code: "HR10", title: "รายงานการเปลี่ยนตำแหน่ง", endpoint: "/hr/reports/position-changes", require: ["startDate", "endDate"], perm: "hr.reports.positionChanges", xlsx: true, businessFilter: true },
+  { key: "hr-relocations", code: "HR11", title: "รายงานการโอนย้าย", endpoint: "/hr/reports/relocations", require: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true, businessFilter: true },
+  { key: "hr-relocation-history", code: "HR19", title: "ประวัติการโยกย้ายเจ้าหน้าที่ (ทั้งองค์กร)", endpoint: "/hr/reports/relocation-history-pdf", require: [], optional: ["startDate", "endDate"], perm: "hr.reports.relocations", xlsx: true, businessFilter: true },
+  { key: "hr-salary-levels", code: "HR13", title: "รายงานระดับเงินเดือนพนักงาน", endpoint: "/hr/reports/salary-levels", require: [], perm: "hr.reports.salaryLevels", xlsx: true, businessFilter: true },
+  { key: "hr-salary-adjustments", code: "HR14", title: "รายงานการปรับขั้นเงินเดือน", endpoint: "/hr/reports/salary-adjustments", require: ["fiscalYear"], perm: "hr.reports.salaryAdjustments", xlsx: true, businessFilter: true },
+  { key: "hr-loans-active", code: "HR20", title: "รายงานเงินกู้ที่ยังค้างชำระ", endpoint: "/hr/reports/loans/active", require: [], perm: "hr.reports.activeLoans", xlsx: true, businessFilter: true },
+  // HR22 / HR23 (PR 117 §4) — สิทธิ์ report.hr.loans_active เดียวกับ HR20 · branch_id = สาขาปัจจุบันของผู้กู้ ไม่ส่ง = ทุกสาขา
+  { key: "hr-loans-debtor-register", code: "HR22", title: "ทะเบียนลูกหนี้เงินกู้", endpoint: "/hr/reports/loans/debtor-register", require: [], optional: ["asOf", "branchId"], perm: "hr.reports.activeLoans", xlsx: true, allBranchesOption: true },
+  { key: "hr-loans-contract-register", code: "HR23", title: "ทะเบียนคุมหนังสือสัญญาเงินกู้", endpoint: "/hr/reports/loans/contract-register", require: ["fiscalYear"], optional: ["branchId"], perm: "hr.reports.activeLoans", xlsx: true, allBranchesOption: true },
+  { key: "hr-kpi-branch", code: "HR29", title: "รายงาน KPI สาขา", endpoint: "/hr/kpi/report/branch", require: ["fiscalYear"], optional: ["branchId"], perm: "hr.reports.kpiBranch", xlsx: true, allBranchesOption: true },
+  { key: "hr-kpi-org", code: "HR30", title: "รายงาน KPI รวมองค์กร", endpoint: "/hr/kpi/report/organisation", require: ["fiscalYear"], perm: "hr.reports.kpiOrganisation", xlsx: true, businessFilter: true },
+  { key: "hr-resigned", code: "HR12", title: "รายชื่อผู้พ้นสภาพ", endpoint: "/hr/reports/resigned-retired-pdf", require: [], optional: ["exitType", "branchId", "startDate", "endDate"], perm: "hr.reports.resignedRetired", xlsx: true, allBranchesOption: true, businessFilter: true },
   // สวัสดิการ (3P) — PDF อย่างเดียว
-  { key: "hr-welfare-claims", title: "สรุปการเบิกสวัสดิการประจำปีงบประมาณ", endpoint: "/hr/reports/welfare/claims", require: ["fiscalYear"], perm: "hr.reports.welfare" },
-  { key: "hr-welfare-dependants", title: "ทะเบียนผู้มีสิทธิ์รับสวัสดิการ", endpoint: "/hr/reports/welfare/dependants", require: [], perm: "hr.reports.welfare" },
+  { key: "hr-welfare-claims", code: "HR24", title: "สรุปการเบิกสวัสดิการประจำปีงบประมาณ", endpoint: "/hr/reports/welfare/claims", require: ["fiscalYear"], perm: "hr.reports.welfare", businessFilter: true },
+  { key: "hr-welfare-dependants", code: "HR25", title: "ทะเบียนผู้มีสิทธิ์รับสวัสดิการ", endpoint: "/hr/reports/welfare/dependants", require: [], perm: "hr.reports.welfare", businessFilter: true },
   // R12 (PR 47) — PDF + Excel twin (-pdf → -xlsx)
   // งดจ่าย: backend รับ year เป็น ค.ศ. — ผู้ใช้กรอก พ.ศ. เหมือนรายงานอื่น แล้วแปลงตอนสร้าง query (yearCE)
-  { key: "hr-unpaid-deductions", title: "สรุปการงดจ่ายเงินเดือน (ลาเกินสิทธิ์ / พักงาน)", endpoint: "/hr/reports/unpaid-deductions-pdf", require: ["month", "yearBE"], optional: ["branchId"], yearCE: true, perm: "hr.reports.payrollMonthly", xlsx: true, allBranchesOption: true },
-  { key: "hr-out-of-office", title: "รายงานการออกนอกพื้นที่", endpoint: "/hr/reports/out-of-office-pdf", require: ["startDate", "endDate"], optional: ["branchId", "oooStatus"], perm: "hr.ooo.list", xlsx: true, allBranchesOption: true },
+  { key: "hr-unpaid-deductions", code: "HR17", title: "สรุปการงดจ่ายเงินเดือน (ลาเกินสิทธิ์ / พักงาน)", endpoint: "/hr/reports/unpaid-deductions-pdf", require: ["month", "yearBE"], optional: ["branchId"], yearCE: true, perm: "hr.reports.payrollMonthly", xlsx: true, allBranchesOption: true, businessFilter: true },
+  { key: "hr-out-of-office", code: "HR27", title: "รายงานการออกนอกพื้นที่", endpoint: "/hr/reports/out-of-office-pdf", require: ["startDate", "endDate"], optional: ["branchId", "oooStatus"], perm: "hr.ooo.list", xlsx: true, allBranchesOption: true, businessFilter: true },
   // บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน) — เฉพาะคำขอที่อนุมัติแล้ว · year = ค.ศ. · สาขา = สาขาตอนยื่น (ต้องเลือก)
-  { key: "hr-ooo-monthly-branch", title: "บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน · ทั้งสาขา)", endpoint: "/hr/reports/out-of-office-monthly-pdf", require: ["month", "yearBE", "branchId"], yearCE: true, perm: "hr.ooo.list", xlsx: true },
-  { key: "hr-ooo-monthly-employee", title: "บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน · รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/out-of-office-monthly-pdf`, require: ["employeeId", "month", "yearBE"], yearCE: true, perm: "hr.ooo.list", xlsx: true },
-  { key: "hr-discipline-history", title: "ประวัติการลงโทษทางวินัย", endpoint: "/hr/reports/discipline-history-pdf", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.discipline.view", xlsx: true, allBranchesOption: true },
+  { key: "hr-ooo-monthly-branch", code: "HR28", title: "บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน · ทั้งสาขา)", endpoint: "/hr/reports/out-of-office-monthly-pdf", require: ["month", "yearBE", "branchId"], yearCE: true, perm: "hr.ooo.list", xlsx: true },
+  { key: "hr-ooo-monthly-employee", code: "HR28", title: "บันทึกการปฏิบัติงานนอกสถานที่ (รายเดือน · รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/out-of-office-monthly-pdf`, require: ["employeeId", "month", "yearBE"], yearCE: true, perm: "hr.ooo.list", xlsx: true },
+  { key: "hr-discipline-history", code: "HR26", title: "ประวัติการลงโทษทางวินัย", endpoint: "/hr/reports/discipline-history-pdf", require: ["startDate", "endDate"], optional: ["branchId"], perm: "hr.discipline.view", xlsx: true, allBranchesOption: true, businessFilter: true },
   // รายคน/รายสัญญา (PDF อย่างเดียว ไม่มี Excel)
-  { key: "hr-profile-pdf", title: "ข้อมูลประวัติพนักงาน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/profile-pdf`, require: ["employeeId"], optional: ["showSensitive"], perm: "hr.reports.profilePdf" },
-  { key: "hr-salary-history-pdf", title: "ประวัติการปรับขั้นเงินเดือน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/salary-history-pdf`, require: ["employeeId"], perm: "hr.reports.salaryHistoryPdf" },
+  { key: "hr-profile-pdf", code: "HR01", title: "ข้อมูลประวัติพนักงาน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/profile-pdf`, require: ["employeeId"], optional: ["showSensitive"], perm: "hr.reports.profilePdf" },
+  { key: "hr-salary-history-pdf", code: "HR14", title: "ประวัติการปรับขั้นเงินเดือน (รายคน)", endpoint: (f) => `/hr/employees/${encodeURIComponent(f.employeeId)}/salary-history-pdf`, require: ["employeeId"], perm: "hr.reports.salaryHistoryPdf" },
   { key: "hr-kpi-individual", title: "ผลการประเมิน KPI รายบุคคล", endpoint: (f) => `/hr/kpi/evaluations/${encodeURIComponent(f.employeeId)}/pdf`, require: ["employeeId", "fiscalYear"], perm: "hr.reports.kpiIndividual" },
   { key: "hr-loan-schedule", title: "ตารางผ่อนชำระเงินกู้ (รายสัญญา)", endpoint: (f) => `/hr/loans/${encodeURIComponent(f.loanId)}/schedule-pdf`, require: ["loanId"], perm: "hr.reports.loanSchedule" },
-].map((r) => ({ type: "hr_pdf", badge: "HR", optional: [], ...r }))
+].map((r) => ({ type: "hr_pdf", badge: "HR", optional: [], ...r, title: r.code ? `${r.code} — ${r.title}` : r.title }))
 
 /** ปีงบประมาณปัจจุบัน (พ.ศ.) — 1 เม.ย. → 31 มี.ค. */
 const currentFiscalYearBE = () => {
@@ -677,6 +684,13 @@ function Documents() {
   /** สาขา: scope "own_branch" → ล็อกที่สาขาที่ใช้งานอยู่ */
   const branchLock = useBranchLock()
 
+  /** ธุรกิจ (GET /hr/businesses) — โหลดเมื่อเปิดรายงานที่กรองธุรกิจได้เท่านั้น.
+   *  403 (ไม่มีสิทธิ์) / 404 (prod ยังไม่มี PR 117) / ไม่มีรายการ → ซ่อนตัวควบคุม + ไม่ส่งพารามิเตอร์ รายงานยังใช้ได้ */
+  const wantsBusiness = REPORTS.some((r) => r.key === activeReport && r.businessFilter)
+  const hrBusinesses = useHrBusinesses({ enabled: wantsBusiness })
+  const businessReady = wantsBusiness && !hrBusinesses.loading && !hrBusinesses.error && hrBusinesses.options.length > 0
+  const businessSelectOptions = [{ value: "", label: "ทุกธุรกิจ" }, ...hrBusinesses.options]
+
   /** ---------- State ฟิลเตอร์ ---------- */
   const [filters, setFilters] = useState({
     startDate: firstDayThisMonth,
@@ -710,8 +724,12 @@ function Documents() {
     exitType: "",
     oooStatus: "approved",
     showSensitive: false,
+    asOf: today, // HR22 หนี้คงเหลือ ณ วันที่
+    // ธุรกิจ (PR 117): "" = ทุกธุรกิจ (ไม่ส่ง business_id) · splitBusiness → split=business
+    businessId: "",
+    splitBusiness: false,
   })
-  const setFilter = (k, v) => setFilters((p) => ({ ...p, [k]: v }))
+  const setFilter =(k, v) => setFilters((p) => ({ ...p, [k]: v }))
 
   /** ---------- Prefill จาก querystring (รองรับลิงก์แชร์) ---------- */
   useEffect(() => {
@@ -1031,6 +1049,14 @@ function Documents() {
       p.append("spec_id", filters.specId)
     }
 
+    if (wants("asOf") && filters.asOf) p.set("as_of", filters.asOf)
+
+    // ธุรกิจ (PR 117) — ส่งเฉพาะเมื่อตัวควบคุมแสดงอยู่; id ต้องยังอยู่ในรายการ (ปิดใช้งานแล้ว = ไม่ส่ง กัน 422)
+    if (report?.businessFilter && businessReady) {
+      if (hrBusinesses.options.some((o) => o.value === filters.businessId)) p.set("business_id", filters.businessId)
+      if (filters.splitBusiness) p.set("split", "business")
+    }
+
     return p
   }
 
@@ -1138,6 +1164,9 @@ function Documents() {
       exitType: "",
       oooStatus: "approved",
       showSensitive: false,
+      asOf: todayIso(),
+      businessId: "",
+      splitBusiness: false,
     })
 
   /** ---------- UI helpers ---------- */
@@ -1600,7 +1629,25 @@ function Documents() {
                 </div>
               </>
             )}
+            {has("asOf") && (
+              <div className="min-w-0">
+                <label htmlFor="doc-as-of" className={labelCls}>หนี้คงเหลือ ณ วันที่</label>
+                <DateInput id="doc-as-of" value={filters.asOf} onChange={(e) => setFilter("asOf", e.target.value)} />
+              </div>
+            )}
             {has("branchId") && <FormBranchKlang requireBranch={req.includes("branchId")} showKlang={false} allBranches={!!report.allBranchesOption} />}
+            {report.businessFilter && businessReady && (
+              <>
+                <div className="min-w-0">
+                  <label htmlFor="doc-business" className={labelCls}>ธุรกิจ</label>
+                  <SelectDropdown id="doc-business" options={businessSelectOptions} value={filters.businessId} onChange={(v) => setFilter("businessId", v)} />
+                </div>
+                <label className="flex min-h-touch cursor-pointer items-center gap-3 self-end text-sm text-slate-700 md:min-h-[46px] dark:text-slate-200">
+                  <input type="checkbox" className="size-5 shrink-0 cursor-pointer accent-indigo-600" checked={!!filters.splitBusiness} onChange={(e) => setFilter("splitBusiness", e.target.checked)} />
+                  <span className="min-w-0">แยกตามธุรกิจ <span className="text-gray-500 dark:text-gray-400">(แต่ละสาขาแบ่งกลุ่มตามธุรกิจ)</span></span>
+                </label>
+              </>
+            )}
             {has("exitType") && (
               <div>
                 <label className={labelCls}>ประเภทการพ้นสภาพ</label>

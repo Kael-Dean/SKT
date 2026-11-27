@@ -11,6 +11,7 @@ import PageTitle from "../../components/PageTitle"
 import { ED_LEVEL_OPTIONS } from "../../lib/education"
 import { ageFromBirthday, ageText } from "../../lib/age"
 import ThaiDateField from "../../components/ThaiDateField"
+import { useHrBusinesses } from "../../lib/hrBusinesses"
 
 
 const GENDER_OPTIONS = [
@@ -88,6 +89,9 @@ export default function HRStaffSignup() {
   const [loadingPositions, setLoadingPositions] = useState(true)
   const [branchOptions, setBranchOptions] = useState([])
   const [loadingBranches, setLoadingBranches] = useState(true)
+  // ธุรกิจ (PR #117) — โหลดไม่ได้ (403/404: backend ยังไม่มี) = ซ่อนช่อง ไม่บล็อกฟอร์ม
+  const businesses = useHrBusinesses()
+  const showBusiness = !businesses.error && (businesses.loading || businesses.options.length > 0)
 
   const [form, setForm] = useState({
     first_name: "",
@@ -96,6 +100,7 @@ export default function HRStaffSignup() {
     role_id: "",
     branch_location: "",
     position: "",
+    hr_business_id: "", // ธุรกิจ (PR #117) — ไม่บังคับ
     employment_type: "officer",
     email: "",
     hired: "",
@@ -226,6 +231,7 @@ export default function HRStaffSignup() {
         ...(form.role_id && { role_id: Number(form.role_id) }),
         ...(form.branch_location && { branch_location: Number(form.branch_location) }),
         ...(form.position && { position: Number(form.position) }),
+        ...(showBusiness && form.hr_business_id && { hr_business_id: Number(form.hr_business_id) }),
         ...(form.employment_type && { employment_type: form.employment_type }),
         ...(form.email && { email: form.email.trim() }),
         ...(form.hired && { hired: form.hired }),
@@ -323,7 +329,7 @@ export default function HRStaffSignup() {
     setError("")
     setForm({
       first_name: "", last_name: "", cid: "", role_id: "", branch_location: "",
-      position: "", employment_type: "officer", email: "", hired: "", bank_no: "", guarantee_bank_no: "", p_number: "",
+      position: "", hr_business_id: "", employment_type: "officer", email: "", hired: "", bank_no: "", guarantee_bank_no: "", p_number: "",
       e_contact: "", birthday: "", gender: "", m_status: "",
       children_number: "0", h_address: "", mhoo: "", soi: "", road: "",
       district: "", sub_district: "", province: "", postal_code: "", current_salary: "",
@@ -462,6 +468,18 @@ export default function HRStaffSignup() {
                 options={branchOptions}
               />
             </Field>
+            {showBusiness && (
+              <Field label="ธุรกิจ">
+                <SelectDropdown
+                  value={form.hr_business_id}
+                  onChange={setField("hr_business_id")}
+                  placeholder="ไม่ระบุ"
+                  ariaLabel="ธุรกิจ"
+                  loading={businesses.loading}
+                  options={[{ value: "", label: "ไม่ระบุ" }, ...businesses.options]}
+                />
+              </Field>
+            )}
             <Field label="Email">
               <input type="email" className={baseField} value={form.email} onChange={set("email")} placeholder="example@email.com" />
             </Field>

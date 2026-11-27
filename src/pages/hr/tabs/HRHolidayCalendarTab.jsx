@@ -20,6 +20,7 @@ import { SkeletonTableRows, ErrorState, EmptyState, Badge, ConfirmDialog, toast 
 import { currentFiscalYearBE, fmtDays } from "../../../lib/leaveDays"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import ThaiDateField from "../../../components/ThaiDateField"
+import CalendarEventsPanel from "../../../components/hr/CalendarEventsPanel"
 
 const HOLIDAY_TYPES = [
   { value: "annual", label: "วันหยุดประจำปี" },
@@ -382,6 +383,9 @@ export default function HRHolidayCalendarTab({ readOnly = false }) {
           </table>
         </div>
       </div>
+
+      {/* ประชุม / อบรม / กิจกรรม (PR 112) — ซ่อนเองถ้า backend ยังไม่เปิดใช้ */}
+      <CalendarEventsPanel fiscalYear={fiscalYear} canManage={canManage} />
 
       {/* ประกาศ / แก้ไขวันหยุด */}
       {modal && (

@@ -92,7 +92,7 @@ export const PERMISSION_MATRIX = Object.freeze({
   "leave.approve.asst": { no: 34, roles: [101] },
   "leave.confirm.manager": { no: 35, roles: [101] },
   "leave.deny": { no: 36, roles: [101] },
-  "leave.cancel_approved": { no: 37, roles: [101] },
+  "leave.cancel_approved": { no: 37, roles: [101, 117, 130] }, // PR 110: 101 + หัวหน้าแผนกบุคคล + เจ้าหน้าที่บุคคล
   "leave.employee.view": { no: 38, roles: [101, 102, 106, 117] },
   "leave.quota.edit": { no: 39, roles: [101, 106] },
   "leave.quota.reset": { no: 40, roles: [101] },
@@ -168,6 +168,9 @@ export const PERMISSION_MATRIX = Object.freeze({
   "welfare.view": { no: null, roles: [101, 102, 103, 106, 117, 130] },
   "welfare.submit": { no: null, roles: [106, 117, 130] },
   "welfare.approve": { no: null, roles: [101] },
+  // PR 111 ลายเซ็นอิเล็กทรอนิกส์ — HR (117/130) + Super Admin
+  "signature.manage": { no: null, roles: [117, 130] },
+  "signature.approve": { no: null, roles: [117, 130] },
   "welfare.settings": { no: null, roles: [117] },
   "gratuity.view": { no: null, roles: [101, 102, 103, 104, 105, 106, 117, 130] },
   "gratuity.record": { no: null, roles: [117, 130] },

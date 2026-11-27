@@ -56,11 +56,11 @@ export default function HRLeaveManagement() {
   const [historyId, setHistoryId] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null) // ใบลาที่กำลังยกเลิก
 
-  const onCancelDone = (r) => {
+  const onCancelDone = (r, out) => {
     setCancelTarget(null)
     setBanner({
       tone: "success",
-      text: `ยกเลิกใบลาของ ${requesterName(r)} แล้ว${r.status === "approved" ? " — คืนวันลาเข้าสิทธิ์แล้ว" : ""}`,
+      text: `ยกเลิกใบลาของ ${requesterName(r)} แล้ว — ${out?.description ?? (r.status === "approved" ? "คืนวันลาเข้าสิทธิ์แล้ว" : "ใบลายังอยู่ในประวัติ")}`,
     })
     requestNotificationsRefresh()
     fetchRequests()

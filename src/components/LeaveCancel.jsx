@@ -7,9 +7,9 @@
 //   <CancelledNote leave={r} />
 import { useEffect, useId, useState } from "react"
 import { Ban } from "lucide-react"
-import { ConfirmDialog } from "./ui"
+import { ConfirmDialog, toast } from "./ui"
 import { baseField, cx } from "../lib/styles"
-import { cancelNeedsReason } from "../lib/leaveCancel"
+import { cancelNeedsReason, describeCancelResult } from "../lib/leaveCancel"
 import { fmtLeaveRowDuration } from "../lib/leaveDays"
 
 function fmtDate(d) {
@@ -19,8 +19,10 @@ function fmtDate(d) {
 
 function fmtDateTime(d) {
   if (!d) return null
+  // cancelled_at เป็น UTC — ค่าที่ไม่มี timezone ต่อ Z ให้ (กันแสดงช้าไป 7 ชม.)
+  const s = typeof d === "string" && /T\d{2}:\d{2}/.test(d) && !/(Z|[+-]\d{2}:?\d{2})$/.test(d) ? `${d}Z` : d
   try {
-    return new Date(d).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " น."
+    return new Date(s).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " น."
   } catch { return d }
 }
 
@@ -72,8 +74,12 @@ export function CancelLeaveDialog({ leave, byHr = false, who, onSubmit, onClose,
     setSaving(true)
     setError("")
     try {
-      await onSubmit(reason)
-      onDone?.(leave)
+      const res = await onSubmit(reason)
+      // PR 110: เตือนเงินเดือนที่สร้างไปแล้ว (ค้างจอจนกว่าจะปิด เพราะ HR ต้องไปทำต่อ)
+      // ข้อความสำเร็จ (วันลาที่คืน) ให้หน้าที่เรียกแสดงเอง: onDone(leave, describeCancelResult(res))
+      const out = describeCancelResult(res)
+      for (const p of out.payroll) toast.warning("ต้องแก้เงินเดือน", { description: p.text, duration: Infinity })
+      onDone?.(leave, out)
     } catch (err) {
       if (err?.onboardingRequired) return
       setError(err?.message || "ยกเลิกไม่สำเร็จ กรุณาลองใหม่")

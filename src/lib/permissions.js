@@ -133,7 +133,7 @@ export const PERMISSIONS = Object.freeze({
   "hr.leave.approve.asstManager": { no: 34, module: "HR: Leave", label: "อนุมัติใบลายาว / ใบลาของหัวหน้า — ผู้ช่วยผู้จัดการ", en: "Asst. manager approve long / head leave", roles: [1, 7] },
   "hr.leave.approve.manager": { no: 35, module: "HR: Leave", label: "ยืนยัน / ปฏิเสธใบลา — ผู้จัดการ", en: "Manager confirm / deny leave", roles: [1, 2] },
   "hr.leave.deny": { no: 36, module: "HR: Leave", label: "ไม่อนุมัติใบลา (ทุกขั้นตอน)", en: "Deny leave (any stage)", roles: [1, 2, 6, 7] },
-  "hr.leave.cancelApproved": { no: 37, module: "HR: Leave", label: "ยกเลิกใบลาของพนักงาน (รวมที่อนุมัติแล้ว) + คืนโควตา", en: "Cancel employee leave (incl. approved) & restore quota", roles: [1, 2] },
+  "hr.leave.cancelApproved": { no: 37, module: "HR: Leave", label: "ยกเลิกใบลาของพนักงาน (รวมที่อนุมัติแล้ว) + คืนโควตา", en: "Cancel employee leave (incl. approved) & restore quota", roles: [1, 2, 3], note: "PR 110 — leave.cancel_approved: ตำแหน่ง 101/117/130 · ปุ่มยึด can_cancel จาก API" },
   "hr.leave.quota.view": { no: 38, module: "HR: Leave", label: "ดูโควตา / ยอดคงเหลือ / ประวัติการลาของพนักงาน", en: "View employee leave quota / balance / history", roles: [1, 3] },
   "hr.leave.quota.edit": { no: 39, module: "HR: Leave", label: "แก้ไขโควตาการลารายคน", en: "Override employee leave quota", roles: [1, 3] },
   "hr.leave.quota.reset": { no: 40, module: "HR: Leave", label: "รีเซ็ตโควตาการลาประจำปี (ทั้งองค์กร)", en: "Reset leave quotas for new fiscal year", roles: [1, 3] },
@@ -263,8 +263,8 @@ export const PERMISSIONS = Object.freeze({
   "hr.discipline.cases":{ code: (me) => ["discipline.view", "discipline.decide.asst", "discipline.decide.manager"].some((c) => me.has(c)) || Boolean(me.senior), no: null, module: "HR: Discipline", label: "เปิดรายการเรื่องร้องเรียน (หัวหน้าเห็นเฉพาะเรื่องของตน)", en: "Open discipline case list", roles: [1, 2, 3, 6, 7], feOnly: true, note: "GET /hr/discipline/cases — backend กรองรายการตามสิทธิ์เอง" },
 
   // ── HR: System ──
-  "hr.signatures.approve": { code: ["signature.approve", "hr.employee.edit_personal"], no: null, module: "HR: System", label: "อนุมัติคำขอเปลี่ยนลายเซ็น", en: "Approve signature change requests", roles: [1, 3], note: "handoff ส่วนที่ 7 — ระหว่างรอ BE เพิ่ม signature.approve ใช้ hr.employee.edit_personal แทน" },
-  "hr.signatures.manage": { code: ["signature.manage", "hr.employee.edit_personal"], no: null, module: "HR: System", label: "จัดการลายเซ็นอิเล็กทรอนิกส์ของเจ้าหน้าที่", en: "Manage employee e-signatures", roles: [1, 3], note: "handoff/api-handoff-e-signature.md — ระหว่างรอ BE เพิ่ม signature.manage ใช้ hr.employee.edit_personal (ฝ่ายบุคคล) แทน" },
+  "hr.signatures.approve": { code: "signature.approve", no: null, module: "HR: System", label: "อนุมัติคำขอเปลี่ยนลายเซ็น", en: "Approve signature change requests", roles: [1, 3], note: "PR 111 — ตำแหน่ง 117/130 + Super Admin" },
+  "hr.signatures.manage": { code: "signature.manage", no: null, module: "HR: System", label: "จัดการลายเซ็นอิเล็กทรอนิกส์ของเจ้าหน้าที่", en: "Manage employee e-signatures", roles: [1, 3], note: "PR 111 — ตำแหน่ง 117/130 + Super Admin" },
   "hr.audit.view": { no: 97, module: "HR: System", label: "ดูบันทึกการใช้งานระบบ (Audit log)", en: "View audit log", roles: [1, 3] },
 
   // ── HR: Reports ──

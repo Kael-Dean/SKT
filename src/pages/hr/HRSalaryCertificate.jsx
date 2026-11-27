@@ -15,6 +15,7 @@ import { useEffect, useId, useState } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Printer, Download, RotateCcw, Info } from "lucide-react"
 import { apiAuth } from "../../lib/api"
+import { loadDocSignatures, pickSignature } from "../../lib/signatures"
 import { apiDetail } from "../../lib/apiErrors"
 import { useCan } from "../../lib/permissions"
 import {
@@ -71,6 +72,7 @@ export default function HRSalaryCertificate() {
   const requestId = params.get("request")
 
   const [req, setReq] = useState(null)
+  const [approverSig, setApproverSig] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const [prefilled, setPrefilled] = useState(EMPTY)
   const [loading, setLoading] = useState(!!requestId)
@@ -89,9 +91,22 @@ export default function HRSalaryCertificate() {
         const rows = Array.isArray(list) ? list : (list?.items ?? [])
         const found = rows.find((r) => String(r.id) === String(requestId)) ?? null
         if (!found) throw new Error(`ไม่พบคำขอ #${requestId}`)
-        const person = found.user_id != null ? await apiAuth(`/hr/personnel/${found.user_id}`).catch(() => null) : null
+        const [person, sigs] = await Promise.all([
+          found.user_id != null ? apiAuth(`/hr/personnel/${found.user_id}`).catch(() => null) : null,
+          // PR 111: ผู้จัดการที่อนุมัติจริง (ชื่อ/ตำแหน่ง/ลายเซ็นรุ่นที่ใช้ตอนอนุมัติ) — เฉพาะคำขอที่อนุมัติแล้ว
+          found.status === S.APPROVED
+            ? loadDocSignatures(`/hr/salary-cert-requests/${found.id}/signatures`, { keepUnsigned: true })
+            : [],
+        ])
         if (!alive) return
-        const next = prefillFrom(found, person)
+        const approver = pickSignature(sigs, { role: "approver", userId: found.approved_by })
+        const base = prefillFrom(found, person)
+        const next = {
+          ...base,
+          ...(approver?.name?.trim() && { signerName: approver.name.trim() }),
+          ...(approver?.position?.trim() && { signerTitle: approver.position.trim() }),
+        }
+        setApproverSig(approver?.image ? { name: next.signerName, image: approver.image } : null)
         setReq(found)
         setForm(next)
         setPrefilled(next)
@@ -105,6 +120,10 @@ export default function HRSalaryCertificate() {
   }, [requestId, attempt])
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // ลายเซ็นผู้อนุมัติพิมพ์เฉพาะตอนชื่อผู้ลงนามยังเป็นคนเดิม — HR เปลี่ยนชื่อเป็นคนอื่น = เส้นจุดให้เซ็นมือ
+  const sheetData = approverSig && form.signerName?.trim() === approverSig.name
+    ? { ...form, signature: { image: approverSig.image } }
+    : form
 
   const missing = [
     ["name", "ชื่อ-นามสกุล"], ["appointedDate", "วันที่บรรจุ"], ["position", "ตำแหน่ง"],
@@ -284,14 +303,14 @@ export default function HRSalaryCertificate() {
         {/* ══════════ พรีวิวแผ่นจริง ══════════ */}
         <section aria-label="ตัวอย่างหนังสือรับรอง" className="min-w-0 rounded-2xl bg-gray-100 p-3 ring-1 ring-gray-200/70 sm:p-6 dark:bg-canvas dark:ring-line">
           <ScaledSheet className="mx-auto max-w-[794px]">
-            <SalaryCertificateSheet data={form} />
+            <SalaryCertificateSheet data={sheetData} />
           </ScaledSheet>
         </section>
       </div>
 
       {approved && (
         <PrintPortal>
-          <SalaryCertificateSheet data={form} />
+          <SalaryCertificateSheet data={sheetData} />
         </PrintPortal>
       )}
     </div>

@@ -524,10 +524,10 @@ export default function LeaveRequest() {
   }, [tab, fetchHistory])
 
   // ยกเลิกใบลา — เปิดกล่องยืนยัน (ใบที่อนุมัติแล้วต้องใส่เหตุผล); ใบลายังอยู่ในประวัติเป็นสถานะ "ยกเลิก"
-  const onCancelled = (r) => {
+  const onCancelled = (r, out) => {
     setCancellingId(null)
     toast.success("ยกเลิกใบลาแล้ว", {
-      description: r.status === "approved" ? "คืนวันลาเข้าสิทธิ์แล้ว" : "ใบลายังเก็บไว้ในประวัติ",
+      description: out?.description ?? (r.status === "approved" ? "คืนวันลาเข้าสิทธิ์แล้ว" : "ใบลายังเก็บไว้ในประวัติ"),
     })
     fetchHistory()
   }

@@ -2,12 +2,14 @@
 // ปฏิทินสหกรณ์ — อ่านอย่างเดียว สำหรับทุกคนที่ล็อกอิน (`hr.holidays.view`, GET /hr/holidays?fiscal_year=)
 // มุมมองปฏิทินรายเดือน + รายการวันหยุดทั้งปีงบ (เม.ย.–มี.ค.) · ฝ่ายบุคคลประกาศ/แก้ไขที่ HR Dashboard → ปฏิทินวันหยุด
 //
-// วันประชุม: backend ยังไม่มี endpoint ปฏิทินกิจกรรมของสหกรณ์ (ดู handoff/backend-request-company-calendar.md)
-// โครง `events` ในไฟล์นี้รองรับ kind อื่นไว้แล้ว — เมื่อมี API ให้ map เข้า eventsByDate ได้เลย
+// ประชุม / อบรม / กิจกรรม: GET /calendar/events (backend PR #112 — src/lib/calendarEvents.js) server กรองสาขาให้แล้ว
+// backend ยังไม่ deploy = ไม่แสดงกิจกรรมเฉย ๆ (ไม่ error) · กิจกรรมไม่ใช่วันหยุด ไม่นับใน "วันหยุดถัดไป"/รายการวันหยุดทั้งปีงบ
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { ChevronLeft, ChevronRight, Settings2 } from "lucide-react"
 import { apiAuth } from "../../lib/api"
+import { compareEvents, eventDates, eventTimeText, eventTypeLabel, fetchCalendarEvents, fiscalYearRange } from "../../lib/calendarEvents"
+import { can } from "../../lib/permissions"
 import { currentFiscalYearBE } from "../../lib/leaveDays"
 import { backState } from "../../lib/drill"
 import { cx, cardCls, iconBtnCls, neutralBtnCls, focusRingCls } from "../../lib/styles"
@@ -34,7 +36,14 @@ const KIND = {
     dot: "bg-amber-500 dark:bg-amber-400",
   },
 }
-const kindOf = (e) => KIND[e.kind] || KIND.annual
+/** กิจกรรม (ไม่ใช่วันหยุด) — ไม่ทาสีพื้นช่องวัน ใช้จุด + ชื่อสีของประเภท */
+const EVENT_KIND = {
+  meeting:  { cell: "", num: "", name: "text-sky-700 dark:text-sky-200", dot: "bg-sky-500 dark:bg-sky-400" },
+  training: { cell: "", num: "", name: "text-violet-700 dark:text-violet-200", dot: "bg-violet-500 dark:bg-violet-400" },
+  activity: { cell: "", num: "", name: "text-emerald-700 dark:text-emerald-200", dot: "bg-emerald-500 dark:bg-emerald-400" },
+  other:    { cell: "", num: "", name: "text-slate-700 dark:text-slate-200", dot: "bg-slate-500 dark:bg-slate-400" },
+}
+const kindOf = (e) => (e.isEvent ? { ...(EVENT_KIND[e.kind] || EVENT_KIND.other), label: eventTypeLabel(e.kind) } : KIND[e.kind] || KIND.annual)
 
 const pad = (n) => String(n).padStart(2, "0")
 const toIso = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`
@@ -58,6 +67,10 @@ export default function HolidayCalendar() {
   const [selected, setSelected] = useState(today)
   const [byFy, setByFy] = useState({}) // { [fy]: Holiday[] }
   const [failed, setFailed] = useState({}) // { [fy]: message }
+  const [evByFy, setEvByFy] = useState({}) // { [fy]: CalendarEventOut[] }
+  const [evAvailable, setEvAvailable] = useState(true)
+  const [branchNames, setBranchNames] = useState(null) // Map — เฉพาะผู้จัดการปฏิทิน (เห็นกิจกรรมทุกสาขา)
+  const canManageEvents = can("hr.holidays.manage")
 
   const viewFy = fyOf(cursor.y, cursor.m)
   const thisFy = currentFiscalYearBE()
@@ -69,7 +82,22 @@ export default function HolidayCalendar() {
         setFailed((s) => { const n = { ...s }; delete n[fy]; return n })
       })
       .catch((e) => setFailed((s) => ({ ...s, [fy]: e.message || "โหลดปฏิทินไม่สำเร็จ" })))
+    // กิจกรรมโหลดแยก — พลาดก็ยังแสดงวันหยุดได้
+    const { from, to } = fiscalYearRange(fy)
+    fetchCalendarEvents(from, to)
+      .then(({ events, available }) => {
+        setEvByFy((s) => ({ ...s, [fy]: events }))
+        if (!available) setEvAvailable(false)
+      })
+      .catch(() => setEvByFy((s) => ({ ...s, [fy]: [] })))
   }, [])
+
+  useEffect(() => {
+    if (!canManageEvents) return
+    apiAuth("/order/branch/search")
+      .then((d) => setBranchNames(new Map((Array.isArray(d) ? d : []).map((b) => [String(b.id), b.branch_name ?? b.name]))))
+      .catch(() => {})
+  }, [canManageEvents])
 
   // ปีงบที่กำลังดู + ปีนี้ + ปีหน้า (หา "วันหยุดถัดไป" ข้ามปีงบได้)
   useEffect(() => {
@@ -91,11 +119,25 @@ export default function HolidayCalendar() {
     return out.sort((a, b) => a.date.localeCompare(b.date))
   }, [byFy])
 
+  /** กิจกรรม → กระจายลงทุกวันที่ครอบ (กิจกรรมเดียวกันอาจอยู่หลายปีงบ — กันซ้ำด้วย id) */
+  const activities = useMemo(() => {
+    const seen = new Map()
+    for (const list of Object.values(evByFy)) for (const ev of list) if (ev?.id != null) seen.set(ev.id, ev)
+    const out = []
+    for (const ev of [...seen.values()].sort(compareEvents)) {
+      for (const date of eventDates(ev)) {
+        out.push({ id: `e${ev.id}-${date}`, date, title: ev.title, kind: ev.event_type, isEvent: true, ev })
+      }
+    }
+    return out
+  }, [evByFy])
+
+  // วันเดียวกัน: วันหยุดก่อน แล้วกิจกรรม (ทั้งวันก่อน ตามเวลาเริ่ม)
   const eventsByDate = useMemo(() => {
     const m = new Map()
-    for (const e of events) m.set(e.date, [...(m.get(e.date) || []), e])
+    for (const e of [...events, ...activities]) m.set(e.date, [...(m.get(e.date) || []), e])
     return m
-  }, [events])
+  }, [events, activities])
 
   const nextEvent = useMemo(() => events.find((e) => e.date >= today), [events, today])
   const yearList = useMemo(() => events.filter((e) => fyOf(parseIso(e.date).getFullYear(), parseIso(e.date).getMonth()) === viewFy), [events, viewFy])
@@ -121,6 +163,7 @@ export default function HolidayCalendar() {
   const monthLabel = new Date(cursor.y, cursor.m, 1).toLocaleDateString("th-TH", { month: "long", year: "numeric" })
   const monthPrefix = `${cursor.y}-${pad(cursor.m + 1)}-`
   const monthCount = events.filter((e) => e.date.startsWith(monthPrefix)).length
+  const monthActivities = new Set(activities.filter((e) => e.date.startsWith(monthPrefix)).map((e) => e.ev.id)).size
   const isCurrentMonth = cursor.y === now.getFullYear() && cursor.m === now.getMonth()
 
   const selectedEvents = eventsByDate.get(selected) || []
@@ -166,7 +209,9 @@ export default function HolidayCalendar() {
                 {monthLabel}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {viewLoading ? "กำลังโหลด…" : monthCount ? `วันหยุด ${monthCount} วัน` : "ไม่มีวันหยุดในเดือนนี้"}
+                {viewLoading
+                  ? "กำลังโหลด…"
+                  : [monthCount ? `วันหยุด ${monthCount} วัน` : "ไม่มีวันหยุดในเดือนนี้", monthActivities ? `ประชุม/กิจกรรม ${monthActivities} รายการ` : null].filter(Boolean).join(" · ")}
               </p>
             </div>
             {!isCurrentMonth && (
@@ -207,7 +252,9 @@ export default function HolidayCalendar() {
                   if (!d) return <div key={`b${i}`} aria-hidden="true" />
                   const iso = toIso(cursor.y, cursor.m, d)
                   const evs = eventsByDate.get(iso) || []
-                  const k = evs[0] ? kindOf(evs[0]) : null
+                  const dots = [...new Set(evs.map((e) => kindOf(e).dot))].slice(0, 3)
+                  const hol = evs.find((e) => !e.isEvent)
+                  const hk = hol ? kindOf(hol) : null // สีพื้น/เลขวัน = วันหยุดเท่านั้น
                   const dow = i % 7
                   const isWeekend = dow === 0 || dow === 6
                   const isToday = iso === today
@@ -224,7 +271,7 @@ export default function HolidayCalendar() {
                         "relative flex min-h-12 min-w-0 flex-col items-center gap-1 rounded-xl p-1 text-center cursor-pointer",
                         "md:min-h-24 md:items-start md:p-2 md:text-left",
                         "transition-colors duration-150",
-                        k ? k.cell : "hover:bg-gray-50 dark:hover:bg-white/[.04]",
+                        hk ? hk.cell : "hover:bg-gray-50 dark:hover:bg-white/[.04]",
                         isSel && "ring-2 ring-inset ring-indigo-500 dark:ring-indigo-400",
                         focusRingCls,
                       )}
@@ -237,7 +284,7 @@ export default function HolidayCalendar() {
                             "inline-flex size-7 items-center justify-center rounded-full text-sm tabular-nums",
                             isToday
                               ? "bg-indigo-600 font-bold text-white dark:bg-indigo-500"
-                              : k ? cx("font-bold", k.num)
+                              : hk ? cx("font-bold", hk.num)
                               : isWeekend ? "text-gray-400 dark:text-gray-500"
                               : "font-medium text-gray-800 dark:text-gray-200",
                           )}
@@ -246,9 +293,14 @@ export default function HolidayCalendar() {
                         </span>
                       )}
                       {/* มือถือ: จุด · จอใหญ่: ชื่อวันหยุด */}
-                      {k && <span className={cx("size-1.5 rounded-full md:hidden", k.dot)} aria-hidden="true" />}
+                      {dots.length > 0 && (
+                        <span className="flex gap-0.5 md:hidden" aria-hidden="true">
+                          {dots.map((d) => <span key={d} className={cx("size-1.5 rounded-full", d)} />)}
+                        </span>
+                      )}
                       {evs.map((e) => (
                         <span key={e.id} className={cx("hidden w-full text-xs font-medium leading-snug md:line-clamp-2", kindOf(e).name)}>
+                          {e.isEvent && e.ev.start_time ? <span className="tabular-nums opacity-80">{String(e.ev.start_time).slice(0, 5)} </span> : null}
                           {e.title}
                         </span>
                       ))}
@@ -269,9 +321,31 @@ export default function HolidayCalendar() {
                         <span className={cx("mt-1.5 size-2 shrink-0 rounded-full", kindOf(e).dot)} aria-hidden="true" />
                         <div className="min-w-0">
                           <p className={cx("text-sm font-semibold", kindOf(e).name)}>{e.title}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {kindOf(e).label}{e.note ? ` · ${e.note}` : ""}
-                          </p>
+                          {e.isEvent ? (
+                            <>
+                              <p className="text-xs text-gray-600 dark:text-gray-300">
+                                {kindOf(e).label} · <span className="tabular-nums">{eventTimeText(e.ev)}</span>
+                                {e.ev.end_date && e.ev.end_date !== e.ev.start_date
+                                  ? ` · ${th(e.ev.start_date, { day: "numeric", month: "short" })}–${th(e.ev.end_date, { day: "numeric", month: "short" })}`
+                                  : ""}
+                              </p>
+                              {e.ev.location && <p className="text-xs text-gray-600 dark:text-gray-300">สถานที่: {e.ev.location}</p>}
+                              {e.ev.detail && <p className="mt-0.5 whitespace-pre-line break-words text-xs text-gray-500 dark:text-gray-400">{e.ev.detail}</p>}
+                              {canManageEvents && Array.isArray(e.ev.branch_ids) && e.ev.branch_ids.length > 0 && (
+                                <p className="mt-1 flex flex-wrap gap-1">
+                                  {e.ev.branch_ids.map((b) => (
+                                    <span key={b} className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 ring-1 ring-gray-200 dark:bg-white/[.06] dark:text-gray-200 dark:ring-line">
+                                      {branchNames?.get(String(b)) ?? `สาขา #${b}`}
+                                    </span>
+                                  ))}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {kindOf(e).label}{e.note ? ` · ${e.note}` : ""}
+                            </p>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -286,6 +360,9 @@ export default function HolidayCalendar() {
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-xs text-gray-500 dark:text-gray-400">
                 <span className="inline-flex items-center gap-1.5"><span className={cx("size-2 rounded-full", KIND.annual.dot)} aria-hidden="true" />{KIND.annual.label}</span>
                 <span className="inline-flex items-center gap-1.5"><span className={cx("size-2 rounded-full", KIND.special.dot)} aria-hidden="true" />{KIND.special.label}</span>
+                {evAvailable && (
+                  <span className="inline-flex items-center gap-1.5"><span className={cx("size-2 rounded-full", EVENT_KIND.meeting.dot)} aria-hidden="true" />ประชุม / อบรม / กิจกรรม</span>
+                )}
                 <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-indigo-600 dark:bg-indigo-500" aria-hidden="true" />วันนี้</span>
                 <Can perm="hr.holidays.manage">
                   <Link
@@ -294,7 +371,7 @@ export default function HolidayCalendar() {
                     className={cx("ml-auto inline-flex min-h-touch items-center gap-1.5 rounded-lg px-1 font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200 md:min-h-0", focusRingCls)}
                   >
                     <Settings2 className="size-3.5" aria-hidden="true" />
-                    จัดการวันหยุด
+                    จัดการวันหยุด / กิจกรรม
                   </Link>
                 </Can>
               </div>

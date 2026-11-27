@@ -9,6 +9,7 @@
 // endpoint ยังไม่มี (404 / 405 / 501) → คืนค่าว่าง → ช่องเซ็นเป็นเส้นจุดเหมือนเดิม ไม่มี error
 // ─────────────────────────────────────────────────────────────────────────────
 import { apiAuth, apiDownload } from "./api"
+import { fmtServerDateTime } from "./serverTime"
 
 /** สถานะที่แปลว่า "backend ยังไม่รองรับ" — เงียบ ไม่ต้องแจ้งผู้ใช้ */
 const NOT_READY = new Set([404, 405, 501])
@@ -137,13 +138,8 @@ export const REQUEST_STATUS = {
   cancelled: { label: "ยกเลิกแล้ว", tone: "neutral" },
 }
 
-export const thaiDateTime = (v) => {
-  if (!v) return ""
-  const d = new Date(v)
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })
-}
+export const thaiDateTime = (v) =>
+  fmtServerDateTime(v, { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" }, "")
 
 /** ป้ายบอกว่าการเปลี่ยนนี้มาจากไหน */
 export function requestSourceLabel(r) {

@@ -159,6 +159,21 @@ export default function HRPersonnelDetail() {
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 
+  // branch_location มาเป็นรหัสสาขา ("13") — แปลงเป็นชื่อสาขา (best effort; โหลดไม่ได้ = แสดงรหัสเดิม)
+  const [branchNames, setBranchNames] = useState({})
+  useEffect(() => {
+    apiAuth("/order/branch/search")
+      .then((d) => setBranchNames(Object.fromEntries((Array.isArray(d) ? d : []).map((b) => [String(b.id), b.branch_name]))))
+      .catch(() => {})
+  }, [])
+  const branchLabel = (() => {
+    if (!data) return null
+    if (data.branch_name) return data.branch_name
+    const loc = data.branch_location
+    if (loc == null || loc === "") return loc
+    return /^\d+$/.test(String(loc).trim()) ? branchNames[String(loc).trim()] || `สาขา ${loc}` : loc
+  })()
+
   // รีเฟรชแบบเงียบ (ไม่ขึ้น PageLoader) — ให้ popup ที่เปิดอยู่ไม่ถูก unmount
   const refreshDetail = useCallback(() => {
     apiAuth(`/hr/personnel/${id}`).then(setData).catch(() => {})
@@ -339,7 +354,7 @@ export default function HRPersonnelDetail() {
       <div className="rounded-2xl bg-white dark:bg-gray-800 ring-1 ring-gray-200/70 dark:ring-gray-700/70 shadow-sm p-5">
         <SectionTitle>ข้อมูลบัญชี</SectionTitle>
         <InfoRow label="Email" value={data.email} />
-        <InfoRow label="สาขา" value={data.branch_location} />
+        <InfoRow label="สาขา" value={branchLabel} />
         <InfoRow label="ตำแหน่ง" value={currentPositionLabel(data, data.position)} />
         <InfoRow label="สถานะบัญชี" value={accountStatusLabel(data.account_status, data.account_status_label)} />
       </div>

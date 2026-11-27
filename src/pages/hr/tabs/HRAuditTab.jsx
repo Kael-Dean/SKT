@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { apiAuth } from "../../../lib/api"
 import { ErrorState, EmptyState, SkeletonTableRows } from "../../../components/ui"
+import { fmtServerDateTime } from "../../../lib/serverTime"
 
 // ชื่อไทยของ action ใน audit log — ไม่รู้จัก = แสดงรหัสเดิม
 const ACTION_LABELS = {
@@ -16,12 +17,8 @@ const ACTION_LABELS = {
 
 const actionLabel = (a) => (a ? ACTION_LABELS[a] ?? a : "—")
 
-function fmtDateTime(d) {
-  if (!d) return "—"
-  try {
-    return new Date(d).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })
-  } catch { return d }
-}
+// date_time เป็น UTC ไม่มี offset → แสดงเป็นเวลาไทย (handoff PR #115)
+const fmtDateTime = (d) => fmtServerDateTime(d, { dateStyle: "short", timeStyle: "short" })
 
 // comment มักเป็น JSON ของ request log ({status_code, duration_ms, query, client_ip}) — ย่อให้อ่านได้
 function detailText(log) {

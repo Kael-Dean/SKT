@@ -21,6 +21,7 @@ const neutralSpinnerCls =
  * @param {string} [fallbackName]  filename when the response has none (".pdf" is swapped for ".xlsx")
  * @param {string} [label]         button text
  * @param {string} [className]     button classes (default: neutralBtnCls — 44px on phones)
+ * @param {(busy: boolean) => void} [onBusyChange]  lets the page lock its other buttons / show a long-run notice
  */
 export default function ExcelDownloadButton({
   getPdfPath,
@@ -28,6 +29,7 @@ export default function ExcelDownloadButton({
   label = "Excel",
   className = neutralBtnCls,
   disabled = false,
+  onBusyChange,
 }) {
   const [loading, setLoading] = useState(false)
   const busyRef = useRef(false) // guards double-clicks before the re-render lands
@@ -38,6 +40,7 @@ export default function ExcelDownloadButton({
     if (!pdfPath) return
     busyRef.current = true
     setLoading(true)
+    onBusyChange?.(true)
     try {
       const name = await downloadExcel(pdfPath, { fallbackName })
       toast.success("ดาวน์โหลด Excel แล้ว", { description: `${name} · ${EXCEL_HINT}` })
@@ -47,6 +50,7 @@ export default function ExcelDownloadButton({
     } finally {
       busyRef.current = false
       setLoading(false)
+      onBusyChange?.(false)
     }
   }
 

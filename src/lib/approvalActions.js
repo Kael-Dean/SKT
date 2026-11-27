@@ -6,6 +6,7 @@
 import { apiAuth } from "./api"
 import { getUser } from "./auth"
 import { can } from "./permissions"
+import { fmtServerDateTime, serverTimeMs } from "./serverTime"
 import {
   STAGE_APPROVE_ACTION,
   STAGE_ROLE,
@@ -251,7 +252,7 @@ export function requestNotificationsRefresh() {
 /** Thai relative time: "เมื่อสักครู่", "5 นาทีที่แล้ว", … falls back to a date. */
 export function relativeTimeTh(iso, now = Date.now()) {
   if (!iso) return ""
-  const t = new Date(iso).getTime()
+  const t = serverTimeMs(iso)
   if (Number.isNaN(t)) return ""
   const min = Math.floor((now - t) / 60000)
   if (min < 1) return "เมื่อสักครู่"
@@ -264,12 +265,8 @@ export function relativeTimeTh(iso, now = Date.now()) {
   return new Date(t).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })
 }
 
-export function fmtDateTimeTh(iso) {
-  if (!iso) return "—"
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return String(iso)
-  return d.toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-}
+// เวลาจาก backend เป็น UTC ไม่มี offset → เวลาไทย
+export const fmtDateTimeTh = (iso) => fmtServerDateTime(iso)
 
 export function fmtDateTh(d) {
   if (!d) return "—"

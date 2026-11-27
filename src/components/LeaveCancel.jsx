@@ -11,19 +11,17 @@ import { ConfirmDialog, toast } from "./ui"
 import { baseField, cx } from "../lib/styles"
 import { cancelNeedsReason, describeCancelResult } from "../lib/leaveCancel"
 import { fmtLeaveRowDuration } from "../lib/leaveDays"
+import { fmtServerDateTime } from "../lib/serverTime"
 
 function fmtDate(d) {
   if (!d) return "—"
   try { return new Date(d).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) } catch { return d }
 }
 
+// cancelled_at เป็น UTC ไม่มี offset → เวลาไทย (src/lib/serverTime.js)
 function fmtDateTime(d) {
   if (!d) return null
-  // cancelled_at เป็น UTC — ค่าที่ไม่มี timezone ต่อ Z ให้ (กันแสดงช้าไป 7 ชม.)
-  const s = typeof d === "string" && /T\d{2}:\d{2}/.test(d) && !/(Z|[+-]\d{2}:?\d{2})$/.test(d) ? `${d}Z` : d
-  try {
-    return new Date(s).toLocaleString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) + " น."
-  } catch { return d }
+  return `${fmtServerDateTime(d)} น.`
 }
 
 export function CancelLeaveButton({ onClick, disabled, className = "" }) {

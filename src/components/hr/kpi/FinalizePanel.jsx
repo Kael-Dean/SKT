@@ -13,6 +13,8 @@ import { cardCls, errText, linkBtn, nf, primaryBtn, thCls } from "../positionUti
 import { SchemeLabel, SkippedTable, StatusBadge } from "./KpiBits"
 import { fmtDay, fmtScore, fmtStep, missingComponents, partialTotal } from "./kpiUtils"
 import { useEvaluations } from "./useKpi"
+import { NameHeaderCell, NameNoMatch } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 export default function FinalizePanel({ fy, info, phase, people, catalogue, onChanged }) {
   const { rows, loading, error, reload } = useEvaluations(fy)
@@ -26,6 +28,8 @@ export default function FinalizePanel({ fy, info, phase, people, catalogue, onCh
 
   const windowOpen = phase === "open" || phase === "before"
   const queue = rows.filter((r) => r.status === "open" || r.status === "returned")
+  // nf = ตัวจัดรูปตัวเลขจาก positionUtils → ตั้งชื่อ nameF
+  const nameF = useNameFilter(queue, { get: (r) => nameOf(r.user_id), label: "เจ้าหน้าที่" })
 
   const refresh = () => { reload(); onChanged?.() }
 
@@ -117,7 +121,7 @@ export default function FinalizePanel({ fy, info, phase, people, catalogue, onCh
                 <caption className="sr-only">รายการรอสรุปผล</caption>
                 <thead className="border-b border-gray-100 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30">
                   <tr>
-                    <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
+                    <NameHeaderCell nf={nameF} label="เจ้าหน้าที่" />
                     <th scope="col" className={cx(thCls, "whitespace-nowrap text-left hidden sm:table-cell")}>คะแนนที่มี</th>
                     <th scope="col" className={cx(thCls, "whitespace-nowrap text-right")}>รวม</th>
                     <th scope="col" className={thCls}><span className="sr-only">การทำงาน</span></th>
@@ -126,8 +130,10 @@ export default function FinalizePanel({ fy, info, phase, people, catalogue, onCh
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
                   {loading ? (
                     <SkeletonTableRows rows={5} cols={4} />
+                  ) : nameF.rows.length === 0 ? (
+                    <tr><td colSpan={4} className="p-0"><NameNoMatch nf={nameF} /></td></tr>
                   ) : (
-                    queue.map((ev) => {
+                    nameF.rows.map((ev) => {
                       const missing = missingComponents(ev, catalogue)
                       return (
                         <tr key={ev.id ?? ev.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">

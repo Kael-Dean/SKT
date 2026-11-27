@@ -7,6 +7,8 @@ import FinancialEditSheet from "../../components/hr/FinancialEditSheet"
 import PageTitle from "../../components/PageTitle"
 import { getTenure, tenureText } from "../../lib/tenure"
 import { editBtnCls } from "../../lib/styles"
+import { NameHeaderCell, NameNoMatch } from "../../components/hr/nameFilter"
+import { useNameFilter } from "../../components/hr/useNameFilter"
 
 const fmt = (n) => n == null ? "—" : Number(n).toLocaleString("th-TH", { minimumFractionDigits: 2 })
 
@@ -29,6 +31,11 @@ export default function HRFinance() {
   useEffect(() => { fetchEmployees() }, [])
 
   const openEdit = (emp) => setEditModal(emp)
+
+  const nf = useNameFilter(employees, {
+    get: (e) => [e.first_name, e.last_name, e.employee_code].filter(Boolean).join(" "),
+    label: "เจ้าหน้าที่",
+  })
 
   // คำนวณยอดรวมจาก financial data ที่มี — ลูกจ้างรายวัน (pay_basis daily) ไม่มีเงินเดือนประจำ ไม่นับรวม
   const totalPayroll = employees.reduce((s, e) => s + (e.financial?.pay_basis === "daily" ? 0 : Number(e.financial?.current_salary) || 0), 0)
@@ -73,7 +80,7 @@ export default function HRFinance() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">เจ้าหน้าที่</th>
+                <NameHeaderCell nf={nf} label="เจ้าหน้าที่" />
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">เงินเดือน</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide hidden sm:table-cell">เงินกู้</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide hidden md:table-cell">อายุงาน</th>
@@ -83,6 +90,8 @@ export default function HRFinance() {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
               {loading ? (
                 <SkeletonTableRows rows={8} cols={5} />
+              ) : nf.rows.length === 0 && nf.total > 0 ? (
+                <tr><td colSpan={5} className="p-0"><NameNoMatch nf={nf} /></td></tr>
               ) : employees.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
@@ -92,7 +101,7 @@ export default function HRFinance() {
                     />
                   </td>
                 </tr>
-              ) : employees.map((e) => {
+              ) : nf.rows.map((e) => {
                 const fin = e.financial ?? {}
                 return (
                   <tr key={e.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">

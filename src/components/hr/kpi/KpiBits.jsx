@@ -6,6 +6,8 @@ import { Badge } from "../../ui"
 import { cx } from "../../../lib/styles"
 import { GRADE_TONE, PENDING, STATUS, componentsOf, fmtScore, fmtStep, num } from "./kpiUtils"
 import { inputCls, labelCls, thCls } from "../positionUtils"
+import { NameHeaderCell, NameNoMatch } from "../nameFilter"
+import { useNameFilter } from "../useNameFilter"
 
 export function StatusBadge({ status }) {
   const s = STATUS[status]
@@ -116,6 +118,7 @@ export function NoteField({ label, value, onChange, error, placeholder, required
 
 /** [{user_id, reason}] → table (finalize-all / approve / profit skipped lists) */
 export function SkippedTable({ items, nameOf, title = "ข้ามไป", renderAction }) {
+  const nf = useNameFilter(items, { get: (s) => nameOf(s.user_id), label: "เจ้าหน้าที่" })
   if (!items?.length) return null
   return (
     <div>
@@ -126,13 +129,16 @@ export function SkippedTable({ items, nameOf, title = "ข้ามไป", rend
         <table className="w-full text-sm">
           <thead className="bg-amber-50 dark:bg-amber-900/20">
             <tr>
-              <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เจ้าหน้าที่</th>
+              <NameHeaderCell nf={nf} label="เจ้าหน้าที่" />
               <th scope="col" className={cx(thCls, "whitespace-nowrap text-left")}>เหตุผล</th>
               {renderAction && <th scope="col" className={thCls}><span className="sr-only">การทำงาน</span></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-amber-100 dark:divide-amber-900/40">
-            {items.map((s, i) => (
+            {nf.rows.length === 0 && (
+              <tr><td colSpan={renderAction ? 3 : 2} className="p-0"><NameNoMatch nf={nf} /></td></tr>
+            )}
+            {nf.rows.map((s, i) => (
               <tr key={`${s.user_id}-${i}`}>
                 <td className="px-4 py-2.5 align-top font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{nameOf(s.user_id)}</td>
                 <td className="px-4 py-2.5 align-top text-gray-700 dark:text-gray-300 break-words min-w-[14rem]">{s.reason || "—"}</td>

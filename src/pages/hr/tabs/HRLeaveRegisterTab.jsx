@@ -10,6 +10,8 @@ import ExcelDownloadButton from "../../../components/ExcelDownloadButton"
 import SelectDropdown from "../../../components/SelectDropdown"
 import BranchLockNote from "../../../components/BranchLockNote"
 import useBranchLock, { scopedBranchId } from "../../../hooks/useBranchLock"
+import { NameHeaderCell, NameNoMatch } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 // ปีงบประมาณไทย (Apr→Mar): ปัจจุบัน
 function currentFiscalYear() {
@@ -43,6 +45,7 @@ export default function HRLeaveRegisterTab() {
   const [loading,    setLoading]    = useState(false)
   const [error,      setError]      = useState("")
   const [leaveTypes, setLeaveTypes] = useState(null) // null = ยังโหลดไม่เสร็จ
+  const nf = useNameFilter(rows, { get: (r) => [r.full_name, r.legacy_user_id].filter(Boolean).join(" "), label: "ชื่อ-สกุล" })
 
   useEffect(() => {
     apiAuth("/hr/leave-types")
@@ -213,7 +216,7 @@ export default function HRLeaveRegisterTab() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap sticky left-0 bg-white dark:bg-gray-800">ชื่อ-สกุล</th>
+                <NameHeaderCell nf={nf} label="ชื่อ-สกุล" className="left-0 z-[1]" />
                 <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap">รหัสเดิม</th>
                 <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap">ตำแหน่ง</th>
                 <th className="text-left text-xs font-semibold text-gray-500 dark:text-gray-400 px-3 py-3 whitespace-nowrap">สาขา</th>
@@ -225,8 +228,10 @@ export default function HRLeaveRegisterTab() {
             <tbody aria-busy={loading}>
               {loading || leaveTypes === null ? (
                 <SkeletonTableRows rows={8} cols={4 + leaveCols.length} />
+              ) : nf.rows.length === 0 ? (
+                <tr><td colSpan={4 + leaveCols.length} className="p-0"><NameNoMatch nf={nf} /></td></tr>
               ) : (
-                rows.map((row, i) => (
+                nf.rows.map((row, i) => (
                   <tr key={row.user_id} className={i % 2 === 1 ? "bg-gray-50 dark:bg-gray-700/30" : ""}>
                     <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap sticky left-0 bg-inherit">{row.full_name}</td>
                     <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs tabular-nums">{row.legacy_user_id ?? "—"}</td>

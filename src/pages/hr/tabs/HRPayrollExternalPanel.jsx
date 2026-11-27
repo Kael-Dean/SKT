@@ -25,6 +25,8 @@ import { cardCls, cellInput, cx, baseField, fieldDisabled, labelCls, neutralBtnC
 import SelectDropdown from "../../../components/SelectDropdown"
 import { Badge, ConfirmDialog, EmptyState, ErrorState, SkeletonCard, StickyActionBar, revealFirstInvalid, toast } from "../../../components/ui"
 import StatusMsg from "../../../components/hr/StatusMsg"
+import { NameHeaderCell } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const rowsOf = (d) => (Array.isArray(d) ? d : Array.isArray(d?.items) ? d.items : [])
 const nameOf = (r) => r.employee_name || `รหัส ${r.employee_id}`
@@ -317,6 +319,10 @@ function ExternalMonth({ ym, guardRef, onOpenMonth }) {
     [onlyMissing, q],
   )
 
+  // ตัวกรอง/เรียงชื่อจากหัวคอลัมน์ "เจ้าหน้าที่" (ใช้ร่วมกันทุกตารางสาขา) — กรอง/เรียงภายในแต่ละสาขา
+  const nameNf = useNameFilter(rows, { get: (r) => `${nameOf(r)} ${r.employee_id ?? ""}`, label: "เจ้าหน้าที่" })
+  const nameIds = useMemo(() => new Set(nameNf.rows.map((r) => r.employee_id)), [nameNf.rows])
+
   // รวมยอดทุกคนในสาขาเสมอ — ตัวกรองซ่อนแถว แต่ไม่เปลี่ยนยอดรวม
   const groups = useMemo(() => {
     const byBranch = new Map()
@@ -325,16 +331,23 @@ function ExternalMonth({ ym, guardRef, onOpenMonth }) {
       if (!byBranch.has(name)) byBranch.set(name, [])
       byBranch.get(name).push(r)
     }
+    const shown = new Map()
+    for (const r of nameNf.rows) {
+      if (!isVisible(r)) continue
+      const name = r.branch_name || "ไม่ระบุสาขา"
+      if (!shown.has(name)) shown.set(name, [])
+      shown.get(name).push(r)
+    }
     let index = 0
     return [...byBranch].map(([name, all]) => {
-      const visible = all.filter(isVisible).map((row) => ({ row, index: index++ }))
+      const visible = (shown.get(name) ?? []).map((row) => ({ row, index: index++ }))
       return { name, all, visible, totals: externalTotals(all.map(displayForm)) }
     })
-  }, [rows, isVisible, displayForm])
+  }, [rows, nameNf.rows, isVisible, displayForm])
 
   const grand = useMemo(() => externalTotals(rows.map(displayForm)), [rows, displayForm])
   const keyedCount = rows.filter((r) => r.keyed).length
-  const hiddenDirty = dirtyRows.filter((r) => !isVisible(r)).length
+  const hiddenDirty = dirtyRows.filter((r) => !isVisible(r) || !nameIds.has(r.employee_id)).length
   const visibleCount = groups.reduce((n, g) => n + g.visible.length, 0)
 
   const blankRows = useCallback((list) => (editable ? list.filter((r) => !r.keyed && externalIsBlank(form[r.employee_id])) : []), [editable, form])
@@ -363,6 +376,7 @@ function ExternalMonth({ ym, guardRef, onOpenMonth }) {
     if (badCount) {
       setQuery("")
       setOnlyMissing(false)
+      nameNf.setFilter(null)
       setMsg({ tone: "warning", text: `ตรวจช่องที่มีข้อความสีแดงก่อนบันทึก (${badCount} คน)` })
       revealFirstInvalid(rootRef)
       return
@@ -457,7 +471,7 @@ function ExternalMonth({ ym, guardRef, onOpenMonth }) {
         <EmptyState
           title="ไม่พบรายชื่อตามตัวกรอง"
           description="ยอดที่พิมพ์ค้างไว้ยังอยู่ — ล้างตัวกรองเพื่อดูรายชื่อทั้งหมด"
-          action={<button type="button" onClick={() => { setQuery(""); setOnlyMissing(false) }} className={neutralBtnCls}>ล้างตัวกรอง</button>}
+          action={<button type="button" onClick={() => { setQuery(""); setOnlyMissing(false); nameNf.setFilter(null) }} className={neutralBtnCls}>ล้างตัวกรอง</button>}
         />
       )}
 
@@ -509,7 +523,7 @@ function ExternalMonth({ ym, guardRef, onOpenMonth }) {
                 </colgroup>
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 dark:border-line dark:bg-white/[.03]">
-                    <th scope="col" className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">เจ้าหน้าที่</th>
+                    <NameHeaderCell nf={nameNf} label="เจ้าหน้าที่" />
                     {EXTERNAL_AMOUNT_COLUMNS.map((c) => (
                       <th key={c.key} scope="col" className="px-2 py-2.5 text-right text-xs font-semibold text-gray-600 dark:text-gray-400">{c.short}</th>
                     ))}

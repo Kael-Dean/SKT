@@ -21,6 +21,8 @@ import { currentFiscalYearBE, fmtDays } from "../../../lib/leaveDays"
 import useModalDismiss from "../../../lib/useModalDismiss"
 import ThaiDateField from "../../../components/ThaiDateField"
 import CalendarEventsPanel from "../../../components/hr/CalendarEventsPanel"
+import { NameHeaderCell, NameNoMatch } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 
 const HOLIDAY_TYPES = [
   { value: "annual", label: "วันหยุดประจำปี" },
@@ -40,9 +42,12 @@ function weekday(d) {
   try { return new Date(`${d}T00:00:00`).toLocaleDateString("th-TH", { weekday: "long" }) } catch { return "" }
 }
 
+const adjustedName = (l) => `${l.user_display_name || l.user_name || l.full_name || ""} ${l.user_id ?? ""}`
+
 /** Response of POST/DELETE /hr/holidays — `leaves_adjusted` + `note` (shown only when `retroactive`). */
 function AdjustResult({ result, verb }) {
   const rows = Array.isArray(result?.leaves_adjusted) ? result.leaves_adjusted : []
+  const nf = useNameFilter(rows, { get: adjustedName, label: "พนักงาน" })
   return (
     <div className="space-y-3">
       {result?.retroactive && result?.note && (
@@ -64,12 +69,15 @@ function AdjustResult({ result, verb }) {
               <thead className="sticky top-0">
                 <tr className="bg-gray-50 dark:bg-gray-900">
                   <th scope="col" className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">เลขที่ใบลา</th>
-                  <th scope="col" className="text-left px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">พนักงาน</th>
+                  <NameHeaderCell nf={nf} label="พนักงาน" />
                   <th scope="col" className="text-right px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400">จำนวนวัน (เดิม → ใหม่)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                {rows.map((l, i) => (
+                {nf.rows.length === 0 && (
+                  <tr><td colSpan={3} className="p-0"><NameNoMatch nf={nf} /></td></tr>
+                )}
+                {nf.rows.map((l, i) => (
                   <tr key={l.leave_id ?? i}>
                     <td className="px-3 py-2 text-gray-700 dark:text-gray-300 tabular-nums">#{l.leave_id}</td>
                     <td className="px-3 py-2 text-gray-600 dark:text-gray-400">

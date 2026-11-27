@@ -15,6 +15,8 @@ import { SkeletonTableRows, ErrorState, EmptyState, Badge } from "../../../compo
 import HrModal, { Notice } from "../../../components/hr/HrModal"
 import EmployeePicker from "../../../components/hr/EmployeePicker"
 import usePositions from "../../../components/hr/usePositions"
+import { NameHeaderCell, NameNoMatch } from "../../../components/hr/nameFilter"
+import { useNameFilter } from "../../../components/hr/useNameFilter"
 import {
   tierName, fmtDate, fmtLevel, errText, employeeName,
   inputCls, labelCls, primaryBtn, secondaryBtn, linkBtn, cardCls, thCls,
@@ -72,6 +74,9 @@ export default function HRPromotionsTab() {
     try { localStorage.setItem(EXAMS_KEY, JSON.stringify(exams.slice(0, 200))) } catch { /* quota/private mode */ }
   }, [exams])
 
+  const eligibleNf = useNameFilter(eligible, { get: (e) => `${e.full_name ?? ""} ${e.user_id ?? ""}`, label: "เจ้าหน้าที่" })
+  const examsNf = useNameFilter(exams, { get: (ex) => `${ex.candidate_name ?? ""} ${ex.candidate_id ?? ""}`, label: "ผู้สอบ" })
+
   const pendingByCandidate = useMemo(() => {
     const m = {}
     for (const ex of exams) if (ex.result === "pending") m[ex.candidate_id] = ex
@@ -123,7 +128,7 @@ export default function HRPromotionsTab() {
               <caption className="sr-only">ผู้มีสิทธิ์สอบเลื่อนตำแหน่ง</caption>
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                  <th scope="col" className={thCls + " text-left"}>เจ้าหน้าที่</th>
+                  <NameHeaderCell nf={eligibleNf} label="เจ้าหน้าที่" />
                   <th scope="col" className={thCls + " text-left hidden md:table-cell"}>ตำแหน่งปัจจุบัน</th>
                   <th scope="col" className={thCls + " text-left hidden lg:table-cell whitespace-nowrap"}>ดำรงตำแหน่งตั้งแต่</th>
                   <th scope="col" className={thCls + " text-right whitespace-nowrap"}>อยู่ในตำแหน่ง</th>
@@ -137,7 +142,9 @@ export default function HRPromotionsTab() {
                   <tr><td colSpan={5} className="p-0">
                     <EmptyState title="ยังไม่มีผู้มีสิทธิ์" description="ยังไม่มีเจ้าหน้าที่ที่อยู่ในตำแหน่งปัจจุบันครบ 3 ปี ถ้าต้องการนัดสอบกรณีพิเศษ ใช้ปุ่ม “นัดสอบคนอื่น”" />
                   </td></tr>
-                ) : eligible.map((emp) => {
+                ) : eligibleNf.rows.length === 0 ? (
+                  <tr><td colSpan={5} className="p-0"><NameNoMatch nf={eligibleNf} /></td></tr>
+                ) : eligibleNf.rows.map((emp) => {
                   const pending = pendingByCandidate[emp.user_id]
                   return (
                     <tr key={emp.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
@@ -201,7 +208,7 @@ export default function HRPromotionsTab() {
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
                     <th scope="col" className={thCls + " text-left whitespace-nowrap"}>เลขที่</th>
-                    <th scope="col" className={thCls + " text-left"}>ผู้สอบ</th>
+                    <NameHeaderCell nf={examsNf} label="ผู้สอบ" />
                     <th scope="col" className={thCls + " text-left hidden md:table-cell"}>ตำแหน่งเป้าหมาย</th>
                     <th scope="col" className={thCls + " text-left whitespace-nowrap hidden sm:table-cell"}>วันสอบ</th>
                     <th scope="col" className={thCls + " text-left"}>ผล</th>
@@ -209,7 +216,10 @@ export default function HRPromotionsTab() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/50">
-                  {exams.map((ex) => {
+                  {examsNf.rows.length === 0 && (
+                    <tr><td colSpan={6} className="p-0"><NameNoMatch nf={examsNf} /></td></tr>
+                  )}
+                  {examsNf.rows.map((ex) => {
                     const [tone, label] = RESULT_BADGE[ex.result] ?? RESULT_BADGE.pending
                     const targetTitle = positionsById[ex.position_target]?.title ?? ex.target_title ?? `#${ex.position_target}`
                     return (

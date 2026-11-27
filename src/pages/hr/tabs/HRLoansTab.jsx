@@ -40,9 +40,11 @@ const errText = (err, fallback) => apiDetail(err) || fallback
 
 // ─── ตารางสัญญา (desktop table / phone DataList) ─────────────────────────────
 
-function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, empty }) {
+function LoanList({ loans, loading, error, onRetry, onOpen, onAction, inQueue, empty, onShownChange }) {
   const isPhone = useIsPhone()
   const nf = useNameFilter(loans, { get: borrowerName, label: "ผู้กู้" })
+  const shown = nf.rows.length
+  useEffect(() => { onShownChange?.(shown) }, [shown, onShownChange])
   const noMatch = nf.rows.length === 0 && nf.total > 0
   if (error) return <ErrorState message={error} onRetry={onRetry} />
 
@@ -331,6 +333,7 @@ export default function HRLoansTab() {
   const inQueue = useCallback((l) => queueStatus.get(String(l?.id)) === l?.status, [queueStatus])
 
   const filteredAll = statusFilter ? all.filter((l) => l.status === statusFilter) : all
+  const [allShown, setAllShown] = useState(null) // จำนวนที่เห็นหลังกรองชื่อในตาราง (null = ยังไม่รายงาน)
   const ledgerYearOk = /^25\d\d$/.test(fiscalYear)
 
   const toolbar = (canSettings || canLedger) && (
@@ -379,11 +382,11 @@ export default function HRLoansTab() {
               {STATUS_FILTERS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
             {!allLoading && allLoaded && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">{filteredAll.length} จาก {all.length} สัญญา</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">{allShown ?? filteredAll.length} จาก {all.length} สัญญา</p>
             )}
           </div>
           <LoanList
-            loans={filteredAll} loading={allLoading} error={allErr} onRetry={loadAll}
+            loans={filteredAll} loading={allLoading} error={allErr} onRetry={loadAll} onShownChange={setAllShown}
             onOpen={(l) => setDetail({ loan: l })} onAction={openAction} inQueue={inQueue}
             empty={<EmptyState title={statusFilter ? "ไม่มีสัญญาในสถานะนี้" : "ยังไม่มีสัญญาเงินกู้"} description={statusFilter ? "เลือกสถานะอื่น หรือดูทุกสถานะ" : "คำขอกู้ที่เจ้าหน้าที่ยื่นจะแสดงที่นี่"} />}
           />
